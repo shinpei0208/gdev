@@ -1,0 +1,12 @@
+To build the kernel module:
+
+$ mkdir build
+$ cd build
+$ ../configure --driver=pscnv # or --driver=nouveau
+$ make
+$ sudo init 3
+$ sudo make install
+
+To clean the kernel module build:
+
+$ rm -fr build

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+gdev="gdev"
+common="common"
+
+# configure options.
+driver="pscnv" # use pscnv by default.
+debug=0
+
+# parse the given options.
+for option
+do
+  case "$option" in
+  -*=*) optarg=`echo "$option" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+  *) optarg= ;;
+  esac
+
+  case "$option" in
+  --driver=*)
+    driver="$optarg" ;;
+  --debug)
+    debug=1 ;;
+  esac
+done
+
+rm -f $gdev.ko
+ln -s $driver.ko $gdev.ko
+cp -fr ../$gdev/* ./
+cp -fr ../$driver/* ./
+cp -fr ../../$common/* ./
+cat ../$gdev/Makefile >> Makefile
+./configure

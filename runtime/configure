@@ -1,0 +1,38 @@
+#!/bin/sh
+
+topdir="../.."
+gdev="gdev"
+common="common"
+
+# configure options.
+runtime="kernel" # use kernel-level runtime by default
+driver="pscnv" # use pscnv by default.
+debug=0
+
+# parse the given options.
+for option
+do
+  case "$option" in
+  -*=*) optarg=`echo "$option" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+  *) optarg= ;;
+  esac
+
+  case "$option" in
+  --runtime=*)
+    runtime="$optarg" ;;
+  --driver=*)
+    driver="$optarg" ;;
+  --debug)
+    debug=1 ;;
+  esac
+done
+
+if [ $runtime = 'kernel' ]; then
+cp -f ../$runtime/* .
+cp -f $topdir/$common/*_def.h .
+cp -f $topdir/$common/gdev_api.h .
+else
+cp -f ../$runtime/$gdev/* .
+cp -f ../$runtime/$driver/* .
+cp -f $topdir/$common/* .
+fi
