@@ -29,6 +29,8 @@
 // #include "gdev_amd.h"
 // #include "gdev_intel.h"
 
+#define GDEV_DEVICE_MAX_COUNT 32
+
 #define GDEV_PIPELINE_MAX_COUNT 8
 #define GDEV_PIPELINE_MIN_COUNT 1
 #define GDEV_PIPELINE_DEFAULT_COUNT 1

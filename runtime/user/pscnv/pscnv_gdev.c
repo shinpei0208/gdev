@@ -30,9 +30,10 @@
 #include <sys/mman.h>
 #include <sys/unistd.h>
 
-gdev_device_t gdev = {0, 0, 0, 0, NULL};
-
 #define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
+
+gdev_device_t gdev[GDEV_DEVICE_MAX_COUNT] = {[0 ... GDEV_DEVICE_MAX_COUNT-1] = 
+											 {0, 0, 0, 0, NULL}};
 
 /* allocate a new memory object. */
 static inline gdev_mem_t *__gdev_mem_alloc
@@ -124,9 +125,9 @@ gdev_device_t *gdev_dev_open(int devnum)
 	char buf[64];
 	int fd;
 	uint64_t chipset;
+	gdev_device_t *dev = &gdev[devnum];
 
-	if (gdev.use > 0) {
-		gdev.use++;
+	if (dev->use++ > 0) {
 		goto end;
 	}
 
@@ -139,29 +140,30 @@ gdev_device_t *gdev_dev_open(int devnum)
 		return NULL;
 	}
 
-	gdev.chipset = (uint32_t)chipset;
-	gdev.id = devnum;
-	gdev.fd = fd;
+	dev->chipset = (uint32_t)chipset;
+	dev->id = devnum;
+	dev->fd = fd;
 
-	gdev_compute_init(&gdev);
+	gdev_compute_init(dev);
 
 end:
-	return &gdev;
+	return dev;
 }
 
 /* close the specified Gdev object. */
-void gdev_dev_close(gdev_device_t *gdev)
+void gdev_dev_close(gdev_device_t *dev)
 {
-	if (--gdev->use == 0)
-		close(gdev->fd);
+	if (--dev->use == 0) {
+		close(dev->fd);
+	}
 }
 
 /* allocate a new virual address space object. 
    pscnv_ib_chan_new() will allocate a channel object, too. */
-gdev_vas_t *gdev_vas_new(gdev_device_t *gdev, uint64_t size)
+gdev_vas_t *gdev_vas_new(gdev_device_t *dev, uint64_t size)
 {
-	int fd = gdev->fd;
-	uint32_t chipset = gdev->chipset;
+	int fd = dev->fd;
+	uint32_t chipset = dev->chipset;
 	gdev_vas_t *vas;
 	struct pscnv_ib_chan *chan;
 
@@ -171,7 +173,7 @@ gdev_vas_t *gdev_vas_new(gdev_device_t *gdev, uint64_t size)
     if (pscnv_ib_chan_new(fd, 0, &chan, 0, 0, 0, chipset))
         goto fail_chan;
 
-	vas->gdev = gdev;
+	vas->gdev = dev;
 	vas->pvas = (void *)chan; /* private object. */
 
 	__gdev_list_init(&vas->memlist, NULL);
@@ -188,9 +190,9 @@ fail_vas:
 /* free the specified virtual address space object. */
 void gdev_vas_free(gdev_vas_t *vas)
 {
-	gdev_device_t *gdev = vas->gdev;
+	gdev_device_t *dev = vas->gdev;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *)vas->pvas;
-	int fd = gdev->fd;
+	int fd = dev->fd;
 
 	pscnv_ib_bo_free(chan->pb);
 	pscnv_ib_bo_free(chan->ib);
@@ -204,13 +206,13 @@ void gdev_vas_free(gdev_vas_t *vas)
 /* create a new GPU context object. 
    there are not many to do here, as we have already allocated a channel
    object in gdev_vas_new(), i.e., @vas holds it. */
-gdev_ctx_t *gdev_ctx_new(gdev_device_t *gdev, gdev_vas_t *vas)
+gdev_ctx_t *gdev_ctx_new(gdev_device_t *dev, gdev_vas_t *vas)
 {
 	gdev_ctx_t *ctx;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = dev->compute;
 	struct pscnv_ib_bo *fence_bo;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *)vas->pvas;
-	uint32_t chipset = gdev->chipset;
+	uint32_t chipset = dev->chipset;
 	int i;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
