@@ -162,18 +162,6 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	res = cuDeviceGetCount(&count);
-	if (res != CUDA_SUCCESS) {
-		printf("cuDeviceGetCount failed: res = %u\n", res);
-		return 0;
-	}
-
-	res = cuDeviceComputeCapability(&major, &minor, dev);
-	if (res != CUDA_SUCCESS) {
-		printf("cuDeviceComputeCapability failed: res = %u\n", res);
-		return 0;
-	}
-
 	res = cuCtxCreate(&ctx, 0, dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuCtxCreate failed: res = %u\n", res);

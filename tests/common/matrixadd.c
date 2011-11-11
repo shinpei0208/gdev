@@ -120,6 +120,7 @@ static inline unsigned __round_up_pow2(unsigned x)
 int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 {
 	int i, j, idx;
+	uint32_t id;
 	uint32_t mp_count;
 	uint32_t code_size, a_size, b_size, c_size;
 	uint32_t stack_depth, stack_size;
@@ -128,7 +129,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	uint64_t result[3];
 
 	gdev_handle_t *handle;
-	gdev_kernel_t k;
+	struct gdev_kernel k;
 
 	/* initialize A[] & B[] */
 	for (i = 0; i < n; i++) {
@@ -227,8 +228,8 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	gmemcpy_to_device(handle, a_addr, a, a_size);
 	gmemcpy_to_device(handle, b_addr, b, b_size);
 	
-	glaunch(handle, &k);
-	gsync(handle);
+	glaunch(handle, &k, &id);
+	gsync(handle, id);
 	
 	gmemcpy_from_device(handle, c, c_addr, c_size);
 

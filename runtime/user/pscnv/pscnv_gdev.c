@@ -30,7 +30,7 @@
 #include <sys/mman.h>
 #include <sys/unistd.h>
 
-gdev_device_t gdev;
+gdev_device_t gdev = {0, 0, 0, 0, NULL};
 
 #define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 
@@ -125,6 +125,11 @@ gdev_device_t *gdev_dev_open(int devnum)
 	int fd;
 	uint64_t chipset;
 
+	if (gdev.use > 0) {
+		gdev.use++;
+		goto end;
+	}
+
 	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, devnum);
 	if ((fd = open(buf, O_RDWR, 0)) < 0)
 		return NULL;
@@ -140,13 +145,15 @@ gdev_device_t *gdev_dev_open(int devnum)
 
 	gdev_compute_init(&gdev);
 
+end:
 	return &gdev;
 }
 
 /* close the specified Gdev object. */
 void gdev_dev_close(gdev_device_t *gdev)
 {
-	close(gdev->fd);
+	if (--gdev->use == 0)
+		close(gdev->fd);
 }
 
 /* allocate a new virual address space object. 

@@ -96,6 +96,7 @@ struct gdev_handle {
 struct gdev_device {
 	int id;
 	int fd;
+	int use;
 	uint32_t chipset;
 	void *compute; /* private set of compute functions */
 };
