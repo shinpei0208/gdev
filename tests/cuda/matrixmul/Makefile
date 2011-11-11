@@ -6,8 +6,8 @@ LIBS	= -lcuda
 CFLAGS	= -I /usr/local/cuda/include
 
 all:
-	#$(NVCC) main.c -o $(TARGET) $(CFLAGS) $(LIBS)
-	gcc main.c -o $(TARGET) $(CFLAGS) $(LIBS)
+	#$(NVCC) runtime.c -o $(TARGET).rt $(CFLAGS) $(LIBS)
+	gcc driver.c -o $(TARGET).drv $(CFLAGS) $(LIBS)
 
 clean:
-	rm -f $(TARGET) ./*~
+	rm -f $(TARGET).drv $(TARGET).rt ./*~
