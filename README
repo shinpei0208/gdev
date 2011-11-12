@@ -63,8 +63,7 @@ $ sudo make install
 
 4. Gdev device driver
 
-$ cd $(TOPDIR)
-$ cd driver
+$ cd $(TOPDIR)/driver
 $ mkdir build
 $ cd build
 $ ../configure
@@ -74,6 +73,8 @@ $ sudo init 3
 $ cd $(TOPDIR)/driver/build
 $ sudo make install
 
-To clean the kernel module build:
+5. Test
 
-$ rm -fr build
+$ cd $(TOPDIR)/tests/user/matrixadd
+$ make
+$ sudo ./user_test
