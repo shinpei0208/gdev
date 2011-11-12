@@ -1,10 +1,77 @@
-To build the kernel module:
+#
+# Gdev - Managing GPUs as First-Class Compute Devices
+# 
+# README
+#
+# Copyright (C) 2011 Shinpei Kato
+# University of California, Santa Cruz
+# Systems Research Lab.
+# 
+# All Rights Reserved.
+#
 
+Gdev uses PathScale's PSCNV open-source driver with some extension
+as a background implementation of a GPU device driver. It currently
+supports most of NVIDIA's GPU architectures, including Fermi (nvc0). 
+Gdev also plans to use Nouveau as another background implementation
+given that some Linux distros install Nouveau by default recently.
+As Gdev doesn't change any interface provided by PSCNV or Nouveau,
+the X window system and its compiz can accelerate on GPUs with Gdev.
+However, this requires users to additionally install LIBDRM and DDX.
+See https://github.com/pathscale/ for PSCNV and 
+http://nouveau.freedesktop.org/wiki/InstallNouveau for Nouveau.
+To install Gdev device driver, follow the instructions below.
+Let $(TOPDIR) be the top working directory, henceforth.
+
+1. Download
+
+$ cd $(TOPDIR)
+$ git clone git://github.com/shinpei0208/gdev.git
+$ git clone git://github.com/pathscale/envytools.git
+
+2. envytools
+
+envytools provides a set of tools that assemble/disassemble firmware
+code, GPU code, and macro code. It also provides tools to generate
+header files that include GPU command definitions.
+Gdev requires envytools to compile fermi firmware code.
+
+$ cd $(TOPDIR)
+$ cd envytools
 $ mkdir build
 $ cd build
-$ ../configure --driver=pscnv # or --driver=nouveau
+$ cmake .. # may require you to install some packages on your distro
+$ make
+$ sudo make install # will install tools to /usr/local/{bin,lib}
+
+3. Gdev runtime
+
+There are two instances of Gdev runtime that users can choose:
+(i) user-space runtime and (ii) kernel-space runtime.
+The user-space runtime provides all compute functions in user-space,
+while the kernel-space runtime lives in the OS and user-space programs
+need to use the ioctl system call to use their functions. The following
+assume user-space runtime.
+
+$ cd $(TOPDIR)/runtime
+$ mkdir build
+$ cd build
+$ cp gdev_nvidia_nvc0.o Makefile . # copy missing files
+$ ../configure --runtime=user # --runtime=kernel will use kernel-space
+$ make
+$ sudo make install
+
+4. Gdev device driver
+
+$ cd $(TOPDIR)
+$ cd driver
+$ mkdir build
+$ cd build
+$ ../configure
+$ cp gdev_nvidia_nvc0.o . # missing files
 $ make
 $ sudo init 3
+$ cd $(TOPDIR)/driver/build
 $ sudo make install
 
 To clean the kernel module build:

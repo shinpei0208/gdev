@@ -1,7 +1,7 @@
 # Makefile
 
 CC	= gcc
-CFLAGS	= -lgdev -I/usr/local/gdev/include
+CFLAGS	= -I/usr/local/gdev/include -L/usr/local/gdev/lib64 -lgdev
 
 SRC  	= $(wildcard ./*.c)
 OBJS 	= $(patsubst %.c,%.o,$(SRC))
