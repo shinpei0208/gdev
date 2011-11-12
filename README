@@ -23,13 +23,7 @@ http://nouveau.freedesktop.org/wiki/InstallNouveau for Nouveau.
 To install Gdev device driver, follow the instructions below.
 Let $(TOPDIR) be the top working directory, henceforth.
 
-1. Download
-
-$ cd $(TOPDIR)
-$ git clone git://github.com/shinpei0208/gdev.git
-$ git clone git://github.com/pathscale/envytools.git
-
-2. envytools
+1. envytools
 
 envytools provides a set of tools that assemble/disassemble firmware
 code, GPU code, and macro code. It also provides tools to generate
@@ -37,6 +31,7 @@ header files that include GPU command definitions.
 Gdev requires envytools to compile fermi firmware code.
 
 $ cd $(TOPDIR)
+$ git clone git://github.com/pathscale/envytools.git
 $ cd envytools
 $ mkdir build
 $ cd build
@@ -44,7 +39,7 @@ $ cmake .. # may require you to install some packages on your distro
 $ make
 $ sudo make install # will install tools to /usr/local/{bin,lib}
 
-3. Gdev runtime
+2. Gdev runtime
 
 There are two instances of Gdev runtime that users can choose:
 (i) user-space runtime and (ii) kernel-space runtime.
@@ -61,20 +56,20 @@ $ ../configure --runtime=user # --runtime=kernel will use kernel-space
 $ make
 $ sudo make install
 
-4. Gdev device driver
+3. Gdev device driver
 
 $ cd $(TOPDIR)/driver
 $ mkdir build
 $ cd build
 $ ../configure
-$ cp gdev_nvidia_nvc0.o . # missing files
+$ cp gdev_nvidia_nvc0.o . # copy missing files
 $ make
 $ sudo init 3
 $ cd $(TOPDIR)/driver/build
 $ sudo make install
 
-5. Test
+4. Test
 
 $ cd $(TOPDIR)/tests/user/matrixadd
 $ make
-$ sudo ./user_test
+$ sudo ./user_test 3 # a[3] + b[3] = c[3]
