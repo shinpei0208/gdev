@@ -540,7 +540,6 @@ int gmemcpy_in_device
  * glaunch():
  * launch the GPU kernel.
  */
-#define GDEV_DEBUG
 #define U64 long long unsigned int /* to avoid warnings in user-space */
 int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 {
