@@ -30,6 +30,7 @@
 #else
 #include "gdev_lib.h"
 #endif
+#include "gdev_list.h"
 #include "gdev_nvidia_def.h"
 
 //#define GDEV_DMA_PCOPY
@@ -59,14 +60,6 @@
 #define GDEV_VAS_USER_END (1ull << 40)
 #define GDEV_VAS_SIZE GDEV_VAS_USER_END
 
-/* a list structure: we could use Linux's list_head, but it's not available
-   in user-space - hence use our own list structure. */
-struct gdev_list_head {
-    struct gdev_list_head *next;
-    struct gdev_list_head *prev;
-	void *container;
-};
-
 /**
  * virtual address space (VAS) object struct:
  *
@@ -93,7 +86,7 @@ struct gdev_list_head {
 struct gdev_vas {
 	void *pvas; /* driver private object. */
 	gdev_device_t *gdev; /* vas is associated with a specific device. */
-	gdev_list_t memlist; /* list of memory allocated */
+	struct gdev_list memlist; /* list of memory allocated */
 };
 
 /**
@@ -135,7 +128,7 @@ struct gdev_ctx {
 struct gdev_mem {
 	void *bo; /* driver private object. */
 	gdev_vas_t *vas; /* mem is associated with a specific vas object. */
-	gdev_list_t list_entry; /* entry to the memory list. */
+	struct gdev_list list_entry; /* entry to the memory list. */
 	uint64_t addr; /* virtual memory address. */
 	void *map; /* memory-mapped buffer (for host only). */
 };
@@ -291,37 +284,6 @@ static inline void __gdev_begin_ring_nvc0_const
 (gdev_ctx_t *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, (0x6<<28) | (len<<16) | (subc<<13) | (mthd>>2));
-}
-
-static inline void __gdev_list_init(gdev_list_t *entry, void *container)
-{
-	entry->next = entry->prev = NULL;
-	entry->container = container;
-}
-
-static inline void __gdev_list_add(gdev_list_t *entry, gdev_list_t *head)
-{
-	gdev_list_t *next = head->next;
-
-	entry->next = next;
-	if (next)
-		next->prev = entry;
-	entry->prev = NULL; /* don't link to the head. */
-	head->next = entry;
-}
-
-static inline void __gdev_list_del(gdev_list_t *entry)
-{
-	gdev_list_t *next = entry->next;
-	gdev_list_t *prev = entry->prev;
-
-	if (next) {
-		next->prev = entry->prev;
-	}
-	if (prev) {
-		prev->next = entry->next;
-	}
-	entry->next = entry->prev = NULL;
 }
 
 #endif

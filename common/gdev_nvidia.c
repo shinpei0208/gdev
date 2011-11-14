@@ -22,6 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "gdev_list.h"
 #include "gdev_nvidia.h"
 
 /* add the device memory object to the memory list. */
@@ -42,13 +43,11 @@ void gdev_heap_del(gdev_mem_t *mem)
 gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr)
 {
 	gdev_mem_t *mem;
-	gdev_list_t *entry = vas->memlist.next;
+	gdev_list_t *entry;
 
-	while (entry) {
-		mem = (gdev_mem_t *)entry->container;
+	gdev_list_for_each (mem, entry, &vas->memlist) {
 		if (mem && mem->addr == addr)
 			return mem;
-		entry = entry->next;
 	}
 
 	return NULL;
