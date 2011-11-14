@@ -96,7 +96,7 @@ CUresult gdev_cuda_assign_local(struct CUmod_st *mod);
 
 extern int gdev_initialized;
 extern int gdev_device_count;
-struct CUctx_st *gdev_ctx_current;
+extern struct CUctx_st *gdev_ctx_current;
 extern gdev_list_t gdev_ctx_list;
 
 #endif
