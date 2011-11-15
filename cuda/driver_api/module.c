@@ -104,6 +104,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 		goto fail_gmemcpy;
 	}
 
+	mod->ctx = ctx;
 	*module = mod;
 
 	return CUDA_SUCCESS;
@@ -127,7 +128,7 @@ fail_malloc_mod:
 
 CUresult cuModuleLoadFatBinary(CUmodule *module, const void *fatCubin)
 {
-	printf("cuModuleLoadFatBinary: Not Implemented Yet\n");
+	GDEV_PRINT("cuModuleLoadFatBinary: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -203,24 +204,24 @@ CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name)
 
 CUresult cuModuleLoadData(CUmodule *module, const void *image)
 {
-	printf("cuModuleLoadData: Not Implemented Yet\n");
+	GDEV_PRINT("cuModuleLoadData: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
 CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int numOptions, CUjit_option *options, void **optionValues)
 {
-	printf("cuModuleLoadDataEx: Not Implemented Yet\n");
+	GDEV_PRINT("cuModuleLoadDataEx: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
 CUresult cuModuleGetGlobal(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name)
 {
-	printf("cuModuleGetGlobal: Not Implemented Yet\n");
+	GDEV_PRINT("cuModuleGetGlobal: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
 CUresult cuModuleGetTexRef(CUtexref *pTexRef, CUmodule hmod, const char *name)
 {
-	printf("cuModuleGetTexRef: Not Implemented Yet\n");
+	GDEV_PRINT("cuModuleGetTexRef: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }

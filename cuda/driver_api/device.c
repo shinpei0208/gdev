@@ -26,7 +26,6 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
-#include <stdio.h>
 
 int gdev_device_count = 0;
 
@@ -46,7 +45,7 @@ int gdev_device_count = 0;
  */
 CUresult cuDeviceComputeCapability(int *major, int *minor, CUdevice dev)
 {
-	printf("cuDeviceComputeCapability: Not Implemented Yet\n");
+	GDEV_PRINT("cuDeviceComputeCapability: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -152,7 +151,7 @@ CUresult cuDeviceGet(CUdevice *device, int ordinal)
  */
 CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 {
-	printf("cuDeviceGetAttribute: Not Implemented Yet\n");
+	GDEV_PRINT("cuDeviceGetAttribute: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -197,7 +196,7 @@ CUresult cuDeviceGetCount(int *count)
  */
 CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
 {
-	printf("cuDeviceGetName: Not Implemented Yet\n");
+	GDEV_PRINT("cuDeviceGetName: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -246,7 +245,7 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
  */
 CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
 {
-	printf("cuDeviceGetProperties: Not Implemented Yet\n");
+	GDEV_PRINT("cuDeviceGetProperties: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -265,7 +264,7 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
  */
 CUresult cuDeviceTotalMem(unsigned int *bytes, CUdevice dev)
 {
-	printf("cuDeviceTotalMem: Not Implemented Yet\n");
+	GDEV_PRINT("cuDeviceTotalMem: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 

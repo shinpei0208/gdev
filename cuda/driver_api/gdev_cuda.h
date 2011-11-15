@@ -77,15 +77,29 @@ struct CUmod_st {
 	uint32_t local_size;
 	uint32_t func_count;
 	gdev_list_t func_list;
+	struct CUctx_st *ctx;
 };
 
 struct CUfunc_st {
 	struct gdev_kernel kernel;
 	struct gdev_cuda_raw_func raw_func;
 	gdev_list_t list_entry;
+	struct CUmod_st *mod;
 };
 
 struct CUtexref_st {
+};
+
+struct CUsurfref_st {
+};
+
+struct CUevent_st {
+};
+
+struct CUstream_st {
+};
+
+struct CUgraphicsResource_st {
 };
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);

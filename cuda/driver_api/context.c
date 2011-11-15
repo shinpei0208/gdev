@@ -186,19 +186,19 @@ CUresult cuCtxDestroy(CUcontext ctx)
 
 CUresult cuCtxGetDevice(CUdevice *device)
 {
-	printf("cuCtxGetDevice: Not Implemented Yet\n");
+	GDEV_PRINT("cuCtxGetDevice: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
 CUresult cuCtxAttach(CUcontext *pctx, unsigned int flags)
 {
-	printf("cuCtxAttach: Not Implemented Yet\n");
+	GDEV_PRINT("cuCtxAttach: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
 CUresult cuCtxDetach(CUcontext ctx)
 {
-	printf("cuCtxDetach: Not Implemented Yet\n");
+	GDEV_PRINT("cuCtxDetach: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -279,7 +279,7 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
 
 CUresult cuCtxSynchronize(void)
 {
-	printf("cuCtxSynchronize: Not Implemented Yet\n");
+	GDEV_PRINT("cuCtxSynchronize: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 

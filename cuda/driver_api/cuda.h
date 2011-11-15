@@ -33,6 +33,10 @@ typedef struct CUctx_st* CUcontext;
 typedef struct CUmod_st* CUmodule;
 typedef struct CUfunc_st* CUfunction;
 typedef struct CUtexref_st* CUtexref;
+typedef struct CUsurfref_st* CUsurfref;
+typedef struct CUevent_st* CUevent;
+typedef struct CUstream_st* CUstream;
+typedef struct CUgraphicsResource_st* CUgraphicsResource;
 
 /**
  * Error codes: taken from NVIDIA's cuda.h
@@ -513,5 +517,18 @@ CUresult cuModuleLoadData(CUmodule *module, const void *image);
 CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int numOptions, CUjit_option *options, void **optionValues);
 CUresult cuModuleLoadFatBinary(CUmodule *module, const void *fatCubin);
 CUresult cuModuleUnload(CUmodule hmod);
+
+/* Execution Control */
+CUresult cuFuncGetAttribute(int *pi, CUfunction_attribute attrib, CUfunction hfunc);
+CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z);
+CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes);
+CUresult cuLaunch(CUfunction f);
+CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height);
+CUresult cuLaunchGridAsync(CUfunction f, int grid_width, int grid_height, CUstream hStream);
+CUresult cuParamSetf(CUfunction hfunc, int offset, float value);
+CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value);
+CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes);
+CUresult cuParamSetTexRef(CUfunction hfunc, int texunit, CUtexref hTexRef);
+CUresult cuParamSetv(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes);
 
 #endif
