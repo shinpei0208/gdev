@@ -32,9 +32,14 @@
 #endif
 
 /**
+ * static numbers for nvidia GPUs. 
+ */
+#define GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT 16 /* by definition? */
+
+/**
  * query values for the device-specific information
  */
-#define GDEV_QUERY_NVIDIA_MP_COUNT 100
+#define GDEV_NVIDIA_QUERY_MP_COUNT 100
 
 /**
  * GPGPU kernel object struct:
@@ -47,9 +52,14 @@
 struct gdev_kernel {
     uint64_t code_addr; /* code address in VAS */
     uint32_t code_pc; /* initial program counter */
-    uint64_t cmem_addr; /* constant memory address in VAS */
-	uint32_t cmem_segment; /* constant segment index */
-    uint32_t cmem_size; /* constant memory size */
+	struct gdev_cmem {
+		uint64_t addr; /* constant memory address in VAS */
+		uint32_t size; /* constant memory size */
+		uint32_t offset; /* offset in constant memory */
+		uint32_t *buf; /* data buffer */
+	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT];
+	uint32_t cmem_param_segment; /* constant memory segment for parameters */
+	uint32_t cmem_count; /* constant memory count */
 	uint64_t lmem_addr; /* local memory address in VAS */
 	uint64_t lmem_size_total; /* local memory size for all threads */
     uint32_t lmem_size; /* local memory size per thread (l[positive]) */
@@ -57,13 +67,11 @@ struct gdev_kernel {
     uint32_t lmem_base; /* $lbase */
     uint32_t smem_size; /* shared memory size */
     uint32_t smem_base; /* $sbase */
-	uint32_t param_start; /* parameter start position (compiler-dependent) */
-	uint32_t param_count; /* parameter count */
-	uint32_t *param_buf; /* parameter data */
     uint32_t stack_level; /* stack level */
 	uint32_t warp_size; /* warp size */
 	uint32_t reg_count; /* register count */
 	uint32_t bar_count; /* barrier count */
+	uint32_t call_limit; /* call limit log */
 	uint32_t grid_id; /* grid ID */
     uint32_t grid_x; /* grid dimension X */
     uint32_t grid_y; /* grid dimension Y */

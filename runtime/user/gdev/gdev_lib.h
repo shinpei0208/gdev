@@ -75,7 +75,6 @@ typedef struct gdev_ctx gdev_ctx_t;
 typedef struct gdev_mem gdev_mem_t;
 typedef struct gdev_handle gdev_handle_t;
 typedef struct gdev_device gdev_device_t;
-typedef struct list_head gdev_list_t;
 
 /**
  * Gdev handle struct:

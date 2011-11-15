@@ -25,13 +25,8 @@
 #include "gdev_api.h"
 #include "gdev_conf.h"
 
-static inline uint64_t min_u64(uint64_t x, uint64_t y)
-{
-	if (x > y) 
-		return y;
-	else 
-		return x;
-}
+#define __max(x, y) (x) > (y) ? (x) : (y)
+#define __min(x, y) (x) < (y) ? (x) : (y)
 
 static inline gdev_mem_t **__malloc_dma
 (gdev_handle_t *handle, gdev_vas_t *vas, uint64_t size)
@@ -239,7 +234,7 @@ static inline int __gmemcpy_from_device_pipeline
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
 	gdev_vas_t *vas = GDEV_VAS_GET(handle);
-	uint64_t dma_size = min_u64(size, chunk_size);
+	uint64_t dma_size = __min(size, chunk_size);
 	if (!(dma_mem = __malloc_dma(handle, vas, dma_size)))
 		return -ENOMEM;
 #else
@@ -253,7 +248,7 @@ static inline int __gmemcpy_from_device_pipeline
 	}
 
 	offset = 0;
-	dma_size = min_u64(rest_size, chunk_size);
+	dma_size = __min(rest_size, chunk_size);
 	rest_size -= dma_size;
 	/* DtoH */
 	fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
@@ -266,7 +261,7 @@ static inline int __gmemcpy_from_device_pipeline
 				goto end;
 			}
 
-			dma_size = min_u64(rest_size, chunk_size);
+			dma_size = __min(rest_size, chunk_size);
 			rest_size -= dma_size;
 			offset += dma_size;
 
@@ -317,7 +312,7 @@ static inline int __gmemcpy_from_device
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
 	gdev_vas_t *vas = GDEV_VAS_GET(handle);
-	uint64_t dma_size = min_u64(size, chunk_size);
+	uint64_t dma_size = __min(size, chunk_size);
 	if (!(dma_mem = __malloc_dma(handle, vas, dma_size)))
 		return -ENOMEM;
 #else
@@ -330,7 +325,7 @@ static inline int __gmemcpy_from_device
 	/* copy data by the bounce buffer size. */
 	offset = 0;
 	while (rest_size) {
-		dma_size = min_u64(rest_size, chunk_size);
+		dma_size = __min(rest_size, chunk_size);
 		fence = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
 		gdev_poll(ctx, GDEV_FENCE_DMA, fence);
 		ret = memcpy_host(dst_buf + offset, dma_buf[0], dma_size);
@@ -386,7 +381,7 @@ static inline int __gmemcpy_to_device_pipeline
 	offset = 0;
 	for (;;) {
 		for (i = 0; i < pipelines; i++) {
-			dma_size = min_u64(rest_size, chunk_size);
+			dma_size = __min(rest_size, chunk_size);
 			rest_size -= dma_size;
 			/* HtoH */
 			if (fence[i])
@@ -447,7 +442,7 @@ static inline int __gmemcpy_to_device
 
 	/* copy data by the bounce buffer size. */
 	while (rest_size) {
-		dma_size = min_u64(rest_size, chunk_size);
+		dma_size = __min(rest_size, chunk_size);
 		ret = memcpy_host(dma_buf[0], src_buf + offset, dma_size);
 		if (ret)
 			goto end;

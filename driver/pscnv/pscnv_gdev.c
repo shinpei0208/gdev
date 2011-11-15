@@ -24,6 +24,7 @@
 
 #include "gdev_conf.h"
 #include "gdev_drv.h"
+#include "gdev_list.h"
 #include "nouveau_drv.h"
 #include "pscnv_chan.h"
 #include "pscnv_fifo.h"
@@ -134,7 +135,7 @@ int gdev_info_query(gdev_device_t *gdev, uint32_t type, uint32_t *result)
 	uint32_t chipset = priv->chipset;
 
 	switch (type) {
-	case GDEV_QUERY_NVIDIA_MP_COUNT:
+	case GDEV_NVIDIA_QUERY_MP_COUNT:
 		if ((chipset & 0xf0) != 0xc0)
 			return -EINVAL;
 		getparam.param = PSCNV_GETPARAM_MP_COUNT;

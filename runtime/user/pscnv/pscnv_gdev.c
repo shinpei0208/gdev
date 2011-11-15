@@ -108,7 +108,7 @@ int gdev_info_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 	int fd = gdev->fd;
 
 	switch (type) {
-	case GDEV_QUERY_NVIDIA_MP_COUNT:
+	case GDEV_NVIDIA_QUERY_MP_COUNT:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_MP_COUNT, (uint64_t *)result))
 			return -EINVAL;
 		break;
