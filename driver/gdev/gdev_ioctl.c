@@ -50,9 +50,8 @@ int gdev_ioctl_gfree(gdev_handle_t *handle, unsigned long arg)
 
 	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
 		return -EFAULT;
-	gfree(handle, m.addr);
 
-	return 0;
+	return gfree(handle, m.addr);
 }
 
 int gdev_ioctl_gmemcpy_from_device(gdev_handle_t *handle, unsigned long arg)
@@ -142,9 +141,7 @@ int gdev_ioctl_gmemcpy_in_device(gdev_handle_t *handle, unsigned long arg)
 	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
 		return -EFAULT;
 
-	gmemcpy_in_device(handle, dma.dst_addr, dma.src_addr, dma.size);
-
-	return 0;
+	return gmemcpy_in_device(handle, dma.dst_addr, dma.src_addr, dma.size);
 }
 
 int gdev_ioctl_glaunch(gdev_handle_t *handle, unsigned long arg)
@@ -197,8 +194,5 @@ int gdev_ioctl_gtune(gdev_handle_t *handle, unsigned long arg)
 	if (copy_from_user(&c, (void __user *)arg, sizeof(c)))
 		return -EFAULT;
 
-	if (gtune(handle, c.type, c.value))
-		return -EINVAL;
-
-	return 0;
+	return gtune(handle, c.type, c.value);
 }

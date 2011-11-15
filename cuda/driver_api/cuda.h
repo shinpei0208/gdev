@@ -531,4 +531,13 @@ CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes);
 CUresult cuParamSetTexRef(CUfunction hfunc, int texunit, CUtexref hTexRef);
 CUresult cuParamSetv(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes);
 
+/* Memory Management (Incomplete) */
+CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize);
+CUresult cuMemFree(CUdeviceptr dptr);
+CUresult cuMemAllocHost(void **pp, unsigned int bytesize);
+CUresult cuMemFreeHost (void *p);
+CUresult cuMemcpyDtoH (void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount);
+CUresult cuMemcpyHtoD (CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount);
+CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
+
 #endif

@@ -180,7 +180,7 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
  * gfree():
  * free the memory space allocated at the specified address.
  */
-void gfree(gdev_handle_t *handle, uint64_t addr)
+int gfree(gdev_handle_t *handle, uint64_t addr)
 {
 	gdev_mem_t *mem;
 	gdev_vas_t *vas = GDEV_VAS_GET(handle);
@@ -188,7 +188,10 @@ void gfree(gdev_handle_t *handle, uint64_t addr)
 	if ((mem = gdev_heap_lookup(vas, addr))) {
 		gdev_heap_del(mem);
 		gdev_free_device(mem);
+		return 0;
 	}
+
+	return -ENOENT;
 }
 
 static inline int __wrapper_memcpy(void *dst, void *src, uint32_t size)

@@ -62,13 +62,13 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
 	return mem.addr;
 }
 
-void gfree(gdev_handle_t *handle, uint64_t addr)
+int gfree(gdev_handle_t *handle, uint64_t addr)
 {
 	gdev_ioctl_mem_t mem;
 	int fd = *handle;
 
 	mem.addr = addr;
-	ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
 }
 
 int gmemcpy_from_device

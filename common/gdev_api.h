@@ -42,7 +42,7 @@
 extern gdev_handle_t *gopen(int);
 extern int gclose(gdev_handle_t*);
 extern uint64_t gmalloc(gdev_handle_t*, uint64_t);
-extern void gfree(gdev_handle_t*, uint64_t);
+extern int gfree(gdev_handle_t*, uint64_t);
 extern int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
 extern int gmemcpy_user_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
 extern int gmemcpy_to_device(gdev_handle_t*, uint64_t, void*, uint64_t);
