@@ -30,6 +30,7 @@
 #else
 #include "gdev_lib.h"
 #endif
+#include "gdev_time.h"
 #include "gdev_nvidia_def.h"
 /* add also:
  * #include "gdev_amd_def.h"
@@ -49,7 +50,7 @@ int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
 int gmemcpy_user_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
 int gmemcpy_in_device(gdev_handle_t*, uint64_t, uint64_t, uint64_t);
 int glaunch(gdev_handle_t*, struct gdev_kernel*, uint32_t*);
-void gsync(gdev_handle_t*, uint32_t);
+int gsync(gdev_handle_t*, uint32_t, gdev_time_t*);
 int gquery(gdev_handle_t*, uint32_t, uint32_t*);
 int gtune(gdev_handle_t*, uint32_t, uint32_t);
 

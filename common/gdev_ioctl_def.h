@@ -56,6 +56,11 @@ typedef struct gdev_ioctl_launch {
 	uint32_t *id;
 } gdev_ioctl_launch_t;
 
+typedef struct gdev_ioctl_sync {
+	uint32_t id;
+	gdev_time_t timeout;
+} gdev_ioctl_sync_t;
+
 typedef struct gdev_ioctl_query {
 	uint32_t type;
 	uint32_t result;

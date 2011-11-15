@@ -261,7 +261,7 @@ int __gmemcpy_to_device_pipeline
 			rest_size -= dma_size;
 			/* HtoH */
 			if (fence[i])
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i]);
+				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
 			ret = memcpy_host(dma_buf[i], src_buf + offset, dma_size);
 			if (ret)
 				goto end;
@@ -271,7 +271,7 @@ int __gmemcpy_to_device_pipeline
 
 			if (rest_size == 0) {
 				/* wait for the last fence, and go out! */
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i]);
+				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
 				goto end;
 			}
 			offset += dma_size;
@@ -323,7 +323,7 @@ static inline int __gmemcpy_to_device
 		if (ret)
 			goto end;
 		fence = gdev_memcpy(ctx, dst_addr + offset, dma_addr[0], dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence);
+		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
 		rest_size -= dma_size;
 		offset += dma_size;
 	}
@@ -382,7 +382,7 @@ int __gmemcpy_from_device_pipeline
 		for (i = 0; i < pipelines; i++) {
 			if (rest_size == 0) {
 				/* HtoH */
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i]);
+				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
 				memcpy_host(dst_buf + offset, dma_buf[i], dma_size);
 				goto end;
 			}
@@ -402,7 +402,7 @@ int __gmemcpy_from_device_pipeline
 			}
 
 			/* HtoH */
-			gdev_poll(ctx, GDEV_FENCE_DMA, fence[i]);
+			gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
 			ret = memcpy_host(dst_buf + offset - chunk_size, dma_buf[i], 
 							  chunk_size);
 			if (ret)
@@ -454,7 +454,7 @@ int __gmemcpy_from_device
 	while (rest_size) {
 		dma_size = __min(rest_size, chunk_size);
 		fence = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence);
+		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
 		ret = memcpy_host(dst_buf + offset, dma_buf[0], dma_size);
 		if (ret)
 			goto end;
@@ -545,54 +545,23 @@ int gmemcpy_in_device
  * glaunch():
  * launch the GPU kernel.
  */
-#define U64 long long unsigned int /* to avoid warnings in user-space */
 int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 {
-#ifdef GDEV_DEBUG
-	int i;
-	GDEV_PRINT("code_addr = 0x%llx\n", (U64) kernel->code_addr);
-	GDEV_PRINT("code_pc = 0x%x\n", kernel->code_pc);
-	GDEV_PRINT("cmem_addr = 0x%llx\n", (U64) kernel->cmem_addr);
-	GDEV_PRINT("cmem_segment = 0x%x\n", kernel->cmem_segment);
-	GDEV_PRINT("cmem_size = 0x%x\n", kernel->cmem_size);
-	GDEV_PRINT("lmem_addr = 0x%llx\n", (U64) kernel->lmem_addr);
-	GDEV_PRINT("lmem_size_total = 0x%llx\n", (U64) kernel->lmem_size_total);
-	GDEV_PRINT("lmem_size = 0x%x\n", kernel->lmem_size);
-	GDEV_PRINT("lmem_size_neg = 0x%x\n", kernel->lmem_size_neg);
-	GDEV_PRINT("lmem_base = 0x%x\n", kernel->lmem_base);
-	GDEV_PRINT("smem_size = 0x%x\n", kernel->smem_size);
-	GDEV_PRINT("smem_base = 0x%x\n", kernel->smem_base);
-	GDEV_PRINT("param_start = 0x%x\n", kernel->param_start);
-	GDEV_PRINT("param_count = 0x%x\n", kernel->param_count);
-	for (i = 0; i < kernel->param_count; i++)
-			GDEV_PRINT("param_buf[%d] = 0x%x\n", i, kernel->param_buf[i]);
-	GDEV_PRINT("stack_level = 0x%x\n", kernel->stack_level);
-	GDEV_PRINT("warp_size = 0x%x\n", kernel->warp_size);
-	GDEV_PRINT("reg_count = 0x%x\n", kernel->reg_count);
-	GDEV_PRINT("bar_count = 0x%x\n", kernel->bar_count);
-	GDEV_PRINT("grid_x = 0x%x\n", kernel->grid_x);
-	GDEV_PRINT("grid_y = 0x%x\n", kernel->grid_y);
-	GDEV_PRINT("grid_z = 0x%x\n", kernel->grid_z);
-	GDEV_PRINT("block_x = 0x%x\n", kernel->block_x);
-	GDEV_PRINT("block_y = 0x%x\n", kernel->block_y);
-	GDEV_PRINT("block_z = 0x%x\n", kernel->block_z);
-#endif
-
 	*id = gdev_launch(GDEV_CTX_GET(handle), kernel);
-
 	return 0;
 }
 
 /**
  * gsync():
  * poll until the GPU becomes available.
+ * @timeout is a unit of milliseconds.
  */
-void gsync(gdev_handle_t *handle, uint32_t id)
+int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 {
 	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
 
 	gdev_mb(ctx);
-	gdev_poll(ctx, GDEV_FENCE_COMPUTE, id);
+	return gdev_poll(ctx, GDEV_FENCE_COMPUTE, id, timeout);
 }
 
 /**

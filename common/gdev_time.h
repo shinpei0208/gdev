@@ -39,14 +39,15 @@
 typedef struct timeval gdev_time_t;
 
 /* ret = current time. */
-static inline void __gdev_time_stamp(gdev_time_t *ret)
+static inline
+void gdev_time_stamp(gdev_time_t *ret)
 {
 	gettimeofday(ret, NULL);	
 }
 
 /* ret = x + y. */
-static inline void __gdev_time_add
-(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
+static inline 
+void gdev_time_add(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
 {
 	ret->tv_sec = x->tv_sec + y->tv_sec;
 	ret->tv_usec = x->tv_usec + y->tv_usec;
@@ -57,8 +58,8 @@ static inline void __gdev_time_add
 }
 
 /* ret = x - y. */
-static inline void __gdev_time_sub
-(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
+static inline 
+void gdev_time_sub(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
 {
 	ret->tv_sec = x->tv_sec - y->tv_sec;
 	ret->tv_usec = x->tv_usec - y->tv_usec;
@@ -69,7 +70,8 @@ static inline void __gdev_time_sub
 }
 
 /* ret = x * I. */
-static inline void __gdev_time_mul(gdev_time_t *ret, gdev_time_t *x, int I)
+static inline 
+void gdev_time_mul(gdev_time_t *ret, gdev_time_t *x, int I)
 {
 	ret->tv_sec = x->tv_sec * I;
 	ret->tv_usec = x->tv_usec * I;
@@ -81,14 +83,16 @@ static inline void __gdev_time_mul(gdev_time_t *ret, gdev_time_t *x, int I)
 }
 
 /* ret = x / I. */
-static inline void __gdev_time_div(gdev_time_t *ret, gdev_time_t *x, int I)
+static inline 
+void gdev_time_div(gdev_time_t *ret, gdev_time_t *x, int I)
 {
 	ret->tv_sec = x->tv_sec / I;
 	ret->tv_usec = x->tv_usec / I;
 }
 
 /* x >= y. */
-static inline int __gdev_time_ge(gdev_time_t *x, gdev_time_t *y)
+static inline
+int gdev_time_ge(gdev_time_t *x, gdev_time_t *y)
 {
 	return x->tv_sec == y->tv_sec ? 
 		x->tv_usec >= y->tv_usec :
@@ -96,30 +100,42 @@ static inline int __gdev_time_ge(gdev_time_t *x, gdev_time_t *y)
 }
 
 /* tvge: x <= y. */
-static inline int __gdev_time_le(gdev_time_t *x, gdev_time_t *y)
+static inline 
+int gdev_time_le(gdev_time_t *x, gdev_time_t *y)
 {
 	return x->tv_sec == y->tv_sec ? 
 		x->tv_usec <= y->tv_usec :
 		x->tv_sec <= y->tv_sec;
 }
 
-/* generate timeval from msecs. */
-static inline void __gdev_time_ms(gdev_time_t *ret, unsigned long ms)
+/* generate gdev_time_t from seconds. */
+static inline 
+void gdev_time_sec(gdev_time_t *ret, unsigned long sec)
+{
+	ret->tv_sec = sec;
+	ret->tv_usec = 0;
+}
+
+/* generate gdev_time_t from milliseconds. */
+static inline 
+void gdev_time_ms(gdev_time_t *ret, unsigned long ms)
 {
 	unsigned long carry = ms / MSEC_1SEC;
 	ret->tv_sec = carry;
 	ret->tv_usec = (ms - carry * MSEC_1SEC) * USEC_1MSEC;
 }
 
-/* generate timeval from usecs. */
-static inline void __gdev_time_us(gdev_time_t *ret, unsigned long us)
+/* generate gdev_time_t from microseconds. */
+static inline 
+void gdev_time_us(gdev_time_t *ret, unsigned long us)
 {
 	ret->tv_sec = 0;
 	ret->tv_usec = us;
 }
 
 /* clear the timeval values. */
-static inline void __gdev_time_clear(gdev_time_t *tv)
+static inline 
+void gdev_time_clear(gdev_time_t *tv)
 {
 	tv->tv_sec = tv->tv_usec = 0;
 }

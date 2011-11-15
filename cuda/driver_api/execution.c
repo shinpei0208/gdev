@@ -61,7 +61,7 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-    if (!func)
+    if (!func || x <= 0 || y <= 0 || z <= 0)
         return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
@@ -105,17 +105,76 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the
+ *  number of threads specified by a previous call to cuFuncSetBlockShape().
+ *
+ * Parameters:
+ * f 	- Kernel to launch
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
+ * CUDA_ERROR_LAUNCH_FAILED, CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES, 
+ * CUDA_ERROR_LAUNCH_TIMEOUT, CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING 
+ */
 CUresult cuLaunch(CUfunction f)
 {
-	return CUDA_SUCCESS;
+	return cuLaunchGrid(f, 1, 1);
 }
 
+/**
+ * Invokes the kernel f on a grid_width x grid_height grid of blocks. Each 
+ * block contains the number of threads specified by a previous call to 
+ * cuFuncSetBlockShape().
+ *
+ * Parameters:
+ * f - Kernel to launch
+ * grid_width - Width of grid in blocks
+ * grid_height - Height of grid in blocks
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
+ * CUDA_ERROR_LAUNCH_FAILED, CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES, 
+ * CUDA_ERROR_LAUNCH_TIMEOUT, CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING 
+ */
 CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 {
+	struct CUfunc_st *func = f;
+	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
+	gdev_handle_t *handle;
+	uint32_t id;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!ctx || ctx != gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!func || grid_width <= 0 || grid_height <= 0)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	k = &func->kernel;
+	k->grid_x = grid_width;
+	k->grid_y = grid_height;
+	k->grid_z = 1;
+	k->call_limit = 0xf;
+	k->grid_id = 1;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (glaunch(handle, k, &id))
+		return CUDA_ERROR_LAUNCH_FAILED;
+
+	if (gsync(handle, id))
+		return CUDA_ERROR_LAUNCH_TIMEOUT;
+
 	return CUDA_SUCCESS;
 }
 
-CUresult cuLaunchGridAsync(CUfunction f, int grid_width, int grid_height, CUstream hStream)
+CUresult cuLaunchGridAsync
+(CUfunction f, int grid_width, int grid_height, CUstream hStream)
 {
 	GDEV_PRINT("cuLaunchGridAsync: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
@@ -180,7 +239,6 @@ CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-	int x;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -190,8 +248,7 @@ CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes)
         return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	x = k->cmem_param_segment;
-    k->cmem[x].size = numbytes;
+	k->param_size = numbytes;
 
 	return CUDA_SUCCESS;
 }

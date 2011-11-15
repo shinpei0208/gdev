@@ -183,8 +183,6 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
 	k.lmem_size_total = 48 * mp_count * k.warp_size;
 	k.lmem_size_total = __round_up_pow2(k.lmem_size_total);
-	if (k.lmem_size_total > 128 * 1024)
-		k.lmem_size_total = 128 * 1024;
 
 	if (!(a_addr = gmalloc(handle, a_size)))
 		return -1;
@@ -216,6 +214,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	}
 	k.cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
 	k.cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
+	k.param_size = PARAM_SIZE;
 	
 	k.reg_count = REG_COUNT;
 	k.bar_count = BARRIER_COUNT;
@@ -236,7 +235,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	gmemcpy_to_device(handle, b_addr, b, b_size);
 	
 	glaunch(handle, &k, &id);
-	gsync(handle, id);
+	gsync(handle, id, NULL);
 	
 	gmemcpy_from_device(handle, c, c_addr, c_size);
 

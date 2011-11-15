@@ -31,6 +31,7 @@
 #include "gdev_lib.h"
 #endif
 #include "gdev_list.h"
+#include "gdev_time.h"
 #include "gdev_nvidia_def.h"
 
 //#define GDEV_DMA_PCOPY
@@ -177,7 +178,7 @@ void nvc0_compute_setup(gdev_device_t *gdev);
 uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
 uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
 void gdev_mb(gdev_ctx_t*);
-void gdev_poll(gdev_ctx_t*, int, uint32_t);
+int gdev_poll(gdev_ctx_t*, int, uint32_t, gdev_time_t*);
 
 /**
  * runtime/driver/architecture-independent heap operations.

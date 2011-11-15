@@ -24,6 +24,7 @@
 
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
+#include "gdev_time.h"
 
 /* add the device memory object to the memory list. */
 void gdev_heap_add(gdev_mem_t *mem)
@@ -78,16 +79,16 @@ uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern)
 	gdev_vas_t *vas = ctx->vas;
 	gdev_device_t *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
+	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
 
 	/* it's important to emit a fence *after* launch():
 	   the LAUNCH method of the PGRAPH engine is not associated with
 	   the QUERY method, i.e., we have to submit the QUERY method 
 	   explicitly after the kernel is launched. */
 	compute->launch(ctx, kern);
-	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, sequence);
+	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, seq);
 	
-	return sequence;
+	return seq;
 }
 
 /* barrier memory access. */
@@ -101,30 +102,36 @@ void gdev_mb(gdev_ctx_t *ctx)
 }
 
 /* poll until the resource becomes available. */
-void gdev_poll(gdev_ctx_t *ctx, int type, uint32_t sequence)
+int gdev_poll(gdev_ctx_t *ctx, int type, uint32_t seq, gdev_time_t *timeout)
 {
+	gdev_time_t time_start, time_now, time_elapse, time_relax;
 	gdev_vas_t *vas = ctx->vas;
 	gdev_device_t *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t poll_times = 0;
 	uint32_t val;
+
+	gdev_time_stamp(&time_start);
+	gdev_time_sec(&time_relax, 1); /* relax polling when 1 second elapsed. */
 
 	compute->fence_read(ctx, type, &val);
 
-	while (val < sequence || val > sequence + GDEV_FENCE_LIMIT) {
-		/* relax the polling after some time. */
-		if (poll_times > 0x80000000) {
+	while (val < seq || val > seq + GDEV_FENCE_LIMIT) {
+		gdev_time_stamp(&time_now);
+		gdev_time_sub(&time_elapse, &time_now, &time_start);
+		/* relax polling after some time. */
+		if (gdev_time_ge(&time_elapse, &time_relax)) {
 			SCHED_YIELD();
 		}
-		else if (poll_times == 0xffffffff) {
-			poll_times = 0;
-		}
-		poll_times++;
 		compute->fence_read(ctx, type, &val);
+		/* check timeout. */
+		if (timeout && gdev_time_ge(&time_elapse, timeout))
+			return -ETIME;
 	}
 
 	/* sequence rolls back to zero, if necessary. */
 	if (ctx->fence.sequence[type] == GDEV_FENCE_LIMIT) {
 		ctx->fence.sequence[type] = 0;
 	}
+
+	return 0;
 }
