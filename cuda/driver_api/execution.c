@@ -55,6 +55,7 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -63,9 +64,10 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
     if (!func)
         return CUDA_ERROR_INVALID_VALUE;
 
-    func->kernel.block_x = x;
-    func->kernel.block_y = y;
-    func->kernel.block_z = z;
+	k = &func->kernel;
+    k->block_x = x;
+    k->block_y = y;
+    k->block_z = z;
 
 	return CUDA_SUCCESS;
 }
@@ -88,6 +90,7 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -96,7 +99,8 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
     if (!func)
         return CUDA_ERROR_INVALID_VALUE;
 
-	func->kernel.smem_size += bytes;
+	k = &func->kernel;
+	k->smem_size += bytes;
 
 	return CUDA_SUCCESS;
 }
@@ -123,13 +127,72 @@ CUresult cuParamSetf(CUfunction hfunc, int offset, float value)
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Sets an integer parameter that will be specified the next time the kernel 
+ * corresponding to hfunc will be invoked. offset is a byte offset.
+ *
+ * Parameters:
+ * hfunc - Kernel to add parameter to
+ * offset - Offset to add parameter to argument list
+ * value - Value of parameter
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+*/
 CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value)
 {
+	struct CUfunc_st *func = hfunc;
+	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
+	int x;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!ctx || ctx != gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+    if (!func)
+        return CUDA_ERROR_INVALID_VALUE;
+
+	k = &func->kernel;
+	x = k->cmem_param_segment;
+    k->cmem[x].buf[offset/4] = value;
+    
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Sets through numbytes the total size in bytes needed by the function 
+ * parameters of the kernel corresponding to hfunc.
+ *
+ * Parameters:
+ * hfunc - Kernel to set parameter size for
+ * numbytes - Size of parameter list in bytes
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
 CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes)
 {
+	struct CUfunc_st *func = hfunc;
+	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
+	int x;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!ctx || ctx != gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+    if (!func)
+        return CUDA_ERROR_INVALID_VALUE;
+
+	k = &func->kernel;
+	x = k->cmem_param_segment;
+    k->cmem[x].size = numbytes;
+
 	return CUDA_SUCCESS;
 }
 
