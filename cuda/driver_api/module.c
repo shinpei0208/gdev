@@ -168,8 +168,36 @@ CUresult cuModuleUnload(CUmodule hmod)
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Returns in *hfunc the handle of the function of name name located in module
+ *  hmod. If no function of that name exists, cuModuleGetFunction() returns 
+ * CUDA_ERROR_NOT_FOUND.
+ *
+ * Parameters:
+ * hfunc - Returned function handle
+ * hmod	- Module to retrieve function from
+ * name - Name of function to retrieve
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_NOT_FOUND 
+ */
 CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name)
 {
+	CUresult res;
+	struct CUfunc_st *func;
+	struct CUmod_st *mod = hmod;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	if ((res = gdev_cuda_search_function(&func, mod, name)) != CUDA_SUCCESS)
+		return res;
+
+	*hfunc = func;
+
 	return CUDA_SUCCESS;
 }
 

@@ -93,6 +93,8 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
 void gdev_cuda_setup_kernels(struct CUmod_st *mod, struct gdev_cuda_info *info);
 CUresult gdev_cuda_assign_image(struct CUmod_st *mod);
 CUresult gdev_cuda_assign_local(struct CUmod_st *mod);
+CUresult gdev_cuda_search_function
+(struct CUfunc_st **pptr, struct CUmod_st *mod, const char *name);
 
 extern int gdev_initialized;
 extern int gdev_device_count;
