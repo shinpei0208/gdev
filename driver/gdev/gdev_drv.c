@@ -94,10 +94,10 @@ static int gdev_ioctl
 		return gdev_ioctl_gmalloc(handle, arg);
 	case GDEV_IOCTL_GFREE:
 		return gdev_ioctl_gfree(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_FROM_DEVICE:
-		return gdev_ioctl_gmemcpy_from_device(handle, arg);
 	case GDEV_IOCTL_GMEMCPY_TO_DEVICE:
 		return gdev_ioctl_gmemcpy_to_device(handle, arg);
+	case GDEV_IOCTL_GMEMCPY_FROM_DEVICE:
+		return gdev_ioctl_gmemcpy_from_device(handle, arg);
 	case GDEV_IOCTL_GMEMCPY_IN_DEVICE:
 		return gdev_ioctl_gmemcpy_in_device(handle, arg);
 	case GDEV_IOCTL_GLAUNCH:

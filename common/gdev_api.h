@@ -39,19 +39,19 @@
 /**
  * Gdev APIs:
  */
-extern gdev_handle_t *gopen(int);
-extern int gclose(gdev_handle_t*);
-extern uint64_t gmalloc(gdev_handle_t*, uint64_t);
-extern int gfree(gdev_handle_t*, uint64_t);
-extern int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
-extern int gmemcpy_user_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
-extern int gmemcpy_to_device(gdev_handle_t*, uint64_t, void*, uint64_t);
-extern int gmemcpy_user_to_device(gdev_handle_t*, uint64_t, void*, uint64_t);
-extern int gmemcpy_in_device(gdev_handle_t*, uint64_t, uint64_t, uint64_t);
-extern int glaunch(gdev_handle_t*, struct gdev_kernel*, uint32_t*);
-extern void gsync(gdev_handle_t*, uint32_t);
-extern int gquery(gdev_handle_t*, uint32_t, uint32_t*);
-extern int gtune(gdev_handle_t*, uint32_t, uint32_t);
+gdev_handle_t *gopen(int);
+int gclose(gdev_handle_t*);
+uint64_t gmalloc(gdev_handle_t*, uint64_t);
+int gfree(gdev_handle_t*, uint64_t);
+int gmemcpy_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
+int gmemcpy_user_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
+int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
+int gmemcpy_user_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
+int gmemcpy_in_device(gdev_handle_t*, uint64_t, uint64_t, uint64_t);
+int glaunch(gdev_handle_t*, struct gdev_kernel*, uint32_t*);
+void gsync(gdev_handle_t*, uint32_t);
+int gquery(gdev_handle_t*, uint32_t, uint32_t*);
+int gtune(gdev_handle_t*, uint32_t, uint32_t);
 
 /**
  * tuning types for Gdev resource management parameters.

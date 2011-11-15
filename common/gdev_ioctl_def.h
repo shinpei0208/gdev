@@ -44,7 +44,7 @@ typedef struct gdev_ioctl_mem {
 } gdev_ioctl_mem_t;
 
 typedef struct gdev_ioctl_dma {
-	void *src_buf;
+	const void *src_buf;
 	void *dst_buf;
 	uint64_t src_addr;
 	uint64_t dst_addr;

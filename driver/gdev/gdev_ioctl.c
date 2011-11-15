@@ -54,46 +54,6 @@ int gdev_ioctl_gfree(gdev_handle_t *handle, unsigned long arg)
 	return gfree(handle, m.addr);
 }
 
-int gdev_ioctl_gmemcpy_from_device(gdev_handle_t *handle, unsigned long arg)
-{
-	gdev_ioctl_dma_t dma;
-	int ret;
-#ifndef GDEV_MEMCPY_USER_DIRECT
-	void *buf;
-#endif
-
-	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
-		return -EFAULT;
-
-#ifdef GDEV_MEMCPY_USER_DIRECT
-	ret = gmemcpy_user_from_device(handle, dma.dst_buf, dma.src_addr, dma.size);
-	if (ret)
-		return ret;
-#else
-	if (dma.size > 0x400000)
-		buf = vmalloc(dma.size);
-	else
-		buf = kmalloc(dma.size, GFP_KERNEL);
-
-	if (!buf)
-		return -ENOMEM;
-
-	ret = gmemcpy_from_device(handle, buf, dma.src_addr, dma.size);
-	if (ret)
-		return ret;
-
-	if (copy_to_user((void __user *)dma.dst_buf, buf, dma.size))
-		return -EFAULT;
-
-	if (dma.size > 0x400000)
-		vfree(buf);
-	else
-		kfree(buf);
-#endif
-
-	return 0;
-}
-
 int gdev_ioctl_gmemcpy_to_device(gdev_handle_t *handle, unsigned long arg)
 {
 	gdev_ioctl_dma_t dma;
@@ -124,6 +84,46 @@ int gdev_ioctl_gmemcpy_to_device(gdev_handle_t *handle, unsigned long arg)
 	ret = gmemcpy_to_device(handle, dma.dst_addr, buf, dma.size);
 	if (ret)
 		return ret;
+
+	if (dma.size > 0x400000)
+		vfree(buf);
+	else
+		kfree(buf);
+#endif
+
+	return 0;
+}
+
+int gdev_ioctl_gmemcpy_from_device(gdev_handle_t *handle, unsigned long arg)
+{
+	gdev_ioctl_dma_t dma;
+	int ret;
+#ifndef GDEV_MEMCPY_USER_DIRECT
+	void *buf;
+#endif
+
+	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
+		return -EFAULT;
+
+#ifdef GDEV_MEMCPY_USER_DIRECT
+	ret = gmemcpy_user_from_device(handle, dma.dst_buf, dma.src_addr, dma.size);
+	if (ret)
+		return ret;
+#else
+	if (dma.size > 0x400000)
+		buf = vmalloc(dma.size);
+	else
+		buf = kmalloc(dma.size, GFP_KERNEL);
+
+	if (!buf)
+		return -ENOMEM;
+
+	ret = gmemcpy_from_device(handle, buf, dma.src_addr, dma.size);
+	if (ret)
+		return ret;
+
+	if (copy_to_user((void __user *)dma.dst_buf, buf, dma.size))
+		return -EFAULT;
 
 	if (dma.size > 0x400000)
 		vfree(buf);

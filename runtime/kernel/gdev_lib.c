@@ -71,6 +71,19 @@ int gfree(gdev_handle_t *handle, uint64_t addr)
 	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
 }
 
+int gmemcpy_to_device
+(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
+{
+	gdev_ioctl_dma_t dma;
+	int fd = *handle;
+
+	dma.dst_addr = dst_addr;
+	dma.src_buf = src_buf;
+	dma.size = size;
+
+	return ioctl(fd, GDEV_IOCTL_GMEMCPY_TO_DEVICE, &dma);
+}
+
 int gmemcpy_from_device
 (gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
@@ -82,19 +95,6 @@ int gmemcpy_from_device
 	dma.size = size;
 
 	return ioctl(fd, GDEV_IOCTL_GMEMCPY_FROM_DEVICE, &dma);
-}
-
-int gmemcpy_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, void *src_buf, uint64_t size)
-{
-	gdev_ioctl_dma_t dma;
-	int fd = *handle;
-
-	dma.dst_addr = dst_addr;
-	dma.src_buf = (void *)src_buf;
-	dma.size = size;
-
-	return ioctl(fd, GDEV_IOCTL_GMEMCPY_TO_DEVICE, &dma);
 }
 
 int gmemcpy_in_device

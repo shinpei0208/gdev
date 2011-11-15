@@ -104,18 +104,82 @@ CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
 	return CUDA_SUCCESS;
 }
 
-CUresult cuMemFreeHost (void *p)
+CUresult cuMemFreeHost(void *p)
 {
 	return CUDA_SUCCESS;
 }
 
-CUresult cuMemcpyDtoH (void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
+/**
+ * Copies from host memory to device memory. dstDevice and srcHost are the base
+ * addresses of the destination and source, respectively. ByteCount specifies
+ * the number of bytes to copy. Note that this function is synchronous.
+ *
+ * Parameters:
+ * dstDevice - Destination device pointer
+ * srcHost - Source host pointer
+ * ByteCount - Size of memory copy in bytes
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemcpyHtoD
+(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
 {
+	gdev_handle_t *handle;
+	const void *src_buf = srcHost;
+	uint64_t dst_addr = dstDevice;
+	uint32_t size = ByteCount;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!src_buf || !dst_addr || !size)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gmemcpy_to_device(handle, dst_addr, src_buf, size))
+		return CUDA_ERROR_UNKNOWN;
+
 	return CUDA_SUCCESS;
 }
 
-CUresult cuMemcpyHtoD (CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
+/**
+ * Copies from device to host memory. dstHost and srcDevice specify the base 
+ * pointers of the destination and source, respectively. ByteCount specifies 
+ * the number of bytes to copy. Note that this function is synchronous.
+ *
+ * Parameters:
+ * dstHost - Destination host pointer
+ * srcDevice - Source device pointer
+ * ByteCount - Size of memory copy in bytes
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemcpyDtoH
+(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
+	gdev_handle_t *handle;
+	void *dst_buf = dstHost;
+	uint64_t src_addr = srcDevice;
+	uint32_t size = ByteCount;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!dst_buf || !src_addr || !size)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gmemcpy_from_device(handle, dst_buf, src_addr, size))
+		return CUDA_ERROR_UNKNOWN;
+
 	return CUDA_SUCCESS;
 }
 
