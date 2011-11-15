@@ -25,9 +25,10 @@
  */
 
 #include "cuda.h"
+#include "gdev_cuda.h"
 #include <stdio.h>
 
-CUdevice gdev_fd = -1;
+int gdev_device_count = 0;
 
 /**
  * Returns in *major and *minor the major and minor revision numbers that 

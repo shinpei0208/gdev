@@ -25,8 +25,13 @@
  */
 
 #include "cuda.h"
+#include "gdev_cuda.h"
 #include "gdev_api.h"
 #include "gdev_cuda.h"
+#include "gdev_list.h"
+
+struct CUctx_st *gdev_ctx_current = NULL;
+gdev_list_t gdev_ctx_list;
 
 /**
  * Creates a new CUDA context and associates it with the calling thread. 
@@ -89,9 +94,11 @@
  */
 CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 {
-	int minor = dev;
+	CUresult res;
 	struct CUctx_st *ctx;
+	struct gdev_cuda_info *cuda_info;
 	gdev_handle_t *handle;
+	int minor = dev;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -100,17 +107,47 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	if (!pctx)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	if (!(ctx = (CUcontext)malloc(sizeof(*ctx))))
-		return CUDA_ERROR_OUT_OF_MEMORY;
-
-	if (!(handle = gopen(minor))) {
-		return CUDA_ERROR_UNKNOWN;
+	if (!(ctx = (CUcontext)malloc(sizeof(*ctx)))) {
+		res = CUDA_ERROR_OUT_OF_MEMORY;
+		goto fail_malloc_ctx;
 	}
 
+	if (!(handle = gopen(minor))) {
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_open_gdev;
+	}
+
+	/* save the Gdev handle. */
 	ctx->gdev_handle = handle;
+
+	/* get the CUDA-specific device information. */
+	cuda_info = &ctx->cuda_info;
+	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &cuda_info->mp_count)) {
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_query_mp_count;
+	}
+	/* FIXME: per-thread warp size and the number of active warps may not be
+	   stack numbers. */
+	cuda_info->warp_count = 48;
+	cuda_info->warp_size = 32;
+
+	/* save the current context to the stack, if necessary. */
+	__gdev_list_init(&ctx->list_entry, ctx);
+	if (gdev_ctx_current) {
+		__gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
+	}
+
+	gdev_ctx_current = ctx;	/* set to the current context. */
 	*pctx = ctx;
 
 	return CUDA_SUCCESS;
+
+fail_query_mp_count:
+	gclose(handle);
+fail_open_gdev:
+	free(ctx);
+fail_malloc_ctx:
+	return res;
 }
 
 /**
@@ -128,12 +165,19 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
  */
 CUresult cuCtxDestroy(CUcontext ctx)
 {
+	gdev_list_t *list_head;
+
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx)
 		return CUDA_ERROR_INVALID_VALUE;
 	if (gclose(ctx->gdev_handle))
 		return CUDA_ERROR_INVALID_CONTEXT;
+
+	list_head = __gdev_list_head(&gdev_ctx_list);
+	gdev_ctx_current = __gdev_list_container(list_head);
+	if (gdev_ctx_current)
+		__gdev_list_del(&gdev_ctx_current->list_entry);
 
 	free(ctx);
 
@@ -158,15 +202,78 @@ CUresult cuCtxDetach(CUcontext ctx)
 	return CUDA_SUCCESS;
 }
 
-CUresult cuCtxPopCurrent(CUcontext *pctx)
+/**
+ * Pushes the given context @ctx onto the CPU thread's stack of current 
+ * contexts. The specified context becomes the CPU thread's current context, 
+ * so all CUDA functions that operate on the current context are affected.
+ *
+ * The previous current context may be made current again by calling 
+ * cuCtxDestroy() or cuCtxPopCurrent().
+ *
+ * The context must be "floating," i.e. not attached to any thread. Contexts 
+ * are made to float by calling cuCtxPopCurrent().
+ *
+ * Parameters:
+ * ctx - Floating context to attach
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuCtxPushCurrent(CUcontext ctx)
 {
-	printf("cuCtxPopCurrent: Not Implemented Yet\n");
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!ctx)
+		return CUDA_ERROR_INVALID_VALUE;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	/* save the current context to the stack. */
+	__gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);
+	/* set @ctx to the current context. */
+	gdev_ctx_current = ctx;
+
 	return CUDA_SUCCESS;
 }
 
-CUresult cuCtxPushCurrent(CUcontext ctx)
+/**
+ * Pops the current CUDA context from the CPU thread. The CUDA context must 
+ * have a usage count of 1. CUDA contexts have a usage count of 1 upon 
+ * creation; the usage count may be incremented with cuCtxAttach() and 
+ * decremented with cuCtxDetach().
+ *
+ * If successful, cuCtxPopCurrent() passes back the new context handle in 
+ * @pctx. The old context may then be made current to a different CPU thread 
+ * by calling cuCtxPushCurrent().
+ *
+ * Floating contexts may be destroyed by calling cuCtxDestroy().
+ *
+ * If a context was current to the CPU thread before cuCtxCreate() or 
+ * cuCtxPushCurrent() was called, this function makes that context current to
+ * the CPU thread again.
+ *
+ * Parameters:
+ * pctx - Returned new context handle
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT 
+ */
+CUresult cuCtxPopCurrent(CUcontext *pctx)
 {
-	printf("cuCtxPushCurrent: Not Implemented Yet\n");
+	gdev_list_t *list_head;
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!pctx)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	*pctx = gdev_ctx_current;
+	list_head = __gdev_list_head(&gdev_ctx_list);
+	gdev_ctx_current = __gdev_list_container(list_head);
+	if (gdev_ctx_current)
+		__gdev_list_del(&gdev_ctx_current->list_entry);
+	
 	return CUDA_SUCCESS;
 }
 

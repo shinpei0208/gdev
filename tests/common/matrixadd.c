@@ -146,7 +146,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	
 	code_size = sizeof(kcode);
 	if (code_size & 0xff)
-		code_size = (code_size + 0x100) & ~0xff;
+		k.code_size = (code_size + 0x100) & ~0xff;
 	a_size = n * n * sizeof(uint32_t);
 	b_size = n * n * sizeof(uint32_t);
 	c_size = n * n * sizeof(uint32_t);
@@ -192,7 +192,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 		return -1;
 	if (!(c_addr = gmalloc(handle, c_size)))
 		return -1;
-	if (!(k.code_addr = gmalloc(handle, code_size)))
+	if (!(k.code_addr = gmalloc(handle, k.code_size)))
 		return -1;
 	if (!(k.cmem[0].addr = gmalloc(handle, k.cmem[0].size)))
 		return -1;
@@ -231,7 +231,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	k.grid_y = n / k.block_y;
 	k.grid_z = 1;
 	
-	gmemcpy_to_device(handle, k.code_addr, kcode, code_size);
+	gmemcpy_to_device(handle, k.code_addr, kcode, k.code_size);
 	gmemcpy_to_device(handle, a_addr, a, a_size);
 	gmemcpy_to_device(handle, b_addr, b, b_size);
 	

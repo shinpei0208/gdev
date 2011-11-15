@@ -35,7 +35,5 @@ if [ ! -d $gdevinc ]; then
 	mkdir $gdevinc
 fi
 cp -f Module.symvers $gdevdir
-cp -f gdev_drv.h $gdevinc
-cp -f gdev_api.h $gdevinc
-cp -f gdev_nvidia_def.h $gdevinc
+cp -f {gdev_api.h,gdev_drv.h,gdev_nvidia_def.h,gdev_list.h,gdev_time.h} $gdevinc
 

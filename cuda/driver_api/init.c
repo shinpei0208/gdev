@@ -25,12 +25,12 @@
  */
 
 #include "cuda.h"
+#include "gdev_cuda.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/unistd.h>
 
 int gdev_initialized = 0;
-int gdev_device_count = 0;
 
 /**
  * Initializes the driver API and must be called before any other function
@@ -70,6 +70,7 @@ CUresult cuInit(unsigned int Flags)
 		return CUDA_ERROR_INVALID_DEVICE;
 
 	gdev_device_count = minor;
+	__gdev_list_init(&gdev_ctx_list, NULL);
 
 	return CUDA_SUCCESS;
 }

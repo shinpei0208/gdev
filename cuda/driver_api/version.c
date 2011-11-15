@@ -41,7 +41,7 @@
 CUresult cuDriverGetVersion(int *driverVersion)
 {
 	if (!driverVersion)
-		return NULL;
+		return CUDA_ERROR_INVALID_VALUE;
 	*driverVersion = GDEV_CUDA_VERSION;
 
 	return CUDA_SUCCESS;

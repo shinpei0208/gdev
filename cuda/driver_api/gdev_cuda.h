@@ -28,47 +28,75 @@
 #define __GDEV_CUDA_H__
 
 #define GDEV_CUDA_VERSION 4000
+#define GDEV_CUDA_USER_PARAM_BASE 0x20
+#define GDEV_CUDA_CMEM_SEGMENT_COUNT 16 /* by definition? */
 
 #ifndef NULL
 #define NULL 0
 #endif
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
 
 #include "gdev_api.h"
+#include "gdev_list.h"
+
+struct gdev_cuda_info {
+	uint32_t mp_count;
+	uint32_t warp_count;
+	uint32_t warp_size;
+};
+
+struct gdev_cuda_raw_func {
+	char *name;
+	void *code_buf;
+	uint32_t code_size;
+	struct gdev_cuda_cmem {
+		void *buf;
+		uint32_t size;
+	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT];
+	uint32_t reg_count;
+	uint32_t bar_count;
+	uint32_t stack_depth;
+	uint32_t shared_size;
+	uint32_t param_size;
+	uint32_t local_size;
+	uint32_t local_size_neg;
+};
 
 struct CUctx_st {
 	gdev_handle_t *gdev_handle;
+	gdev_list_t list_entry;
+	struct gdev_cuda_info cuda_info;
 };
 
 struct CUmod_st {
+	FILE *fp;
+	void *bin;
+	void *image_buf;
+	uint64_t image_addr;
+	uint64_t local_addr;
+	uint32_t image_size;
+	uint32_t local_size;
+	uint32_t func_count;
+	gdev_list_t func_list;
 };
 
 struct CUfunc_st {
+	struct gdev_kernel kernel;
+	struct gdev_cuda_raw_func raw_func;
+	gdev_list_t list_entry;
 };
 
 struct CUtexref_st {
 };
 
-struct gdev_const {
-	void *buf;
-	uint32_t size;
-};
+CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
+CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
+void gdev_cuda_setup_kernels(struct CUmod_st *mod, struct gdev_cuda_info *info);
+CUresult gdev_cuda_assign_image(struct CUmod_st *mod);
+CUresult gdev_cuda_assign_local(struct CUmod_st *mod);
 
-struct gdev_cubin {
-	void *code_buf;
-	uint32_t code_size;
-	struct gdev_const c[16]; /* 16 by definition? */
-	uint32_t reg_count;
-	uint32_t barriers;
-	uint32_t stack_depth;
-	uint32_t shared_size;
-	uint32_t param_size;
-	uint32_t local_size;
-};
+extern int gdev_initialized;
+extern int gdev_device_count;
+struct CUctx_st *gdev_ctx_current;
+extern gdev_list_t gdev_ctx_list;
 
 #endif

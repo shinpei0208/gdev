@@ -51,6 +51,7 @@
  */
 struct gdev_kernel {
     uint64_t code_addr; /* code address in VAS */
+	uint32_t code_size; /* code size */
     uint32_t code_pc; /* initial program counter */
 	struct gdev_cmem {
 		uint64_t addr; /* constant memory address in VAS */

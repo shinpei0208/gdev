@@ -514,7 +514,4 @@ CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int nu
 CUresult cuModuleLoadFatBinary(CUmodule *module, const void *fatCubin);
 CUresult cuModuleUnload(CUmodule hmod);
 
-extern int gdev_initialized;
-extern int gdev_device_count;
-
 #endif
