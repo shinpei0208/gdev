@@ -67,12 +67,13 @@ make
 sudo init 3
 cd $(TOPDIR)/driver/build
 sudo make install
+sudo init 5
 
 4. Gdev API test
 
 cd $(TOPDIR)/tests/user/matrixadd
 make
-sudo LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] + b[3] = c[3]
+LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] + b[3] = c[3]
 
 5. CUDA Driver API
 
@@ -95,4 +96,4 @@ sudo make install
 
 cd $(TOPDIR)/tests/cuda/matrixmul
 make
-sudo LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] x b[3] = c[3]
+LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] x b[3] = c[3]
