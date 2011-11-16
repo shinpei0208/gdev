@@ -30,14 +30,14 @@ code, GPU code, and macro code. It also provides tools to generate
 header files that include GPU command definitions.
 Gdev requires envytools to compile fermi firmware code.
 
-$ cd $(TOPDIR)
-$ git clone git://github.com/pathscale/envytools.git
-$ cd envytools
-$ mkdir build
-$ cd build
-$ cmake .. # may require you to install some packages on your distro
-$ make
-$ sudo make install # will install tools to /usr/local/{bin,lib}
+cd $(TOPDIR)
+git clone git://github.com/pathscale/envytools.git
+cd envytools
+mkdir build
+cd build
+cmake .. # may require you to install some packages on your distro
+make
+sudo make install # will install tools to /usr/local/{bin,lib}
 
 2. Gdev runtime
 
@@ -48,28 +48,51 @@ while the kernel-space runtime lives in the OS and user-space programs
 need to use the ioctl system call to use their functions. The following
 assume user-space runtime.
 
-$ cd $(TOPDIR)/runtime
-$ mkdir build
-$ cd build
-$ cp gdev_nvidia_nvc0.o . # copy a missing file
-$ ../configure --runtime=user # --runtime=kernel will use kernel-space
-$ make
-$ sudo make install
+cd $(TOPDIR)/runtime
+mkdir build
+cd build
+../configure --runtime=user # --runtime=kernel will use kernel-space
+cp $(SOMEWHERE)/gdev_nvidia_nvc0.o . # copy a missing file
+make
+sudo make install
 
 3. Gdev device driver
 
-$ cd $(TOPDIR)/driver
-$ mkdir build
-$ cd build
-$ ../configure
-$ cp gdev_nvidia_nvc0.o . # copy missing files
-$ make
-$ sudo init 3
-$ cd $(TOPDIR)/driver/build
-$ sudo make install
+cd $(TOPDIR)/driver
+mkdir build
+cd build
+../configure
+cp $(SOMEWHERE)/gdev_nvidia_nvc0.o . # copy a missing file
+make
+sudo init 3
+cd $(TOPDIR)/driver/build
+sudo make install
 
-4. Test
+4. Gdev API test
 
-$ cd $(TOPDIR)/tests/user/matrixadd
-$ make
-$ sudo ./user_test 3 # a[3] + b[3] = c[3]
+cd $(TOPDIR)/tests/user/matrixadd
+make
+sudo LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] + b[3] = c[3]
+
+5. CUDA Driver API
+
+Gdev supports CUDA Driver API. Currently, a set of the supported API functions
+is limited, while major functions are implemented. We plan to implement missing
+functions, too.
+On the other hand, Gdev does not support CUDA Runtime API, for now. 
+CUDA Runtime API requires compiler support to implicitly call some internal
+functions provided by the runtime library. In order to support CUDA Runtime
+API, hence, we need to provide either (i) a compiler that generates internal
+functions familiar to Gdev, or (ii) the internal functions that the target
+compiler, such as nvcc, generates.  We are trying the latter approach.
+
+cd $(TOPDIR)/cuda/driver_api
+cp $(SOMEWHERE)/gdev_cuda.o . # copy a missing file
+make
+sudo make install
+
+6. CUDA Driver API test
+
+cd $(TOPDIR)/tests/cuda/matrixmul
+make
+sudo LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] x b[3] = c[3]
