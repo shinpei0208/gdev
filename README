@@ -51,7 +51,7 @@ assume user-space runtime.
 $ cd $(TOPDIR)/runtime
 $ mkdir build
 $ cd build
-$ cp gdev_nvidia_nvc0.o Makefile . # copy missing files
+$ cp gdev_nvidia_nvc0.o . # copy a missing file
 $ ../configure --runtime=user # --runtime=kernel will use kernel-space
 $ make
 $ sudo make install

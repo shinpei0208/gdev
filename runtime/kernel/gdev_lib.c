@@ -121,10 +121,15 @@ int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 	return ioctl(fd, GDEV_IOCTL_GLAUNCH, &launch);
 }
 
-void gsync(gdev_handle_t *handle, uint32_t id)
+int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 {
+	gdev_ioctl_sync_t sync;
 	int fd = *handle;
-	ioctl(fd, GDEV_IOCTL_GSYNC, id);
+
+	sync.id = id;
+	sync.timeout = *timeout;
+	
+	return ioctl(fd, GDEV_IOCTL_GSYNC, &sync);
 }
 
 int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)

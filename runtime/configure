@@ -29,8 +29,7 @@ done
 
 if [ $runtime = 'kernel' ]; then
 cp -f ../$runtime/* .
-cp -f $topdir/$common/*_def.h .
-cp -f $topdir/$common/gdev_api.h .
+cp -f $topdir/$common/*.h .
 else
 cp -f ../$runtime/$gdev/* .
 cp -f ../$runtime/$driver/* .

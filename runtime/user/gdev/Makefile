@@ -6,7 +6,9 @@ CFLAGS	= -O3 -Wall
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h,gdev_lib.h,gdev_nvidia_def.h,gdev_list.h,gdev_time.h
 
-OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
+#OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
+OBJS	= gdev_api.o gdev_lib.o gdev_nvidia.o gdev_nvidia_nvc0.o \
+	  pscnv_gdev.o libpscnv.o libpscnv_ib.o
 ZOMBIE  = $(wildcard ./*~)
 
 all: $(OBJS)
