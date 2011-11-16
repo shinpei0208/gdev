@@ -56,6 +56,7 @@ struct gdev_cuda_raw_func {
 	uint32_t bar_count;
 	uint32_t stack_depth;
 	uint32_t shared_size;
+	uint32_t param_base;
 	uint32_t param_size;
 	uint32_t local_size;
 	uint32_t local_size_neg;
@@ -70,11 +71,10 @@ struct CUctx_st {
 struct CUmod_st {
 	FILE *fp;
 	void *bin;
-	void *image_buf;
-	uint64_t image_addr;
-	uint64_t local_addr;
-	uint32_t image_size;
-	uint32_t local_size;
+	uint64_t code_addr;
+	uint32_t code_size;
+	uint64_t sdata_addr;
+	uint32_t sdata_size;
 	uint32_t func_count;
 	gdev_list_t func_list;
 	struct CUctx_st *ctx;
@@ -102,17 +102,51 @@ struct CUstream_st {
 struct CUgraphicsResource_st {
 };
 
-CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
-CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
-void gdev_cuda_setup_kernels(struct CUmod_st *mod, struct gdev_cuda_info *info);
-CUresult gdev_cuda_assign_image(struct CUmod_st *mod);
-CUresult gdev_cuda_assign_local(struct CUmod_st *mod);
-CUresult gdev_cuda_search_function
-(struct CUfunc_st **pptr, struct CUmod_st *mod, const char *name);
-
 extern int gdev_initialized;
 extern int gdev_device_count;
 extern struct CUctx_st *gdev_ctx_current;
 extern gdev_list_t gdev_ctx_list;
+
+CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
+CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
+CUresult gdev_cuda_construct_kernels
+(struct CUmod_st *mod, struct gdev_cuda_info *cuda_info);
+CUresult gdev_cuda_destruct_kernels(struct CUmod_st *mod);
+CUresult gdev_cuda_setup_code(struct CUmod_st *mod, void *buf);
+CUresult gdev_cuda_setup_sdata(struct CUmod_st *mod);
+CUresult gdev_cuda_search_function
+(struct CUfunc_st **pptr, struct CUmod_st *mod, const char *name);
+
+/* code alignement. */
+static inline uint32_t gdev_cuda_align_code_size(uint32_t size)
+{
+	if (size & 0xff)
+		size = (size + 0x100) & ~0xff;
+	return size;
+}
+
+/* constant memory alignement. */
+static inline uint32_t gdev_cuda_align_cmem_size(uint32_t size)
+{
+	if (size & 0xff)
+		size = (size + 0x100) & ~0xff;
+	return size;
+}
+
+/* local memory alignement. */
+static inline uint32_t gdev_cuda_align_lmem_size(uint32_t size)
+{
+	if (size & 0xf)
+		size = (size + 0x10) & ~0xf;
+	return size;
+}
+
+/* shared memory alignement. */
+static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
+{
+	if (size & 0x7f)
+		size = (size + 0x80) & (~0x7f);
+	return size;
+}
 
 #endif

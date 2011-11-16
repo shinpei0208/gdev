@@ -50,11 +50,12 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	CUresult res;
 	struct CUmod_st *mod;
 	struct CUctx_st *ctx;
+	void *bnc_buf;
 	gdev_handle_t *handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!module || fname)
+	if (!module || !fname)
 		return CUDA_ERROR_INVALID_VALUE;
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
@@ -71,38 +72,45 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	if ((res = gdev_cuda_load_cubin(mod, fname)) != CUDA_SUCCESS)
 		goto fail_load_cubin;
 
-	/* setup the kernels based on the cubin data. */
-	gdev_cuda_setup_kernels(mod, &ctx->cuda_info);
+	/* construct the kernels based on the cubin data. */
+	if ((res = gdev_cuda_construct_kernels(mod, &ctx->cuda_info)) 
+		!= CUDA_SUCCESS)
+		goto fail_construct_kernels;
 
-	/* allocate local memory, and assign it to each function. */
-	if (!(mod->local_addr = gmalloc(handle, mod->local_size))) {
+	/* allocate (local) static data memory. */
+	if (!(mod->sdata_addr = gmalloc(handle, mod->sdata_size))) {
 		res = CUDA_ERROR_OUT_OF_MEMORY;
-		goto fail_gmalloc_local;
+		goto fail_gmalloc_sdata;
 	}
 
-	if ((res = gdev_cuda_assign_local(mod)))
-		goto fail_assign_local;
+	/* setup the static data information for each kernel. */
+	if ((res = gdev_cuda_setup_sdata(mod)))
+		goto fail_setup_sdata;
 
-	/* allocate code and constant memory and assign it to each function. */
-	if (!(mod->image_addr = gmalloc(handle, mod->image_size)))
-		goto fail_gmalloc_image;
-	/* this malloc() and memcpy() in gdev_cuda_setup_image() could be
-	   removed if we use gmalloc_host() here, the following is just an easy
-	   implementation, and doesn't affect performance much anyway. */
-	if (!(mod->image_buf = malloc(mod->image_size))) {
+	/* allocate code and constant memory. */
+	if (!(mod->code_addr = gmalloc(handle, mod->code_size)))
+		goto fail_gmalloc_code;
+	/* the following malloc() and memcpy() for bounce buffer could be 
+	   removed if we use gmalloc_host() here, but they are just an easy 
+	   implementation, and don't really affect performance anyway. */
+	if (!(bnc_buf = malloc(mod->code_size))) {
 		res = CUDA_ERROR_OUT_OF_MEMORY;
-		goto fail_malloc_image;
+		goto fail_malloc_code;
 	}
-	memset(mod->image_buf, 0, mod->image_size);
-	if ((res = gdev_cuda_assign_image(mod)))
-		goto fail_assign_image;
+	memset(bnc_buf, 0, mod->code_size);
+
+	/* setup the code information for each kernel. */
+	if ((res = gdev_cuda_setup_code(mod, bnc_buf)))
+		goto fail_setup_code;
 
 	/* transfer the code and constant memory onto the device. */
-	if (gmemcpy_to_device(handle, mod->image_addr, mod->image_buf, 
-						  mod->image_size)) {
+	if (gmemcpy_to_device(handle, mod->code_addr, bnc_buf, mod->code_size)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_gmemcpy;
 	}
+
+	/* free the bounce buffer now. */
+	free(bnc_buf);
 
 	mod->ctx = ctx;
 	*module = mod;
@@ -110,16 +118,26 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	return CUDA_SUCCESS;
 
 fail_gmemcpy:
-fail_assign_image:
-	free(mod->image_buf);
-fail_malloc_image:
-	gfree(handle, mod->image_addr);
-fail_gmalloc_image:
-fail_assign_local:
-	gfree(handle, mod->local_addr);
-fail_gmalloc_local:
+	GDEV_PRINT("Failed to upload code\n");
+fail_setup_code:
+	GDEV_PRINT("Failed to setup code\n");
+	free(bnc_buf);
+fail_malloc_code:
+	GDEV_PRINT("Failed to allocate host memory for code\n");
+	gfree(handle, mod->code_addr);
+fail_gmalloc_code:
+	GDEV_PRINT("Failed to allocate device memory for code\n");
+fail_setup_sdata:
+	GDEV_PRINT("Failed to setup static data\n");
+	gfree(handle, mod->sdata_addr);
+fail_gmalloc_sdata:
+	GDEV_PRINT("Failed to allocate device memory for static data\n");
+	gdev_cuda_destruct_kernels(mod);
+fail_construct_kernels:
+	GDEV_PRINT("Failed to construct kernels\n");
 	gdev_cuda_unload_cubin(mod);
 fail_load_cubin:
+	GDEV_PRINT("Failed to load cubin\n");
 	free(mod);
 fail_malloc_mod:
 	*module = NULL;
@@ -157,9 +175,11 @@ CUresult cuModuleUnload(CUmodule hmod)
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	free(mod->image_buf);
-	gfree(handle, mod->image_addr);
-	gfree(handle, mod->local_addr);
+	gfree(handle, mod->code_addr);
+	gfree(handle, mod->sdata_addr);
+
+	if ((res = gdev_cuda_destruct_kernels(mod)) != CUDA_SUCCESS)
+		return res;
 
 	if ((res = gdev_cuda_unload_cubin(mod)) != CUDA_SUCCESS)
 		return res;

@@ -57,11 +57,11 @@ struct gdev_kernel {
 		uint64_t addr; /* constant memory address in VAS */
 		uint32_t size; /* constant memory size */
 		uint32_t offset; /* offset in constant memory */
-		uint32_t *buf; /* data buffer */
 	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT];
 	uint32_t cmem_count; /* constant memory count */
 	uint32_t cmem_param_segment; /* constant memory segment for parameters */
-	uint32_t param_size; /* effective parameter size */
+	uint32_t param_size; /* kernel parameter size */
+	uint32_t *param_buf; /* kernel parameter buffer */
 	uint64_t lmem_addr; /* local memory address in VAS */
 	uint64_t lmem_size_total; /* local memory size for all threads */
     uint32_t lmem_size; /* local memory size per thread (l[positive]) */

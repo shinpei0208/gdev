@@ -144,17 +144,47 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 		return -1;
 	}
 	
-	code_size = sizeof(kcode);
-	if (code_size & 0xff)
-		k.code_size = (code_size + 0x100) & ~0xff;
 	a_size = n * n * sizeof(uint32_t);
 	b_size = n * n * sizeof(uint32_t);
 	c_size = n * n * sizeof(uint32_t);
-	
+
+	if (!(a_addr = gmalloc(handle, a_size)))
+		return -1;
+	if (!(b_addr = gmalloc(handle, b_size)))
+		return -1;
+	if (!(c_addr = gmalloc(handle, c_size)))
+		return -1;
+
+	code_size = sizeof(kcode);
+	if (code_size & 0xff)
+		k.code_size = (code_size + 0x100) & ~0xff;
+	if (!(k.code_addr = gmalloc(handle, k.code_size)))
+		return -1;
 	k.code_pc = 0;
+
 	k.cmem[0].size = PARAM_SIZE;
 	if (k.cmem[0].size == 0 || k.cmem[0].size & 0xff)
 		k.cmem[0].size = (k.cmem[0].size + 0x100) & ~0xff;
+	if (!(k.cmem[0].addr = gmalloc(handle, k.cmem[0].size)))
+		return -1;
+	k.cmem[0].offset = 0;
+	for (i = 1; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+		k.cmem[i].addr = 0;
+		k.cmem[i].size = 0;
+		k.cmem[i].offset = 0;
+	}
+	k.cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
+	k.cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
+	k.param_size = PARAM_SIZE;
+	k.param_buf = c0;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 0] = a_addr;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 1] = a_addr >> 32;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 2] = b_addr;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 3] = b_addr >> 32;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 4] = c_addr;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 5] = c_addr >> 32;
+	k.param_buf[NVCC_PARAM_OFFSET/4 + 6] = n;
+
 	k.lmem_size = LOCAL_SIZE;
 	if (k.lmem_size & 0xf)
 		k.lmem_size = (k.lmem_size + 0x10) & ~0xf;
@@ -183,39 +213,9 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
 	k.lmem_size_total = 48 * mp_count * k.warp_size;
 	k.lmem_size_total = __round_up_pow2(k.lmem_size_total);
-
-	if (!(a_addr = gmalloc(handle, a_size)))
-		return -1;
-	if (!(b_addr = gmalloc(handle, b_size)))
-		return -1;
-	if (!(c_addr = gmalloc(handle, c_size)))
-		return -1;
-	if (!(k.code_addr = gmalloc(handle, k.code_size)))
-		return -1;
-	if (!(k.cmem[0].addr = gmalloc(handle, k.cmem[0].size)))
-		return -1;
 	if (!(k.lmem_addr = gmalloc(handle, k.lmem_size_total)))
 		return -1;
 
-	k.cmem[0].offset = 0;
-	k.cmem[0].buf = c0;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 0] = a_addr;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 1] = a_addr >> 32;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 2] = b_addr;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 3] = b_addr >> 32;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 4] = c_addr;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 5] = c_addr >> 32;
-	k.cmem[0].buf[NVCC_PARAM_OFFSET/4 + 6] = n;
-	for (i = 1; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
-		k.cmem[i].addr = 0;
-		k.cmem[i].size = 0;
-		k.cmem[i].offset = 0;
-		k.cmem[i].buf = NULL;
-	}
-	k.cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
-	k.cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
-	k.param_size = PARAM_SIZE;
-	
 	k.reg_count = REG_COUNT;
 	k.bar_count = BARRIER_COUNT;
 	k.call_limit = 0xf;

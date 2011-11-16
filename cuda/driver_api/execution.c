@@ -61,13 +61,13 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-    if (!func || x <= 0 || y <= 0 || z <= 0)
-        return CUDA_ERROR_INVALID_VALUE;
+	if (!func || x <= 0 || y <= 0 || z <= 0)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-    k->block_x = x;
-    k->block_y = y;
-    k->block_z = z;
+	k->block_x = x;
+	k->block_y = y;
+	k->block_z = z;
 
 	return CUDA_SUCCESS;
 }
@@ -96,11 +96,11 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-    if (!func)
-        return CUDA_ERROR_INVALID_VALUE;
+	if (!func)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	k->smem_size += bytes;
+	k->smem_size += gdev_cuda_align_smem_size(bytes);
 
 	return CUDA_SUCCESS;
 }
@@ -167,7 +167,8 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	if (glaunch(handle, k, &id))
 		return CUDA_ERROR_LAUNCH_FAILED;
 
-	if (gsync(handle, id))
+	/* if timeout is required, specify gdev_time value instead of NULL. */
+	if (gsync(handle, id, NULL))
 		return CUDA_ERROR_LAUNCH_TIMEOUT;
 
 	return CUDA_SUCCESS;
@@ -205,19 +206,19 @@ CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-	int x;
+	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-    if (!func)
-        return CUDA_ERROR_INVALID_VALUE;
+	if (!func)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	x = k->cmem_param_segment;
-    k->cmem[x].buf[offset/4] = value;
-    
+	f = &func->raw_func;
+	k->param_buf[(f->param_base + offset) / 4] = value;
+	
 	return CUDA_SUCCESS;
 }
 
@@ -239,16 +240,21 @@ CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
+	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-    if (!func)
-        return CUDA_ERROR_INVALID_VALUE;
+	if (!func)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	k->param_size = numbytes;
+	f = &func->raw_func;
+	if (k->param_size - f->param_base < numbytes)
+		return CUDA_ERROR_INVALID_VALUE;
+	else
+		k->param_size = f->param_base + numbytes;
 
 	return CUDA_SUCCESS;
 }
@@ -259,7 +265,8 @@ CUresult cuParamSetTexRef(CUfunction hfunc, int texunit, CUtexref hTexRef)
 	return CUDA_SUCCESS;
 }
 
-CUresult cuParamSetv(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes)
+CUresult cuParamSetv
+(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes)
 {
 	return CUDA_SUCCESS;
 }

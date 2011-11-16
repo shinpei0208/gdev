@@ -51,29 +51,58 @@ int test_matrixmul(unsigned int n)
 		printf("cuModuleGetFunction() failed\n");
 		return 0;
 	}
-	
-	cuFuncSetSharedSize(function, 0x40);
-	cuFuncSetBlockShape(function, n, 1, 1);
-	
-	cuMemAlloc(&a_dev, n*n * sizeof(unsigned int));
-	cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuFuncSetSharedSize(function, 0x40); /* just random */
+	if (res != CUDA_SUCCESS) {
+		printf("cuFuncSetSharedSize() failed\n");
+		return 0;
+	}
+	res = cuFuncSetBlockShape(function, n, 1, 1);
+	if (res != CUDA_SUCCESS) {
+		printf("cuFuncSetBlockShape() failed\n");
+		return 0;
+	}
+	res = cuMemAlloc(&a_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemAlloc (1) failed\n");
+		return 0;
+	}
+	res = cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (1) failed: res = %u\n", res);
+		return 0;
+	}
 	
-	cuMemAlloc(&b_dev, n*n * sizeof(unsigned int));
-	cuMemcpyHtoD(b_dev, b, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuMemAlloc(&b_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemAlloc (1) failed\n");
+		return 0;
+	}
+	res = cuMemcpyHtoD(b_dev, b, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (2) failed: res = %u\n", res);
-	
-	cuMemAlloc(&c_dev, n*n * sizeof(unsigned int));
-	cuMemcpyHtoD(c_dev, c, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+		return 0;
+	}
+	res = cuMemAlloc(&c_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemAlloc (1) failed\n");
+		return 0;
+	}
+	res = cuMemcpyHtoD(c_dev, c, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (3) failed: res = %u\n", res);
+		return 0;
+	}
 
-	cuMemAlloc(&n_dev, sizeof(unsigned int));
-	cuMemcpyHtoD(n_dev, &n, sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuMemAlloc(&n_dev, sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemAlloc (4) failed: res = %u\n", res);
+		return 0;
+	}
+	res = cuMemcpyHtoD(n_dev, &n, sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (4) failed: res = %u\n", res);
+		return 0;
+	}
 
 	cuParamSeti(function, 0, a_dev);	
 	cuParamSeti(function, 4, a_dev >> 32);
@@ -86,12 +115,16 @@ int test_matrixmul(unsigned int n)
 	cuParamSetSize(function, 32);
 
 	res = cuLaunchGrid(function, n, 1);
-	if (res != CUDA_SUCCESS) 
+	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %u\n", res);
+		return 0;
+	}
 
-	cuMemcpyDtoH(a, a_dev, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuMemcpyDtoH(a, a_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (1) failed: res = %u\n", res);
+		return 0;
+	}
 	printf("A = ");
 	for (i = 0; i < n*n; i++) {
 		if (i % n == 0 && i != 0)
@@ -99,9 +132,11 @@ int test_matrixmul(unsigned int n)
 		printf("%d,", a[i]);
 	}
 	printf("\n");
-	cuMemcpyDtoH(b, b_dev, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuMemcpyDtoH(b, b_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (2) failed: res = %u\n", res);
+		return 0;
+	}
 	printf("B = ");
 	for (i = 0; i < n*n; i++) {
 		if (i % n == 0 && i != 0)
@@ -109,9 +144,11 @@ int test_matrixmul(unsigned int n)
 		printf("%d,", b[i]);
 	}
 	printf("\n");
-	cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) 
+	res = cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (3) failed: res = %u\n", res);
+		return 0;
+	}
 	printf("C = ");
 	for (i = 0; i < n*n; i++) {
 		if (i % n == 0 && i != 0)

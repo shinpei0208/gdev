@@ -4,7 +4,6 @@ CC		= gcc
 TARGET		= libcuda
 GDEVDIR		= /usr/local/gdev
 CFLAGS          = -O3 -Wall -I$(GDEVDIR)/include
-HEADERS		= cuda.h
 
 OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 ZOMBIE  = $(wildcard ./*~)
@@ -16,9 +15,10 @@ all: $(OBJS)
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
 
 install:
-	cp -f ./$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so.1
+	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
-	cp -f ./{$(HEADERS)} $(GDEVDIR)/include
+	cp -f ./cuda.h $(GDEVDIR)/include
 
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
