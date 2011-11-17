@@ -62,6 +62,12 @@
 #define GDEV_VAS_SIZE GDEV_VAS_USER_END
 
 /**
+ * memory types.
+ */
+#define GDEV_MEM_DEVICE 0
+#define GDEV_MEM_DMA 1
+
+/**
  * virtual address space (VAS) object struct:
  *
  * NVIDIA GPUs support virtual memory (VM) with 40 bits addressing.
@@ -87,7 +93,8 @@
 struct gdev_vas {
 	void *pvas; /* driver private object. */
 	gdev_device_t *gdev; /* vas is associated with a specific device. */
-	struct gdev_list memlist; /* list of memory allocated */
+	struct gdev_list mem_list; /* list of device memory spaces. */
+	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 };
 
 /**
@@ -161,16 +168,13 @@ gdev_vas_t *gdev_vas_new(gdev_device_t*, uint64_t);
 void gdev_vas_free(gdev_vas_t*);
 gdev_ctx_t *gdev_ctx_new(gdev_device_t*, gdev_vas_t*);
 void gdev_ctx_free(gdev_ctx_t*);
-gdev_mem_t *gdev_malloc_device(gdev_vas_t*, uint64_t);
-void gdev_free_device(gdev_mem_t*);
-gdev_mem_t *gdev_malloc_dma(gdev_vas_t*, uint64_t);
-void gdev_free_dma(gdev_mem_t*);
+gdev_mem_t *gdev_malloc(gdev_vas_t*, uint64_t, int);
+void gdev_free(gdev_mem_t*);
 
 /**
  * architecture-dependent setup functions.
  */
 void nvc0_compute_setup(gdev_device_t *gdev);
-
 
 /**
  * runtime/driver/architecture-independent compute functions.
@@ -183,9 +187,10 @@ int gdev_poll(gdev_ctx_t*, int, uint32_t, gdev_time_t*);
 /**
  * runtime/driver/architecture-independent heap operations.
  */
-void gdev_heap_add(gdev_mem_t*);
+void gdev_heap_init(gdev_vas_t*);
+void gdev_heap_add(gdev_mem_t*, int);
 void gdev_heap_del(gdev_mem_t*);
-gdev_mem_t *gdev_heap_lookup(gdev_vas_t*, uint64_t);
+gdev_mem_t *gdev_heap_lookup(gdev_vas_t*, uint64_t, int);
 
 /**
  * runtime/driver/architecture-independent inline FIFO functions.

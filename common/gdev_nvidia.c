@@ -26,12 +26,27 @@
 #include "gdev_nvidia.h"
 #include "gdev_time.h"
 
+void gdev_heap_init(gdev_vas_t *vas)
+{
+	__gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
+	__gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+}
+
 /* add the device memory object to the memory list. */
-void gdev_heap_add(gdev_mem_t *mem)
+void gdev_heap_add(gdev_mem_t *mem, int type)
 {
 	gdev_vas_t *vas = mem->vas;
 
-	__gdev_list_add(&mem->list_entry, &vas->memlist);
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		__gdev_list_add(&mem->list_entry, &vas->mem_list);
+		break;
+	case GDEV_MEM_DMA:
+		__gdev_list_add(&mem->list_entry, &vas->dma_mem_list);
+		break;
+	default:
+		GDEV_PRINT("Memory type not supported\n");
+	}
 }
 
 /* delete the device memory object from the memory list. */
@@ -41,14 +56,26 @@ void gdev_heap_del(gdev_mem_t *mem)
 }
 
 /* look up the memory object allocated at the specified address. */
-gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr)
+gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr, int type)
 {
 	gdev_mem_t *mem;
 	gdev_list_t *entry;
 
-	gdev_list_for_each (mem, entry, &vas->memlist) {
-		if (mem && mem->addr == addr)
-			return mem;
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		gdev_list_for_each (mem, entry, &vas->mem_list) {
+			if (mem && mem->addr == addr)
+				return mem;
+		}
+		break;
+	case GDEV_MEM_DMA:
+		gdev_list_for_each (mem, entry, &vas->dma_mem_list) {
+			if (mem && (uint64_t)mem->map == addr)
+				return mem;
+		}
+		break;
+	default:
+		GDEV_PRINT("Memory type not supported\n");
 	}
 
 	return NULL;

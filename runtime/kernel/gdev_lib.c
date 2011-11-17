@@ -71,6 +71,26 @@ int gfree(gdev_handle_t *handle, uint64_t addr)
 	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
 }
 
+void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
+{
+	gdev_ioctl_mem_t mem;
+	int fd = *handle;
+
+	mem.size = size;
+	ioctl(fd, GDEV_IOCTL_GMALLOC, &mem);
+
+	return (void*)mem.addr;
+}
+
+int gfree_dma(gdev_handle_t *handle, void *buf)
+{
+	gdev_ioctl_mem_t mem;
+	int fd = *handle;
+
+	mem.addr = (uint64_t)buf;
+	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+}
+
 int gmemcpy_to_device
 (gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {

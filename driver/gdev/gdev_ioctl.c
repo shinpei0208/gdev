@@ -54,6 +54,32 @@ int gdev_ioctl_gfree(gdev_handle_t *handle, unsigned long arg)
 	return gfree(handle, m.addr);
 }
 
+int gdev_ioctl_gmalloc_dma(gdev_handle_t *handle, unsigned long arg)
+{
+	gdev_ioctl_mem_t m;
+
+	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
+		return -EFAULT;
+
+	if (!(m.addr = (uint64_t)gmalloc_dma(handle, m.size)))
+		return -ENOMEM;
+
+	if (copy_to_user((void __user *)arg, &m, sizeof(m)))
+		return -EFAULT;
+
+	return 0;
+}
+
+int gdev_ioctl_gfree_dma(gdev_handle_t *handle, unsigned long arg)
+{
+	gdev_ioctl_mem_t m;
+
+	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
+		return -EFAULT;
+
+	return gfree_dma(handle, (void*)m.addr);
+}
+
 int gdev_ioctl_gmemcpy_to_device(gdev_handle_t *handle, unsigned long arg)
 {
 	gdev_ioctl_dma_t dma;

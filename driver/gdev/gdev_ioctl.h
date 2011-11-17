@@ -30,6 +30,8 @@
 
 int gdev_ioctl_gmalloc(gdev_handle_t*, unsigned long);
 int gdev_ioctl_gfree(gdev_handle_t*, unsigned long);
+int gdev_ioctl_gmalloc_dma(gdev_handle_t*, unsigned long);
+int gdev_ioctl_gfree_dma(gdev_handle_t*, unsigned long);
 int gdev_ioctl_gmemcpy_to_device(gdev_handle_t*, unsigned long);
 int gdev_ioctl_gmemcpy_from_device(gdev_handle_t*, unsigned long);
 int gdev_ioctl_gmemcpy_in_device(gdev_handle_t*, unsigned long);

@@ -44,6 +44,8 @@ gdev_handle_t *gopen(int);
 int gclose(gdev_handle_t*);
 uint64_t gmalloc(gdev_handle_t*, uint64_t);
 int gfree(gdev_handle_t*, uint64_t);
+void *gmalloc_dma(gdev_handle_t *, uint64_t);
+int gfree_dma(gdev_handle_t *, void *);
 int gmemcpy_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
 int gmemcpy_user_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
 int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);

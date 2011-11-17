@@ -182,8 +182,6 @@ gdev_vas_t *gdev_vas_new(gdev_device_t *gdev, uint64_t size)
 	vas->gdev = gdev;
 	vas->pvas = vspace; /* driver private object. */
 
-	__gdev_list_init(&vas->memlist, NULL);
-
 	return vas;
 
 fail_vspace:
@@ -353,26 +351,22 @@ void gdev_ctx_free(gdev_ctx_t *ctx)
 	kfree(ctx);
 }
 
-/* allocate a new device memory object. */
-gdev_mem_t *gdev_malloc_device(gdev_vas_t *vas, uint64_t size)
+/* allocate a new memory object. */
+gdev_mem_t *gdev_malloc(gdev_vas_t *vas, uint64_t size, int type)
 {
-	return __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		return __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
+	case GDEV_MEM_DMA:
+		return __gdev_mem_alloc(vas, size, PSCNV_GEM_SYSRAM_SNOOP);
+	default:
+		GDEV_PRINT("Memory type not supported\n");
+	}
+	return NULL;
 }
 
-/* free the specified device memory object. */
-void gdev_free_device(gdev_mem_t *mem)
-{
-	return __gdev_mem_free(mem);
-}
-
-/* allocate a new DMA (host) memory object. */
-gdev_mem_t *gdev_malloc_dma(gdev_vas_t *vas, uint64_t size)
-{
-	return __gdev_mem_alloc(vas, size, PSCNV_GEM_SYSRAM_SNOOP);
-}
-
-/* free the specified DMA (host) memory object. */
-void gdev_free_dma(gdev_mem_t *mem)
+/* free the specified memory object. */
+void gdev_free(gdev_mem_t *mem)
 {
 	return __gdev_mem_free(mem);
 }
