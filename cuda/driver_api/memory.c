@@ -99,13 +99,82 @@ CUresult cuMemFree(CUdeviceptr dptr)
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Allocates bytesize bytes of host memory that is page-locked and accessible 
+ * to the device. The driver tracks the virtual memory ranges allocated with 
+ * this function and automatically accelerates calls to functions such as 
+ * cuMemcpy(). Since the memory can be accessed directly by the device, it can
+ * be read or written with much higher bandwidth than pageable memory obtained
+ * with functions such as malloc(). Allocating excessive amounts of memory 
+ * with cuMemAllocHost() may degrade system performance, since it reduces the 
+ * amount of memory available to the system for paging. As a result, this 
+ * function is best used sparingly to allocate staging areas for data exchange
+ * between host and device.
+ *
+ * Note all host memory allocated using cuMemHostAlloc() will automatically 
+ * be immediately accessible to all contexts on all devices which support 
+ * unified addressing (as may be queried using 
+ * CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING). The device pointer that may be 
+ * used to access this host memory from those contexts is always equal to the 
+ * returned host pointer *pp. See Unified Addressing for additional details.
+ *
+ * Parameters:
+ * pp - Returned host pointer to page-locked memory
+ * bytesize - Requested allocation size in bytes
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
+ * CUDA_ERROR_OUT_OF_MEMORY 
+ */
 CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
 {
+	gdev_handle_t *handle;
+	void *buf;
+	uint32_t size = bytesize;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!pp)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+	if (!(buf = gmalloc_dma(handle, size)))
+		return CUDA_ERROR_OUT_OF_MEMORY;
+
+	*pp = buf;
+
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Frees the memory space pointed to by p, which must have been returned by a 
+ * previous call to cuMemAllocHost().
+ *
+ * Parameters:
+ * p - Pointer to memory to free
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
 CUresult cuMemFreeHost(void *p)
 {
+	gdev_handle_t *handle;
+	void *buf = p;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gfree_dma(handle, buf))
+		return CUDA_ERROR_INVALID_VALUE;
+
 	return CUDA_SUCCESS;
 }
 
