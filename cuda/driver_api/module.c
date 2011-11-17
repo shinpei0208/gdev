@@ -78,9 +78,11 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 		goto fail_construct_kernels;
 
 	/* allocate (local) static data memory. */
-	if (!(mod->sdata_addr = gmalloc(handle, mod->sdata_size))) {
-		res = CUDA_ERROR_OUT_OF_MEMORY;
-		goto fail_gmalloc_sdata;
+	if (mod->sdata_size > 0) {
+		if (!(mod->sdata_addr = gmalloc(handle, mod->sdata_size))) {
+			res = CUDA_ERROR_OUT_OF_MEMORY;
+			goto fail_gmalloc_sdata;
+		}
 	}
 
 	/* setup the static data information for each kernel. */
@@ -129,7 +131,8 @@ fail_gmalloc_code:
 	GDEV_PRINT("Failed to allocate device memory for code\n");
 fail_setup_sdata:
 	GDEV_PRINT("Failed to setup static data\n");
-	gfree(handle, mod->sdata_addr);
+	if (mod->sdata_size > 0)
+		gfree(handle, mod->sdata_addr);
 fail_gmalloc_sdata:
 	GDEV_PRINT("Failed to allocate device memory for static data\n");
 	gdev_cuda_destruct_kernels(mod);
@@ -176,7 +179,8 @@ CUresult cuModuleUnload(CUmodule hmod)
 	handle = gdev_ctx_current->gdev_handle;
 
 	gfree(handle, mod->code_addr);
-	gfree(handle, mod->sdata_addr);
+	if (mod->sdata_size)
+		gfree(handle, mod->sdata_addr);
 
 	if ((res = gdev_cuda_destruct_kernels(mod)) != CUDA_SUCCESS)
 		return res;
