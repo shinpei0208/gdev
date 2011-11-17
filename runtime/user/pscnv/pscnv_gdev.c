@@ -57,6 +57,8 @@ static inline gdev_mem_t *__gdev_mem_alloc
 	else
 		mem->map = NULL;
 
+	__gdev_list_init(&mem->list_entry, (void *)mem);
+
 	return mem;
 
 fail_bo:
@@ -173,9 +175,6 @@ gdev_vas_t *gdev_vas_new(gdev_device_t *dev, uint64_t size)
 
 	vas->gdev = dev;
 	vas->pvas = (void *)chan; /* private object. */
-
-	__gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
-	__gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
 
 	return vas;
 

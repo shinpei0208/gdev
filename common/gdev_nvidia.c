@@ -59,18 +59,17 @@ void gdev_heap_del(gdev_mem_t *mem)
 gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr, int type)
 {
 	gdev_mem_t *mem;
-	gdev_list_t *entry;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		gdev_list_for_each (mem, entry, &vas->mem_list) {
-			if (mem && mem->addr == addr)
+		gdev_list_for_each (mem, &vas->mem_list) {
+			if (mem && (mem->addr == addr))
 				return mem;
 		}
 		break;
 	case GDEV_MEM_DMA:
-		gdev_list_for_each (mem, entry, &vas->dma_mem_list) {
-			if (mem && (uint64_t)mem->map == addr)
+		gdev_list_for_each (mem, &vas->dma_mem_list) {
+			if (mem && (mem->map == (void *)addr))
 				return mem;
 		}
 		break;

@@ -179,7 +179,7 @@ CUresult cuModuleUnload(CUmodule hmod)
 	handle = gdev_ctx_current->gdev_handle;
 
 	gfree(handle, mod->code_addr);
-	if (mod->sdata_size)
+	if (mod->sdata_size > 0)
 		gfree(handle, mod->sdata_addr);
 
 	if ((res = gdev_cuda_destruct_kernels(mod)) != CUDA_SUCCESS)

@@ -28,6 +28,7 @@
 #include "gdev_cuda.h"
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/unistd.h>
 
 int gdev_initialized = 0;
@@ -46,9 +47,9 @@ int gdev_initialized = 0;
  */
 CUresult cuInit(unsigned int Flags)
 {
-	char buf[64];
+	char fname[64];
 	int minor = 0;
-	int fd;
+	struct stat st;
 
 	/* mark initialized. */
 	gdev_initialized = 1;
@@ -57,11 +58,10 @@ CUresult cuInit(unsigned int Flags)
 	if (Flags != 0)
 		return CUDA_ERROR_INVALID_VALUE;
 
+	/* check the number of devices. */
 	for (;;) {
-		sprintf(buf, "/dev/gdev%d", minor);
-		if ((fd = open(buf, O_RDWR, 0)) >= 0)
-			close(fd);
-		else
+		sprintf(fname, "/dev/gdev%d", minor);
+		if ((stat(fname, &st)))
 			break;
 		minor++;
 	}

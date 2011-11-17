@@ -83,9 +83,9 @@ static inline void *__gdev_list_container(struct gdev_list *entry)
 	return entry->container;
 }
 
-#define gdev_list_for_each(p, entry, list)							   \
-	for (entry = __gdev_list_head(list), p = __gdev_list_container(entry); \
-		 entry != NULL;													\
-		 entry = (entry)->next, p = __gdev_list_container(entry))
+#define gdev_list_for_each(p, list)							\
+	for (p = __gdev_list_container(__gdev_list_head(list));	\
+		 p != NULL;											\
+		 p = __gdev_list_container((p)->list_entry.next))
 
 #endif
