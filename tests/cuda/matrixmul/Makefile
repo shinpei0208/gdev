@@ -10,4 +10,4 @@ all:
 	gcc driver.c -o $(TARGET) $(CFLAGS) $(LIBS)
 
 clean:
-	rm -f $(TARGET) ./*~
+	rm -f $(TARGET) *.cubin ./*~
