@@ -2,16 +2,19 @@
 
 CC		= gcc
 TARGET		= libcuda
+CUDUMP		= cudump
 GDEVDIR		= /usr/local/gdev
 CFLAGS          = -O3 -Wall -I$(GDEVDIR)/include
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o \
 	  gdev_cuda.o
+CUDUMP_OBJS = cudump.o gdev_cuda.o
 ZOMBIE  = $(wildcard ./*~)
 
 all: $(OBJS)
 	$(CC) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) 
+	$(CC) $(CFLAGS) -o ./$(CUDUMP) $(CUDUMP).c gdev_cuda.c
 
 %.o:%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)

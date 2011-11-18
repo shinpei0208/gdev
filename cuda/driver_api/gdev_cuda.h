@@ -48,16 +48,21 @@ struct gdev_cuda_raw_func {
 	char *name;
 	void *code_buf;
 	uint32_t code_size;
-	struct gdev_cuda_cmem {
+	struct {
 		void *buf;
 		uint32_t size;
-	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT];
+	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT]; /* local to functions. */
 	uint32_t reg_count;
 	uint32_t bar_count;
 	uint32_t stack_depth;
 	uint32_t shared_size;
 	uint32_t param_base;
 	uint32_t param_size;
+	struct {
+		uint32_t offset;
+		uint32_t size;
+		uint32_t flags;
+	} *param_info;
 	uint32_t local_size;
 	uint32_t local_size_neg;
 };
@@ -75,6 +80,10 @@ struct CUmod_st {
 	uint32_t code_size;
 	uint64_t sdata_addr;
 	uint32_t sdata_size;
+	struct {
+		void *buf;
+		uint32_t size;
+	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT]; /* global to functions. */
 	uint32_t func_count;
 	gdev_list_t func_list;
 	struct CUctx_st *ctx;
