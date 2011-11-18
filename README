@@ -88,7 +88,6 @@ functions familiar to Gdev, or (ii) the internal functions that the target
 compiler, such as nvcc, generates.  We are trying the latter approach.
 
 cd $(TOPDIR)/cuda/driver_api
-cp $(SOMEWHERE)/gdev_cuda.o . # copy a missing file
 make
 sudo make install
 
