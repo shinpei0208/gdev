@@ -1,0 +1,9 @@
+
+        KGPU Service Development Guide
+
+(Will be more formal later, now just for tips)
+
+ - Service providers can use the log functions defined in kgpu_log.h and link
+   with kgpu_log.a. To define your own shorthand, see kkgpu.h and helper.h
+   for reference.
+   

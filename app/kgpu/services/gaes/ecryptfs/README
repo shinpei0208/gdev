@@ -1,0 +1,17 @@
+
+Modified eCryptfs for Linux using GPU-AES
+
+
+This is a demo to show the performance gain by using GPU accelerated
+AES functions inside the kernel, with the help of KGPU.
+
+The performance optimization only aims at large trunk of data reading/
+writing or multiple parallel reads/writes. Small sized(typically smaller
+than 8KB or 16KB) fs ops can not be sped up. Since the fs is called
+eCryptfs, where e means 'enterprise', large trunked reads/writes
+are expected to be very often and more frequent than small ones.
+
+The eCryptfs is an encrypted filesystem in Linux kernel.
+
+Weibin Sun, Xing Lin
+{wbsun, xinglin}@cs.utah.edu

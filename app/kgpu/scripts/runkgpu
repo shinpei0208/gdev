@@ -1,0 +1,9 @@
+#!/bin/sh
+
+insmod ./kgpu.ko &&
+#modprobe aes &&
+modprobe xts &&
+insmod ./gaes_ecb.ko &&
+insmod ./gaes_ctr.ko &&
+insmod ./gaes_xts.ko &&
+LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./helper -l `pwd`
