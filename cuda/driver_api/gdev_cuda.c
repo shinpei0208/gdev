@@ -175,7 +175,7 @@ static void cubin_func_1903
 		GDEV_PRINT("Parameter size mismatched\n");
 		GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
 	}
-	*pos += sizeof(section_entry_t);
+	*pos += sizeof(section_entry_t) + e->size;
 }
 
 static void cubin_func_0d04
@@ -200,8 +200,10 @@ static void init_mod(struct CUmod_st *mod, char *bin, FILE *fp)
 	mod->fp = fp;
 	mod->func_count = 0;
 	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
-		mod->cmem[i].buf = NULL;
+		mod->cmem[i].addr = 0;
 		mod->cmem[i].size = 0;
+		mod->cmem[i].raw_size = 0;
+		mod->cmem[i].buf = NULL;
 	}
 	__gdev_list_init(&mod->func_list, NULL);
 }
@@ -328,7 +330,7 @@ static CUresult cubin_func
 			char fname[256] = {0};
 			sscanf(sh_name, SH_CONST"%d.%s", &x, fname);
 			/* is there any local constant other than c0[]? */
-			if (x > 0 && x < 16) {
+			if (x >= 0 && x < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT) {
 				if (strcmp(fname, raw_func->name) == 0) {
 					raw_func->cmem[x].buf = bin + sheads[i].sh_offset;
 					raw_func->cmem[x].size = sheads[i].sh_size;
@@ -344,9 +346,6 @@ static CUresult cubin_func
 				continue;
 			/* skip if not nv.info.XXX (could be just "nv.info"). */
 			if (strlen(sh_name) == strlen(SH_INFO))
-				continue;
-			/* skip if not nv.info.@raw_func->name. */
-			if (strcmp(sh_name + strlen(SH_INFO) + 1, raw_func->name) == 0)
 				continue;
 
 			/* look into the nv.info.@raw_func->name information. */
@@ -482,7 +481,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 				/* global constant spaces. */
 				if (strlen(func) == 0) {
 					mod->cmem[x].buf = bin + sheads[i].sh_offset;
-					mod->cmem[x].size = sheads[i].sh_size;
+					mod->cmem[x].raw_size = sheads[i].sh_size;
 				}
 			}
 			break;
@@ -606,10 +605,11 @@ CUresult gdev_cuda_construct_kernels
 		if (!(k->param_buf = malloc(k->param_size)))
 			goto fail_malloc_param;
 
+		memcpy(k->param_buf, f->cmem[0].buf, f->param_base);
 		k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size);
 		k->cmem[0].offset = 0;
 		for (i = 1; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
-			k->cmem[i].size = f->cmem[i].size;
+			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);
 			k->cmem[i].offset = 0; /* no usage. */
 		}
 		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
@@ -640,11 +640,17 @@ CUresult gdev_cuda_construct_kernels
 		k->reg_count = f->reg_count;
 		k->bar_count = f->bar_count;
 
-		/* code size includes code and constant memory. */
+		/* code size includes code and local constant memory sizes. */
 		mod->code_size += k->code_size;
 		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++)
 			mod->code_size += k->cmem[i].size;
 		mod->sdata_size += k->lmem_size_total;
+	}
+
+	/* code size also includes global constnat memory size. */
+	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+		mod->cmem[i].size = gdev_cuda_align_cmem_size(mod->cmem[i].raw_size);
+		mod->code_size += mod->cmem[i].size;
 	}
 
 	return CUDA_SUCCESS;
@@ -675,43 +681,7 @@ CUresult gdev_cuda_destruct_kernels(struct CUmod_st *mod)
 	return res;
 }
 
-CUresult gdev_cuda_setup_code(struct CUmod_st *mod, void *buf)
-{
-	struct CUfunc_st *func;
-	struct gdev_kernel *k;
-	struct gdev_cuda_raw_func *f;
-	uint64_t addr = mod->code_addr;
-	uint32_t size = mod->code_size;
-	uint32_t offset = 0;
-	int i;
-
-	gdev_list_for_each(func, &mod->func_list) {
-		k = &func->kernel;
-		f = &func->raw_func;
-		if (k->code_size > 0) {
-			k->code_addr = addr + offset;
-			if (f->code_buf && f->code_size > 0)
-				memcpy(buf + offset, f->code_buf, f->code_size);
-		}
-		offset += k->code_size;
-		if (offset > size)
-			return CUDA_ERROR_UNKNOWN;
-		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
-			if (k->cmem[i].size > 0) {
-				k->cmem[i].addr = addr + offset;
-				if (f->cmem[i].buf && f->cmem[i].size > 0)
-					memcpy(buf + offset, f->cmem[i].buf, f->cmem[i].size);
-			}
-			offset += k->cmem[i].size;
-			if (offset > size)
-				return CUDA_ERROR_UNKNOWN;
-		}
-	}
-	
-	return CUDA_SUCCESS;
-}
-
-CUresult gdev_cuda_setup_sdata(struct CUmod_st *mod)
+CUresult gdev_cuda_locate_sdata(struct CUmod_st *mod)
 {
 	struct CUfunc_st *func;
 	struct gdev_kernel *k;
@@ -726,6 +696,85 @@ CUresult gdev_cuda_setup_sdata(struct CUmod_st *mod)
 		offset += k->lmem_size;
 		if (offset > size)
 			return CUDA_ERROR_UNKNOWN;
+	}
+	
+	return CUDA_SUCCESS;
+}
+
+CUresult gdev_cuda_locate_code(struct CUmod_st *mod)
+{
+	struct CUfunc_st *func;
+	struct gdev_kernel *k;
+	struct gdev_cuda_raw_func *f;
+	uint64_t addr = mod->code_addr;
+	uint32_t size = mod->code_size;
+	uint32_t offset = 0;
+	int i;
+
+	/* we locate global constant memory at the beginning so that we know
+	   its address before locating local constant memory. */
+	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+		if (mod->cmem[i].size > 0) {
+			mod->cmem[i].addr = addr + offset;
+			offset += mod->cmem[i].size;
+		}
+	}
+
+	gdev_list_for_each(func, &mod->func_list) {
+		k = &func->kernel;
+		f = &func->raw_func;
+		if (k->code_size > 0) {
+			k->code_addr = addr + offset;
+			offset += k->code_size;
+		}
+		if (offset > size)
+			return CUDA_ERROR_UNKNOWN;
+		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+			if (k->cmem[i].size > 0) {
+				k->cmem[i].addr = addr + offset;
+				offset += k->cmem[i].size;
+			}
+			else if (mod->cmem[i].size > 0) {
+				k->cmem[i].addr = mod->cmem[i].addr;
+				k->cmem[i].size = mod->cmem[i].size;
+			}
+			if (offset > size)
+				return CUDA_ERROR_UNKNOWN;
+		}
+	}
+	
+	return CUDA_SUCCESS;
+}
+
+CUresult gdev_cuda_memcpy_code(struct CUmod_st *mod, void *buf)
+{
+	struct CUfunc_st *func;
+	struct gdev_kernel *k;
+	struct gdev_cuda_raw_func *f;
+	uint64_t addr = mod->code_addr;
+	uint32_t offset;
+	int i;
+
+	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+		if (mod->cmem[i].buf) {
+			offset = mod->cmem[i].addr - addr;
+			memcpy(buf + offset, mod->cmem[i].buf, mod->cmem[i].raw_size);
+		}
+	}
+
+	gdev_list_for_each(func, &mod->func_list) {
+		k = &func->kernel;
+		f = &func->raw_func;
+		if (f->code_buf) {
+			offset = k->code_addr - addr;
+			memcpy(buf + offset, f->code_buf, f->code_size);
+		}
+		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
+			if (f->cmem[i].buf) {
+				offset = k->cmem[i].addr - addr;
+				memcpy(buf + offset, f->cmem[i].buf, f->cmem[i].size);
+			}
+		}
 	}
 	
 	return CUDA_SUCCESS;

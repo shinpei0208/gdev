@@ -81,8 +81,10 @@ struct CUmod_st {
 	uint64_t sdata_addr;
 	uint32_t sdata_size;
 	struct {
-		void *buf;
+		uint64_t addr;
 		uint32_t size;
+		uint32_t raw_size;
+		void *buf;
 	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT]; /* global to functions. */
 	uint32_t func_count;
 	gdev_list_t func_list;
@@ -121,8 +123,9 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
 CUresult gdev_cuda_construct_kernels
 (struct CUmod_st *mod, struct gdev_cuda_info *cuda_info);
 CUresult gdev_cuda_destruct_kernels(struct CUmod_st *mod);
-CUresult gdev_cuda_setup_code(struct CUmod_st *mod, void *buf);
-CUresult gdev_cuda_setup_sdata(struct CUmod_st *mod);
+CUresult gdev_cuda_locate_sdata(struct CUmod_st *mod);
+CUresult gdev_cuda_locate_code(struct CUmod_st *mod);
+CUresult gdev_cuda_memcpy_code(struct CUmod_st *mod, void *buf);
 CUresult gdev_cuda_search_function
 (struct CUfunc_st **pptr, struct CUmod_st *mod, const char *name);
 

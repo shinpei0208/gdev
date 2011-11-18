@@ -30,5 +30,5 @@ uninstall:
 	rm -f $(GDEVDIR)/include/{$(HEADERS)}
 
 clean:
-	rm -f $(TARGET).so.* $(OBJS) $(ZOMBIE)
+	rm -f $(TARGET).so.* $(CUDUMP) $(OBJS) $(CUDUMP_OBJS) $(ZOMBIE)
 
