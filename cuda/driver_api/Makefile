@@ -20,6 +20,8 @@ all: $(OBJS)
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
 
 install:
+	@if test ! -d $(GDEVDIR)/bin ; then mkdir $(GDEVDIR)/bin ; fi ;
+	cp -f ./$(CUDUMP) $(GDEVDIR)/bin/
 	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
@@ -28,6 +30,7 @@ install:
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
 	rm -f $(GDEVDIR)/include/{$(HEADERS)}
+	rm -f $(GDEVDIR)/bin/$(CUDUMP)
 
 clean:
 	rm -f $(TARGET).so.* $(CUDUMP) $(OBJS) $(CUDUMP_OBJS) $(ZOMBIE)

@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 		if (mod.cmem[i].buf) {
 			printf("uint32_t c%d[] = {\n", i);
-			for (j = 0; j < mod.cmem[i].size / 4; j++) {
+			for (j = 0; j < mod.cmem[i].raw_size / 4; j++) {
 				printf("\t0x%08x,\n", ((uint32_t*)mod.cmem[i].buf)[j]);
 			}
 			printf("};\n");
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* type dump. */
-	printf("struct gdev_cuda_func {\n");
+	printf("struct gdev_cudump {\n");
 	printf("\tchar *name;\n");
 	printf("\tvoid *code_buf;\n");
 	printf("\tuint32_t code_size;\n");
@@ -95,13 +95,22 @@ int main(int argc, char *argv[])
 	printf("\t\tvoid *buf;\n");
 	printf("\t\tuint32_t size;\n");
 	printf("\t} cmem[%d];\n", GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT);
+	printf("\tuint32_t param_base;\n");
+	printf("\tuint32_t param_size;\n");
+	printf("\tuint32_t *param_buf;\n");
+	printf("\tuint32_t local_size;\n");
+	printf("\tuint32_t local_size_neg;\n");
+	printf("\tuint32_t shared_size;\n");
+	printf("\tuint32_t stack_depth;\n");
+	printf("\tuint32_t reg_count;\n");
+	printf("\tuint32_t bar_count;\n");
 	printf("};\n");
 	printf("\n");
 
-	/* struct cuda_func dump. */
+	/* struct gdev_cudump dump. */
 	gdev_list_for_each(func, &mod.func_list) {
 		f = &func->raw_func;
-		printf("struct cuda_func %s = {\n", f->name);
+		printf("struct gdev_cudump %s = {\n", f->name);
 
 		printf("\t.name = \"%s\",\n", f->name);
 		printf("\t.code_buf = code_%s,\n", f->name);
