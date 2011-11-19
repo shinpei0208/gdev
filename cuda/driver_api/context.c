@@ -27,7 +27,6 @@
 #include "cuda.h"
 #include "gdev_cuda.h"
 #include "gdev_api.h"
-#include "gdev_cuda.h"
 #include "gdev_list.h"
 
 struct CUctx_st *gdev_ctx_current = NULL;
@@ -107,7 +106,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	if (!pctx)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	if (!(ctx = (CUcontext)malloc(sizeof(*ctx)))) {
+	if (!(ctx = (CUcontext)MALLOC(sizeof(*ctx)))) {
 		res = CUDA_ERROR_OUT_OF_MEMORY;
 		goto fail_malloc_ctx;
 	}
@@ -145,7 +144,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 fail_query_mp_count:
 	gclose(handle);
 fail_open_gdev:
-	free(ctx);
+	FREE(ctx);
 fail_malloc_ctx:
 	return res;
 }
@@ -179,7 +178,7 @@ CUresult cuCtxDestroy(CUcontext ctx)
 	if (gdev_ctx_current)
 		__gdev_list_del(&gdev_ctx_current->list_entry);
 
-	free(ctx);
+	FREE(ctx);
 
 	return CUDA_SUCCESS;
 }

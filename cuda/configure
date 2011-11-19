@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# libcuda or kcuda
+target=''
+
+# parse the given options.
+for option
+do
+  case "$option" in
+  -*=*) optarg=`echo "$option" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+  *) optarg= ;;
+  esac
+
+  case "$option" in
+  --target=*)
+    target="$optarg" ;;
+  esac
+done
+
+if [ $target = 'libcuda' ] ; then
+cp -f ../libcuda/* .
+cp -f ../driver_api/* .
+cp -f ../cudump/* .
+elif [ $target = 'kcuda' ] ; then
+cp -f ../kcuda/* .
+cp -f ../driver_api/* .
+else
+echo "Error: invalid target '$target'"
+fi

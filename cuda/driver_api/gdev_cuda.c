@@ -26,11 +26,43 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
+
+#ifdef __KERNEL__
+#include <linux/proc_fs.h>
+#ifdef CONFIG_64BIT
+#define Elf_Phdr Elf32_Phdr
+#define FILE struct file
+#define FOPEN(fname) filp_open(fname, O_RDONLY | O_DIRECT, 0)
+#define FSEEK(fp, offset, whence) vfs_llseek(fp, 0, whence)
+#define FTELL(fp) (fp)->f_pos
+#define FREAD(ptr, size, fp) kernel_read(fp, 0, ptr, size)
+#define FCLOSE(fp) filp_close(fp, NULL)
+#else
+#define Elf_Phdr	Elf64_Phdr
+#endif
+#else /* !__KERNEL__ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <elf.h>
 #include <limits.h>
+#if (ULONG_MAX == UINT_MAX)
+#define Elf_Ehdr	Elf32_Ehdr
+#define Elf_Shdr	Elf32_Shdr
+#define Elf_Phdr	Elf32_Phdr
+#define Elf_Sym	 Elf32_Sym
+#else
+#define Elf_Ehdr	Elf64_Ehdr
+#define Elf_Shdr	Elf64_Shdr
+#define Elf_Phdr	Elf64_Phdr
+#define Elf_Sym	 Elf64_Sym
+#endif
+#define FOPEN(fname) fopen(fname, "rb")
+#define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
+#define FTELL(fp) ftell(fp)
+#define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
+#define FCLOSE(fp) fclose(fp)
+#endif
 
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
@@ -43,19 +75,6 @@
 #define SH_GLOBAL ".nv.global"
 #define SH_GLOBAL_INIT ".nv.global.init"
 #define NV_GLOBAL   0x10
-
-#if (ULONG_MAX == UINT_MAX)
-#define Elf_Ehdr	Elf32_Ehdr
-#define Elf_Shdr	Elf32_Shdr
-#define Elf_Phdr	Elf32_Phdr
-#define Elf_Sym	 Elf32_Sym
-#else
-#define Elf_Ehdr	Elf64_Ehdr
-#define Elf_Shdr	Elf64_Shdr
-#define Elf_Phdr	Elf64_Phdr
-#define Elf_Sym	 Elf64_Sym
-#endif
-
 
 typedef struct section_entry_ {
 	uint16_t type;
@@ -98,19 +117,19 @@ static CUresult load_bin(char **pbin, FILE **pfp, const char *fname)
 	FILE *fp;
 	uint32_t len;
 
-	if (!(fp = fopen(fname, "rb")))
+	if (!(fp = FOPEN(fname)))
 		return CUDA_ERROR_FILE_NOT_FOUND;
 
-	fseek(fp, 0, SEEK_END);
-	len = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	FSEEK(fp, 0, SEEK_END);
+	len = FTELL(fp);
+	FSEEK(fp, 0, SEEK_SET);
 
-	if (!(bin = (char *) malloc(len + 1)))
+	if (!(bin = (char *) MALLOC(len + 1)))
 		return CUDA_ERROR_OUT_OF_MEMORY;
 
-	if (!fread(bin, len, 1, fp)) {
-		free(bin);
-		fclose(fp);
+	if (!FREAD(bin, len, fp)) {
+		FREE(bin);
+		FCLOSE(fp);
 		return CUDA_ERROR_UNKNOWN;
 	}
 
@@ -122,8 +141,8 @@ static CUresult load_bin(char **pbin, FILE **pfp, const char *fname)
 
 static void unload_bin(char *bin, FILE *fp)
 {
-	free(bin);
-	fclose(fp);
+	FREE(bin);
+	FCLOSE(fp);
 }
 
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
@@ -288,7 +307,7 @@ static CUresult cubin_func
 	}
 
 	/* allocate memory for a new function. */
-	if (!(func = malloc(sizeof(*func))))
+	if (!(func = MALLOC(sizeof(*func))))
 		goto fail_malloc_func;
 
 	init_kernel(&func->kernel);
@@ -354,7 +373,7 @@ static CUresult cubin_func
 				switch (sh_e->type) {
 				case 0x0c04: /* 4-byte aligned param_size */
 					cubin_func_skip(&sh_pos, sh_e);
-					if (!(raw_func->param_info = malloc(sh_e->size / 4)))
+					if (!(raw_func->param_info = MALLOC(sh_e->size / 4)))
 						goto fail_malloc_param_info;
 					break;
 				case 0x0a04: /* kernel parameters base and size */
@@ -388,7 +407,7 @@ static CUresult cubin_func
 	return CUDA_SUCCESS;
 
 fail_malloc_param_info:
-	free(func);
+	FREE(func);
 fail_malloc_func:
 	return CUDA_ERROR_OUT_OF_MEMORY;
 }
@@ -553,10 +572,10 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 	   free(func) will delte the entry itself in gdev_list_for_each(). */
 	while (entry) {
 		func = __gdev_list_container(entry);
-		raw_func = &func->raw_func;
-		free(raw_func->param_info);
 		entry = entry->next;
-		free(func);
+		raw_func = &func->raw_func;
+		FREE(raw_func->param_info);
+		FREE(func);
 	}
 
 	unload_bin(mod->bin, mod->fp);
@@ -602,7 +621,7 @@ CUresult gdev_cuda_construct_kernels
 		k->code_pc = 0;
 
 		k->param_size = f->param_base + f->param_size;
-		if (!(k->param_buf = malloc(k->param_size)))
+		if (!(k->param_buf = MALLOC(k->param_size)))
 			goto fail_malloc_param;
 
 		memcpy(k->param_buf, f->cmem[0].buf, f->param_base);
@@ -659,7 +678,7 @@ fail_malloc_param:
 	gdev_list_for_each(func, &mod->func_list) {
 		k = &func->kernel;
 		if (k->param_buf)
-			free(k->param_buf);
+			FREE(k->param_buf);
 	}
 	return CUDA_ERROR_OUT_OF_MEMORY;
 }
@@ -673,7 +692,7 @@ CUresult gdev_cuda_destruct_kernels(struct CUmod_st *mod)
 	gdev_list_for_each(func, &mod->func_list) {
 		k = &func->kernel;
 		if (k->param_buf)
-			free(k->param_buf);
+			FREE(k->param_buf);
 		else
 			res = CUDA_ERROR_DEINITIALIZED; /* appropriate? */
 	}

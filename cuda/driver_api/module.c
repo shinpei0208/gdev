@@ -63,7 +63,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	ctx = gdev_ctx_current;
 	handle = ctx->gdev_handle;
 
-	if (!(mod = malloc(sizeof(*mod)))) {
+	if (!(mod = MALLOC(sizeof(*mod)))) {
 		GDEV_PRINT("Failed to allocate memory for module\n");
 		res = CUDA_ERROR_OUT_OF_MEMORY;
 		goto fail_malloc_mod;
@@ -113,7 +113,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	/* the following malloc() and memcpy() for bounce buffer could be 
 	   removed if we use gmalloc_host() here, but they are just an easy 
 	   implementation, and don't really affect performance anyway. */
-	if (!(bnc_buf = malloc(mod->code_size))) {
+	if (!(bnc_buf = MALLOC(mod->code_size))) {
 		GDEV_PRINT("Failed to allocate host memory for code\n");
 		res = CUDA_ERROR_OUT_OF_MEMORY;
 		goto fail_malloc_code;
@@ -134,7 +134,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	}
 
 	/* free the bounce buffer now. */
-	free(bnc_buf);
+	FREE(bnc_buf);
 
 	mod->ctx = ctx;
 	*module = mod;
@@ -143,7 +143,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 
 fail_gmemcpy_code:
 fail_memcpy_code:
-	free(bnc_buf);
+	FREE(bnc_buf);
 fail_malloc_code:
 fail_locate_code:
 	gfree(handle, mod->code_addr);
@@ -156,7 +156,7 @@ fail_gmalloc_sdata:
 fail_construct_kernels:
 	gdev_cuda_unload_cubin(mod);
 fail_load_cubin:
-	free(mod);
+	FREE(mod);
 fail_malloc_mod:
 	*module = NULL;
 	return res;
@@ -203,7 +203,7 @@ CUresult cuModuleUnload(CUmodule hmod)
 	if ((res = gdev_cuda_unload_cubin(mod)) != CUDA_SUCCESS)
 		return res;
 
-	free(mod);
+	FREE(mod);
 
 	return CUDA_SUCCESS;
 }
