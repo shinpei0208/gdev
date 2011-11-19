@@ -231,6 +231,8 @@ EXPORT_SYMBOL(gopen);
 EXPORT_SYMBOL(gclose);
 EXPORT_SYMBOL(gmalloc);
 EXPORT_SYMBOL(gfree);
+EXPORT_SYMBOL(gmalloc_dma);
+EXPORT_SYMBOL(gfree_dma);
 EXPORT_SYMBOL(gmemcpy_from_device);
 EXPORT_SYMBOL(gmemcpy_user_from_device);
 EXPORT_SYMBOL(gmemcpy_to_device);

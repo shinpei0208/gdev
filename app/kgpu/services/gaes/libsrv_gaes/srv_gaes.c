@@ -85,7 +85,7 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
     }
     else {
         int nrounds = hctx->key_length/4+6;
-        unsigned long addr = (unsigned long)sr->ddata;
+        unsigned long addr = (unsigned long)dctx->key_enc;
 
         res = cuModuleGetFunction(&func, module, "_Z15aes_encrypt_bptPjiPh");
         if (res != CUDA_SUCCESS) {
