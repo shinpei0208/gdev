@@ -193,11 +193,18 @@ int gdev_ioctl_glaunch(gdev_handle_t *handle, unsigned long arg)
 int gdev_ioctl_gsync(gdev_handle_t *handle, unsigned long arg)
 {
 	gdev_ioctl_sync_t sync;
+	gdev_time_t timeout;
 
 	if (copy_from_user(&sync, (void __user *)arg, sizeof(sync)))
 		return -EFAULT;
 
-	return gsync(handle, sync.id, &sync.timeout);
+	if (!sync.timeout)
+		return gsync(handle, sync.id, NULL);
+
+	if (copy_from_user(&timeout, (void __user *)sync.timeout, sizeof(timeout)))
+		return -EFAULT;
+
+	return gsync(handle, sync.id, &timeout);
 }
 
 int gdev_ioctl_gquery(gdev_handle_t *handle, unsigned long arg)

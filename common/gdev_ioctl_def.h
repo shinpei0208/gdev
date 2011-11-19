@@ -60,7 +60,7 @@ typedef struct gdev_ioctl_launch {
 
 typedef struct gdev_ioctl_sync {
 	uint32_t id;
-	gdev_time_t timeout;
+	gdev_time_t *timeout;
 } gdev_ioctl_sync_t;
 
 typedef struct gdev_ioctl_query {

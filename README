@@ -51,7 +51,7 @@ assume user-space runtime.
 cd $(TOPDIR)/runtime
 mkdir build
 cd build
-../configure --runtime=user # --runtime=kernel will use kernel-space
+../configure # if you want user-space runtime, specify --target=user
 cp $(SOMEWHERE)/gdev_nvidia_nvc0.o . # copy a missing file
 make
 sudo make install
@@ -68,12 +68,14 @@ sudo init 3
 cd $(TOPDIR)/driver/build
 sudo make install
 sudo init 5
+export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
+export PATH="/usr/local/gdev/bin:$PATH"
 
 4. Gdev API test
 
-cd $(TOPDIR)/tests/user/matrixadd
+cd $(TOPDIR)/test/user/matrixadd
 make
-LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] + b[3] = c[3]
+./user_test 3 # a[3] + b[3] = c[3]
 
 5. CUDA Driver API
 
@@ -87,12 +89,15 @@ API, hence, we need to provide either (i) a compiler that generates internal
 functions familiar to Gdev, or (ii) the internal functions that the target
 compiler, such as nvcc, generates.  We are trying the latter approach.
 
-cd $(TOPDIR)/cuda/driver_api
+cd $(TOPDIR)/cuda/
+mkdir build
+cd build
+../configure # if you want kernel-space CUDA, specify --target=kcuda
 make
 sudo make install
 
-6. CUDA Driver API test
+6. CUDA Driver API test (user-space)
 
-cd $(TOPDIR)/tests/cuda/matrixmul
+cd $(TOPDIR)/test/cuda/matrixmul
 make
-LD_LIBRARY_PATH=/usr/local/gdev/lib64 ./user_test 3 # a[3] x b[3] = c[3]
+./user_test 3 # a[3] x b[3] = c[3]

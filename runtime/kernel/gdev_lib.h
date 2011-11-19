@@ -25,6 +25,39 @@
 #ifndef __GDEV_LIB_H__
 #define __GDEV_LIB_H__
 
+#include <errno.h> /* ENOMEN, etc. */
+#include <sched.h> /* sched_yield, etc. */
+#include <stdint.h> /* uint32_t, etc.*/
+#include <stdio.h> /* printf, etc. */
+#include <stdlib.h> /* malloc/free, etc. */
+#include <string.h> /* memcpy, etc. */
+
+#define GDEV_DEV_GET(handle) (handle)->gdev
+#define GDEV_DEV_SET(handle, dev) (handle)->gdev = (dev)
+#define GDEV_VAS_GET(handle) (handle)->vas
+#define GDEV_VAS_SET(handle, vas) (handle)->vas = (vas)
+#define GDEV_CTX_GET(handle) (handle)->ctx
+#define GDEV_CTX_SET(handle, ctx) (handle)->ctx = (ctx)
+#define GDEV_DMA_GET(handle) (handle)->dma_mem
+#define GDEV_DMA_SET(handle, mem) (handle)->dma_mem = (mem)
+#define GDEV_PIPELINE_GET(handle) (handle)->pipeline_count
+#define GDEV_PIPELINE_SET(handle, val) (handle)->pipeline_count = val
+#define GDEV_CHUNK_GET(handle) (handle)->chunk_size
+#define GDEV_CHUNK_SET(handle, val) (handle)->chunk_size = val
+#define GDEV_MINOR_GET(handle) (handle)->dev_id 
+#define GDEV_MINOR_SET(handle, val) (handle)->dev_id = val
+#define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
+#define GDEV_DPRINT(fmt, arg...)					\
+	if (GDEV_DEBUG_PRINT)							\
+		fprintf(stderr, "[gdev:debug] " fmt, ##arg)
+
+#define MALLOC(x) malloc(x)
+#define FREE(x) free(x)
+#define SCHED_YIELD() sched_yield()
+#define MB() //mb()
+#define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
+#define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
+
 typedef int gdev_handle_t;
 
 #endif
