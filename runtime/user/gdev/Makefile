@@ -21,7 +21,8 @@ install:
 	@if test ! -d $(GDEVDIR) ; then mkdir $(GDEVDIR) ; fi ;
 	@if test ! -d $(GDEVDIR)/lib64 ; then mkdir $(GDEVDIR)/lib64 ; fi ;
 	@if test ! -d $(GDEVDIR)/include ; then mkdir $(GDEVDIR)/include ; fi ;
-	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
+	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
 	cp -f ./{$(HEADERS)} $(GDEVDIR)/include
 

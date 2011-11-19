@@ -38,6 +38,10 @@
 #include "gdev_api.h"
 #include "gdev_list.h"
 
+#ifdef __KERNEL__
+#define FILE struct file
+#endif
+
 struct gdev_cuda_info {
 	uint32_t mp_count;
 	uint32_t warp_count;
@@ -74,11 +78,7 @@ struct CUctx_st {
 };
 
 struct CUmod_st {
-#ifdef __KERNEL__
-	struct file *fp;
-#else
 	FILE *fp;
-#endif
 	void *bin;
 	uint64_t code_addr;
 	uint32_t code_size;

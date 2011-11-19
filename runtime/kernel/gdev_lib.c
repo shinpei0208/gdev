@@ -147,7 +147,7 @@ int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 	int fd = *handle;
 
 	sync.id = id;
-	sync.timeout = *timeout;
+	sync.timeout = timeout;
 	
 	return ioctl(fd, GDEV_IOCTL_GSYNC, &sync);
 }
