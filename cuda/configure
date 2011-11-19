@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # libcuda or kcuda
-target=''
+target='libcuda'
 
 # parse the given options.
 for option

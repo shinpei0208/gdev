@@ -1,10 +1,11 @@
 #!/bin/sh
 
-gdev="gdev"
-common="common"
+gdev='gdev'
+common='common'
 
-# configure options.
-driver="pscnv" # use pscnv by default.
+# pscnv or nouveau 
+backend='pscnv'
+# debug on/off
 debug=0
 
 # parse the given options.
@@ -16,17 +17,17 @@ do
   esac
 
   case "$option" in
-  --driver=*)
-    driver="$optarg" ;;
+  --backend=*)
+    backend="$optarg" ;;
   --debug)
     debug=1 ;;
   esac
 done
 
 rm -f $gdev.ko
-ln -s $driver.ko $gdev.ko
+ln -s $backend.ko $gdev.ko
 cp -fr ../$gdev/* ./
-cp -fr ../$driver/* ./
+cp -fr ../$backend/* ./
 cp -fr ../../$common/* ./
 cat ../$gdev/Makefile >> Makefile
 ./configure

@@ -1,12 +1,13 @@
 #!/bin/sh
 
-topdir="../.."
-gdev="gdev"
-common="common"
+topdir='../..'
+common='common'
 
-# configure options.
-runtime="kernel" # use kernel-level runtime by default
-driver="pscnv" # use pscnv by default.
+# kernel-space Gdev or user-space Gdev
+target='kernel'
+# pscnv or nouveau
+backend='pscnv'
+# debug on/off
 debug=0
 
 # parse the given options.
@@ -18,20 +19,22 @@ do
   esac
 
   case "$option" in
-  --runtime=*)
-    runtime="$optarg" ;;
-  --driver=*)
-    driver="$optarg" ;;
+  --target=*)
+    target="$optarg" ;;
+  --backend=*)
+    backend="$optarg" ;;
   --debug)
     debug=1 ;;
   esac
 done
 
-if [ $runtime = 'kernel' ]; then
-cp -f ../$runtime/* .
+if [ $target = 'kernel' ] ; then
+cp -f ../kernel/* .
 cp -f $topdir/$common/*.h .
-else
-cp -f ../$runtime/$gdev/* .
-cp -f ../$runtime/$driver/* .
+elif [ $target = 'user' ] ; then
+cp -f ../user/gdev/* .
+cp -f ../user/$backend/* .
 cp -f $topdir/$common/* .
+else
+echo "Error: invalid target '$target'"
 fi
