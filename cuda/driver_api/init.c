@@ -26,12 +26,45 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
-#include <fcntl.h>
+
+#ifdef __KERNEL__
+#include <linux/proc_fs.h>
+static inline int FILE_EXIST(char *fname)
+{
+	struct file *fp = filp_open(fname, O_RDONLY, 0);
+	if (fp)
+		return 1;
+	filp_close(fp, NULL);
+	return 0;
+}
+#else /* !__KERNEL__ */
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/unistd.h>
+static inline int FILE_EXIST(char *fname)
+{
+	struct stat st;
+	if (stat(fname, &st) == 0)
+		return 1;
+	return 0;
+}
+#endif
 
-int gdev_initialized = 0;
+static int __gdev_get_device_count(void)
+{
+	char fname[64];
+	int minor = 0;
+
+	/* check the number of devices. */
+	for (;;) {
+		sprintf(fname, "/dev/gdev%d", minor);
+		if (!FILE_EXIST(fname))
+			break;
+		minor++;
+	}
+
+	return minor;
+}
 
 /**
  * Initializes the driver API and must be called before any other function
@@ -47,10 +80,6 @@ int gdev_initialized = 0;
  */
 CUresult cuInit(unsigned int Flags)
 {
-	char fname[64];
-	int minor = 0;
-	struct stat st;
-
 	/* mark initialized. */
 	gdev_initialized = 1;
 
@@ -58,19 +87,15 @@ CUresult cuInit(unsigned int Flags)
 	if (Flags != 0)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	/* check the number of devices. */
-	for (;;) {
-		sprintf(fname, "/dev/gdev%d", minor);
-		if ((stat(fname, &st)))
-			break;
-		minor++;
-	}
-
-	if (!minor)
+	if (!(gdev_device_count = __gdev_get_device_count()))
 		return CUDA_ERROR_INVALID_DEVICE;
 
-	gdev_device_count = minor;
 	__gdev_list_init(&gdev_ctx_list, NULL);
 
 	return CUDA_SUCCESS;
 }
+
+/**
+ * global variables. 
+ */
+int gdev_initialized = 0;

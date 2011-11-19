@@ -51,8 +51,8 @@
 	if (DEBUG_PRINT)							\
 		printk("[gdev:debug] " fmt, ##arg)
 
-#define MALLOC(x) kmalloc(x, GFP_KERNEL)
-#define FREE(x) kfree(x)
+#define MALLOC(x) vmalloc(x)
+#define FREE(x) vfree(x)
 #define SCHED_YIELD() schedule_timeout(1)
 #define MB() mb()
 #define COPY_FROM_USER(dst, src, size) \

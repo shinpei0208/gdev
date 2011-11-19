@@ -74,7 +74,11 @@ struct CUctx_st {
 };
 
 struct CUmod_st {
+#ifdef __KERNEL__
+	struct file *fp;
+#else
 	FILE *fp;
+#endif
 	void *bin;
 	uint64_t code_addr;
 	uint32_t code_size;

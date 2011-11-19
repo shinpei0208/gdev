@@ -4,7 +4,7 @@ CC		= gcc
 TARGET		= libcuda
 CUDUMP		= cudump
 GDEVDIR		= /usr/local/gdev
-CFLAGS          = -O3 -Wall -I$(GDEVDIR)/include
+CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o \
