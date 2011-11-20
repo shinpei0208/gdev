@@ -1,11 +1,11 @@
 #include <cuda.h>
 #ifdef __KERNEL__ /* just for measurement */
+#include <linux/vmalloc.h>
+#include <linux/time.h>
 #define printf printk
 #define malloc vmalloc
 #define free vfree
 #define gettimeofday(x, y) do_gettimeofday(x)
-#include <linux/slab.h>
-#include <linux/time.h>
 #else /* just for measurement */
 #include <sys/time.h>
 #include <stdio.h>
@@ -52,25 +52,26 @@ int cuda_test_memcpy(unsigned int size)
 
 	res = cuInit(0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuInit failed: res = %u\n", res);
+		printf("cuInit failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
+#if 0
 	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuDeviceGet failed: res = %u\n", res);
+		printf("cuDeviceGet failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
 	res = cuCtxCreate(&ctx, 0, dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuCtxCreate failed: res = %u\n", res);
+		printf("cuCtxCreate failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
 	res = cuMemAlloc(&data_addr, size);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemAlloc failed: res = %u\n", res);
+		printf("cuMemAlloc failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
@@ -79,7 +80,7 @@ int cuda_test_memcpy(unsigned int size)
 	gettimeofday(&tv_h2d_end, NULL);
 
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD failed: res = %u\n", res);
+		printf("cuMemcpyHtoD failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
@@ -88,27 +89,28 @@ int cuda_test_memcpy(unsigned int size)
 	gettimeofday(&tv_d2h_end, NULL);
 
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyDtoH failed: res = %u\n", res);
+		printf("cuMemcpyDtoH failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
 	res = cuMemFree(data_addr);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree failed: res = %u\n", res);
+		printf("cuMemFree failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
 
 	res = cuCtxDestroy(ctx);
 	if (res != CUDA_SUCCESS) {
-		printf("cuCtxDestroy failed: res = %u\n", res);
+		printf("cuCtxDestroy failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
+#endif
 
 	gettimeofday(&tv_total_end, NULL);
 
 	for (i = 0; i < size / 4; i++) {
 		if (in[i] != out[i]) {
-			printf("in[%d] = %lu, out[%d] = %lu\n",
+			printf("in[%d] = %u, out[%d] = %u\n",
 				   i, in[i], i, out[i]);
 			goto end;
 		}

@@ -178,6 +178,8 @@ int gdev_minor_exit(struct drm_device *drm)
 	return 0;
 }
 
+#include "gdev_proc.c"
+
 int gdev_major_init(struct pci_driver *pdriver)
 {
 	int i, ret;
@@ -211,6 +213,9 @@ int gdev_major_init(struct pci_driver *pdriver)
 	/* allocate Gdev device objects. */
 	gdrv.gdev = kmalloc(sizeof(struct gdev_device) * gdrv.count, GFP_KERNEL);
 
+	/* create /proc entries. */
+	gdev_create_proc();
+
 	return 0;
 }
 
@@ -218,6 +223,7 @@ int gdev_major_exit(void)
 {
 	GDEV_PRINT("Exiting module...\n");
 
+	gdev_delete_proc();
 	kfree(gdrv.gdev);
 	unregister_chrdev_region(gdrv.dev, gdrv.count);
 

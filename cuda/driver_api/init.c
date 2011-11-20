@@ -32,9 +32,10 @@
 static inline int FILE_EXIST(char *fname)
 {
 	struct file *fp = filp_open(fname, O_RDONLY, 0);
-	if (fp)
+	if (fp) {
+		filp_close(fp, NULL);
 		return 1;
-	filp_close(fp, NULL);
+	}
 	return 0;
 }
 #else /* !__KERNEL__ */
@@ -54,6 +55,10 @@ static int __gdev_get_device_count(void)
 {
 	char fname[64];
 	int minor = 0;
+
+	/**
+	 * read /proc/gdev/device_count here!!!!!!!
+	 */
 
 	/* check the number of devices. */
 	for (;;) {

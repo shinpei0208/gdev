@@ -27,19 +27,19 @@ int cuda_test_matrixmul(unsigned int n)
 
 	res = cuInit(0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuInit failed: res = %u\n", res);
+		printf("cuInit failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuDeviceGet failed: res = %u\n", res);
+		printf("cuDeviceGet failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	res = cuCtxCreate(&ctx, 0, dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuCtxCreate failed: res = %u\n", res);
+		printf("cuCtxCreate failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
@@ -86,96 +86,96 @@ int cuda_test_matrixmul(unsigned int n)
 	/* upload a[] and b[] */
 	res = cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (a) failed: res = %u\n", res);
+		printf("cuMemcpyHtoD (a) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuMemcpyHtoD(b_dev, b, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (b) failed: res = %u\n", res);
+		printf("cuMemcpyHtoD (b) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	/* set kernel parameters */
 	res = cuParamSeti(function, 0, a_dev);	
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (a) failed: res = %u\n", res);
+		printf("cuParamSeti (a) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 4, a_dev >> 32);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (a) failed: res = %u\n", res);
+		printf("cuParamSeti (a) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 8, b_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (b) failed: res = %u\n", res);
+		printf("cuParamSeti (b) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 12, b_dev >> 32);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (b) failed: res = %u\n", res);
+		printf("cuParamSeti (b) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 16, c_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (c) failed: res = %u\n", res);
+		printf("cuParamSeti (c) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 20, c_dev >> 32);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (c) failed: res = %u\n", res);
+		printf("cuParamSeti (c) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSeti(function, 24, n);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (c) failed: res = %u\n", res);
+		printf("cuParamSeti (c) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuParamSetSize(function, 28);
 	if (res != CUDA_SUCCESS) {
-		printf("cuParamSetSize failed: res = %u\n", res);
+		printf("cuParamSetSize failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	/* launch the kernel */
 	res = cuLaunchGrid(function, n, 1);
 	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid failed: res = %u\n", res);
+		printf("cuLaunchGrid failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	/* download c[] */
 	res = cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyDtoH (c) failed: res = %u\n", res);
+		printf("cuMemcpyDtoH (c) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	res = cuMemFree(a_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (a) failed: res = %u\n", res);
+		printf("cuMemFree (a) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuMemFree(b_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (b) failed: res = %u\n", res);
+		printf("cuMemFree (b) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 	res = cuMemFree(c_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (c) failed: res = %u\n", res);
+		printf("cuMemFree (c) failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	res = cuModuleUnload(module);
 	if (res != CUDA_SUCCESS) {
-		printf("cuModuleUnload failed: res = %u\n", res);
+		printf("cuModuleUnload failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 
 	res = cuCtxDestroy(ctx);
 	if (res != CUDA_SUCCESS) {
-		printf("cuCtxDestroy failed: res = %u\n", res);
+		printf("cuCtxDestroy failed: res = %u\n", (unsigned long)res);
 		return -1;
 	}
 

@@ -20,13 +20,13 @@ while [ $minor -lt $devnum ]
 do
         mknod /dev/gdev${minor} c $major $minor
         chgrp $group /dev/gdev${minor}
-        #chmod 664 /dev/gdev${minor}
-        chmod 666 /dev/gdev${minor} # just temporarily
+        chmod 666 /dev/gdev${minor}
         minor=$(expr $minor + 1)
 done
 
 gdevdir=/usr/local/gdev
 gdevinc=$gdevdir/include
+gdevetc=$gdevdir/etc
 # install header files
 if [ ! -d $gdevdir ]; then
 	mkdir $gdevdir
@@ -34,6 +34,9 @@ fi
 if [ ! -d $gdevinc ]; then
 	mkdir $gdevinc
 fi
-cp -f Module.symvers $gdevdir
+if [ ! -d $gdevetc ]; then
+	mkdir $gdevetc
+fi
+cp -f Module.symvers $gdevetc/Module.symvers.gdev
 cp -f {gdev_api.h,gdev_drv.h,gdev_nvidia_def.h,gdev_list.h,gdev_time.h} $gdevinc
 
