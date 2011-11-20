@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/stat.h>
+#include "cuda.h"
 
 
 MODULE_LICENSE("Dual BSD/GPL");

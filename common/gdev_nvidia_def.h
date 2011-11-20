@@ -37,7 +37,8 @@
 #define GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT 16 /* by definition? */
 
 /**
- * query values for the device-specific information
+ * query values for the device-specific information.
+ * they should be >= 100.
  */
 #define GDEV_NVIDIA_QUERY_MP_COUNT 100
 
