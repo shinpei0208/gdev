@@ -28,4 +28,9 @@ $(TARGET).o: $(OBJS)
 clean:
 	@rm -fr .tmp* .*.cmd *.mod.* *.ko *.o modules.order Module.* *~
 
+install:
+	insmod $(TARGET).ko
+
+uninstall:
+	rmmod $(TARGET)
 endif
