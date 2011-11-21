@@ -24,39 +24,25 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "cuda.h"
-#include "gdev_cuda.h"
+#ifndef __GDEV_CUDA_UTIL_H__
+#define __GDEV_CUDA_UTIL_H__
 
-/**
- * Initializes the driver API and must be called before any other function
- * from the driver API. Currently, the Flags parameter must be 0. If cuInit()
- * has not been called, any function from the driver API will return 
- * CUDA_ERROR_NOT_INITIALIZED.
- *
- * Parameters:
- * 	Flags - Initialization flag for CUDA.
- *
- * Returns:
- *  CUDA_SUCCESS, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_INVALID_DEVICE 
- */
-CUresult cuInit(unsigned int Flags)
+#include <linux/proc_fs.h>
+#ifdef CONFIG_64BIT
+#define Elf_Phdr Elf32_Phdr
+#else
+#define Elf_Phdr Elf64_Phdr
+#endif
+#define FILE struct file
+#define FOPEN(fname) filp_open(fname, O_RDONLY | O_DIRECT, 0)
+#define FSEEK(fp, offset, whence) vfs_llseek(fp, 0, whence)
+#define FTELL(fp) (fp)->f_pos
+#define FREAD(ptr, size, fp) kernel_read(fp, 0, ptr, size)
+#define FCLOSE(fp) filp_close(fp, NULL)
+
+static inline int __gdev_get_device_count(void)
 {
-	/* mark initialized. */
-	gdev_initialized = 1;
-
-	/* the flag must be zero. */
-	if (Flags != 0)
-		return CUDA_ERROR_INVALID_VALUE;
-
-	if (!(gdev_device_count = __gdev_get_device_count()))
-		return CUDA_ERROR_INVALID_DEVICE;
-
-	__gdev_list_init(&gdev_ctx_list, NULL);
-
-	return CUDA_SUCCESS;
+	return gdev_getinfo_device_count();
 }
 
-/**
- * global variables. 
- */
-int gdev_initialized = 0;
+#endif

@@ -56,7 +56,6 @@ int cuda_test_memcpy(unsigned int size)
 		return -1;
 	}
 
-#if 0
 	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuDeviceGet failed: res = %u\n", (unsigned int)res);
@@ -104,7 +103,6 @@ int cuda_test_memcpy(unsigned int size)
 		printf("cuCtxDestroy failed: res = %u\n", (unsigned int)res);
 		return -1;
 	}
-#endif
 
 	gettimeofday(&tv_total_end, NULL);
 

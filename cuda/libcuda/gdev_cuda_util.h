@@ -24,39 +24,47 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "cuda.h"
-#include "gdev_cuda.h"
+#ifndef __GDEV_CUDA_UTIL_H__
+#define __GDEV_CUDA_UTIL_H__
 
-/**
- * Initializes the driver API and must be called before any other function
- * from the driver API. Currently, the Flags parameter must be 0. If cuInit()
- * has not been called, any function from the driver API will return 
- * CUDA_ERROR_NOT_INITIALIZED.
- *
- * Parameters:
- * 	Flags - Initialization flag for CUDA.
- *
- * Returns:
- *  CUDA_SUCCESS, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_INVALID_DEVICE 
- */
-CUresult cuInit(unsigned int Flags)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <elf.h>
+#include <limits.h>
+#if (ULONG_MAX == UINT_MAX)
+#define Elf_Ehdr	Elf32_Ehdr
+#define Elf_Shdr	Elf32_Shdr
+#define Elf_Phdr	Elf32_Phdr
+#define Elf_Sym	 Elf32_Sym
+#else
+#define Elf_Ehdr	Elf64_Ehdr
+#define Elf_Shdr	Elf64_Shdr
+#define Elf_Phdr	Elf64_Phdr
+#define Elf_Sym	 Elf64_Sym
+#endif
+#define FOPEN(fname) fopen(fname, "rb")
+#define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
+#define FTELL(fp) ftell(fp)
+#define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
+#define FCLOSE(fp) fclose(fp)
+
+static inline int __gdev_get_device_count(void)
 {
-	/* mark initialized. */
-	gdev_initialized = 1;
+	char fname[64] = "/proc/gdev/device_count";
+	char buf[16];
+	int minor = 0;
+	FILE *fp;
 
-	/* the flag must be zero. */
-	if (Flags != 0)
-		return CUDA_ERROR_INVALID_VALUE;
+	if (!(fp = FOPEN(fname)))
+		return 0;
+	FREAD(buf, 15, fp);
+	FCLOSE(fp);
 
-	if (!(gdev_device_count = __gdev_get_device_count()))
-		return CUDA_ERROR_INVALID_DEVICE;
+	sscanf(buf, "%d", &minor);
 
-	__gdev_list_init(&gdev_ctx_list, NULL);
-
-	return CUDA_SUCCESS;
+	return minor;
 }
 
-/**
- * global variables. 
- */
-int gdev_initialized = 0;
+
+#endif

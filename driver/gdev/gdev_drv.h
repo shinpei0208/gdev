@@ -84,8 +84,8 @@ struct gdev_handle {
 };
 
 /**
-* Gdev driver module struct:
-*/
+ * Gdev driver module struct:
+ */
 struct gdev_drv {
 	int count;
 	dev_t dev;
@@ -112,8 +112,11 @@ int gdev_minor_init(struct drm_device*);
 int gdev_minor_exit(struct drm_device*);
 
 /**
- * Export the Gdev driver module object:
+ * Gdev getinfo functions (exported to kernel modules).
+ * the same information can be found in /proc/gdev/ for user-space.
  */
+int gdev_getinfo_device_count(void);
+
 extern struct gdev_drv gdrv;
 
 #endif

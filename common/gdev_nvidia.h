@@ -161,7 +161,7 @@ struct gdev_compute {
  * runtime/driver-dependent resource management functions.
  */
 int gdev_compute_init(gdev_device_t*);
-int gdev_info_query(gdev_device_t*, uint32_t, uint32_t*);
+int gdev_query(gdev_device_t*, uint32_t, uint32_t*);
 gdev_device_t *gdev_dev_open(int);
 void gdev_dev_close(gdev_device_t*);
 gdev_vas_t *gdev_vas_new(gdev_device_t*, uint64_t);

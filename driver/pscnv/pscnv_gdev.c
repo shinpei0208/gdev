@@ -127,7 +127,7 @@ int gdev_compute_init(gdev_device_t *gdev)
 }
 
 /* query a piece of the device-specific information. */
-int gdev_info_query(gdev_device_t *gdev, uint32_t type, uint32_t *result)
+int gdev_query(gdev_device_t *gdev, uint32_t type, uint32_t *result)
 {
 	struct drm_device *drm = gdev->drm;
 	struct drm_nouveau_private *priv = drm->dev_private;
