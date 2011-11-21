@@ -52,6 +52,9 @@ int pscnv_ioctl_getparam(struct drm_device *dev, void *data,
 		else
 			getparam->value = NV_PCI;
 		break;
+	case PSCNV_GETPARAM_VM_VRAM_BASE:
+                getparam->value = 0; /* deprecated */
+                break;
 	case PSCNV_GETPARAM_PTIMER_TIME:
 		getparam->value = nv04_timer_read(dev);
 		break;
