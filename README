@@ -52,7 +52,7 @@ cd $(TOPDIR)/runtime
 mkdir build
 cd build
 ../configure # if you want user-space runtime, specify --target=user
-cp $(SOMEWHERE)/gdev_nvidia_nvc0.o . # copy a missing file
+cp $(SOMEWHERE)/gdev_nvidia_nvc0_user.o gdev_nvidia_nvc0.o # a missing file
 make
 sudo make install
 
@@ -62,7 +62,7 @@ cd $(TOPDIR)/driver
 mkdir build
 cd build
 ../configure
-cp $(SOMEWHERE)/gdev_nvidia_nvc0.o . # copy a missing file
+cp $(SOMEWHERE)/gdev_nvidia_nvc0_kernel.o gdev_nvidia_nvc0.o # a missing file
 make
 sudo init 3
 cd $(TOPDIR)/driver/build
