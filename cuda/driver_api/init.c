@@ -27,46 +27,20 @@
 #include "cuda.h"
 #include "gdev_cuda.h"
 
-#ifdef __KERNEL__
-#include <linux/proc_fs.h>
-static inline int FILE_EXIST(char *fname)
-{
-	struct file *fp = filp_open(fname, O_RDONLY, 0);
-	if (fp) {
-		filp_close(fp, NULL);
-		return 1;
-	}
-	return 0;
-}
-#else /* !__KERNEL__ */
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/unistd.h>
-static inline int FILE_EXIST(char *fname)
-{
-	struct stat st;
-	if (stat(fname, &st) == 0)
-		return 1;
-	return 0;
-}
-#endif
-
 static int __gdev_get_device_count(void)
 {
-	char fname[64];
+	char fname[64] = "/proc/gdev/device_count";
+	char buf[16];
+	int len;
 	int minor = 0;
+	FILE *fp;
 
-	/**
-	 * read /proc/gdev/device_count here!!!!!!!
-	 */
+	if (!(fp = FOPEN(fname)))
+		return 0;
+	FREAD(buf, 15, fp);
+	FCLOSE(fp);
 
-	/* check the number of devices. */
-	for (;;) {
-		sprintf(fname, "/dev/gdev%d", minor);
-		if (!FILE_EXIST(fname))
-			break;
-		minor++;
-	}
+	sscanf(buf, "%d", &minor);
 
 	return minor;
 }

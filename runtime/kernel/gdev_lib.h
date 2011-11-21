@@ -51,6 +51,7 @@
 	if (GDEV_DEBUG_PRINT)							\
 		fprintf(stderr, "[gdev:debug] " fmt, ##arg)
 
+/* macros for user-specific functions. */
 #define MALLOC(x) malloc(x)
 #define FREE(x) free(x)
 #define SCHED_YIELD() sched_yield()
