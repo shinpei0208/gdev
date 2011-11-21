@@ -51,6 +51,7 @@
 	if (DEBUG_PRINT)							\
 		printk("[gdev:debug] " fmt, ##arg)
 
+/* macros for kernel-specific functions. */
 #define MALLOC(x) vmalloc(x)
 #define FREE(x) vfree(x)
 #define SCHED_YIELD() schedule_timeout(1)

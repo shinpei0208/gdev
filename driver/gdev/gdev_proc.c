@@ -9,8 +9,8 @@ static struct semaphore gproc_sem;
 static int gdev_proc_read(char *kbuf, char *page, int count, int *eof)
 {
 	down(&gproc_sem);
-	count = 0;
-	count += sprintf(page, "%s", kbuf);
+	strncpy(page, kbuf, count);
+	count = strlen(page);
 	*eof = 1;
 	up(&gproc_sem);
 	return count;

@@ -27,43 +27,6 @@
 #include "cuda.h"
 #include "gdev_cuda.h"
 
-#ifdef __KERNEL__
-#include <linux/proc_fs.h>
-#ifdef CONFIG_64BIT
-#define Elf_Phdr Elf32_Phdr
-#define FILE struct file
-#define FOPEN(fname) filp_open(fname, O_RDONLY | O_DIRECT, 0)
-#define FSEEK(fp, offset, whence) vfs_llseek(fp, 0, whence)
-#define FTELL(fp) (fp)->f_pos
-#define FREAD(ptr, size, fp) kernel_read(fp, 0, ptr, size)
-#define FCLOSE(fp) filp_close(fp, NULL)
-#else
-#define Elf_Phdr	Elf64_Phdr
-#endif
-#else /* !__KERNEL__ */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <elf.h>
-#include <limits.h>
-#if (ULONG_MAX == UINT_MAX)
-#define Elf_Ehdr	Elf32_Ehdr
-#define Elf_Shdr	Elf32_Shdr
-#define Elf_Phdr	Elf32_Phdr
-#define Elf_Sym	 Elf32_Sym
-#else
-#define Elf_Ehdr	Elf64_Ehdr
-#define Elf_Shdr	Elf64_Shdr
-#define Elf_Phdr	Elf64_Phdr
-#define Elf_Sym	 Elf64_Sym
-#endif
-#define FOPEN(fname) fopen(fname, "rb")
-#define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
-#define FTELL(fp) ftell(fp)
-#define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
-#define FCLOSE(fp) fclose(fp)
-#endif
-
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
 #define SH_INFO_FUNC ".nv.info."
@@ -391,7 +354,13 @@ static CUresult cubin_func
 				case 0x0204: /* textures */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
-				default:
+				case 0xf000: /* unknown */
+					cubin_func_skip(&sh_pos, sh_e);
+					break;
+				case 0x080d: /* unknown */
+					cubin_func_skip(&sh_pos, sh_e);
+					break;
+				default: /* real unknown */
 					cubin_func_unknown(&sh_pos, sh_e);
 					break;
 				}
