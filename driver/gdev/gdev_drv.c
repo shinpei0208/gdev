@@ -230,6 +230,12 @@ int gdev_major_exit(void)
 	return 0;
 }
 
+int gdev_getinfo_device_count(void)
+{
+	return gdrv.count;
+}
+EXPORT_SYMBOL(gdev_getinfo_device_count);
+
 /**
  * export Gdev API functions.
  */

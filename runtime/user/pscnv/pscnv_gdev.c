@@ -103,7 +103,7 @@ int gdev_compute_init(gdev_device_t *gdev)
 }
 
 /* query a piece of the device-specific information. */
-int gdev_info_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
+int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 {
 	int fd = gdev->fd;
 

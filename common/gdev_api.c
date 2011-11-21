@@ -687,7 +687,7 @@ int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
  */
 int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
 {
-	return gdev_info_query(handle->gdev, type, result);
+	return gdev_query(handle->gdev, type, result);
 }
 
 /**
