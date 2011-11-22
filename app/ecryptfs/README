@@ -1,0 +1,42 @@
+#
+# GPU-accelerated eCryptfs
+#
+# README
+#
+# Copyright (C) 2011 Shinpei Kato
+# University of California, Santa Cruz
+# Systems Research Lab.
+# 
+# All Rights Reserved.
+#
+
+This is an eCryptfs encrypted filesystem module enhanced to accelearte 
+on GPUs, using KCUDA provided by Gdev.
+The ecryptfs module is modified to call the ecb_gpu module instead of
+the original ecb module. The ecb_gpu module implements AES using KCUDA.
+A series of experiments has shown that GPU-accelerated eCryptfs provides
+~5x speedup on usual disks, and further acceleration would be obtained
+on SSDs.
+
+The following instruct how to install and use GPU-accelerated eCryptfs.
+We assume that the system is already setup to use eCryptfs. In Fedora,
+for instance, ecryptfs-manger can be used to setup eCryptfs.
+
+sudo modprobe xts
+sudo modprobe aes # may not be necessary depending on environments
+cd ecb
+make
+sudo insmod ecb_gpu.ko
+cd ../ecryptfs
+make
+sudo insmod ecryptfs.ko
+cd $(SOME_TEST_DIRECTORY)
+mkdir secret # mount ecryptfs on this directory
+sudo mount -t ecryptfs secret secret
+cd secret
+time dd if=/dev/zero of=./zero bs=1M count=1 # see how fast it is!
+cd ..
+sudo umount secret
+sudo rmmod ecryptfs
+sudo rmmod ecb_gpu
+
