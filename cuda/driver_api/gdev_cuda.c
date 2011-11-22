@@ -354,10 +354,16 @@ static CUresult cubin_func
 				case 0x0204: /* textures */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
-				case 0xf000: /* unknown */
+				case 0x0001: /* unknown */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
 				case 0x080d: /* unknown */
+					cubin_func_skip(&sh_pos, sh_e);
+					break;
+				case 0xf000: /* unknown */
+					cubin_func_skip(&sh_pos, sh_e);
+					break;
+				case 0xffff: /* unknown */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
 				default: /* real unknown */
