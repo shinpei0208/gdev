@@ -74,10 +74,10 @@ typedef struct symbol_entry {
 	uint32_t sym_idx;
 } symbol_entry_t;
 
-static CUresult load_bin(char **pbin, FILE **pfp, const char *fname)
+static CUresult load_bin(char **pbin, file_t **pfp, const char *fname)
 {
 	char *bin;
-	FILE *fp;
+	file_t *fp;
 	uint32_t len;
 
 	if (!(fp = FOPEN(fname)))
@@ -102,7 +102,7 @@ static CUresult load_bin(char **pbin, FILE **pfp, const char *fname)
 	return CUDA_SUCCESS;
 }
 
-static void unload_bin(char *bin, FILE *fp)
+static void unload_bin(char *bin, file_t *fp)
 {
 	FREE(bin);
 	FCLOSE(fp);
@@ -174,7 +174,7 @@ static void cubin_func_0d04
 	/* what is se->unk16 and se->unk32... */
 }
 
-static void init_mod(struct CUmod_st *mod, char *bin, FILE *fp)
+static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
 {
 	int i;
 
@@ -397,7 +397,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 	symbol_entry_t *sym_entry;
 	char *pos;
 	char *bin;
-	FILE *fp;
+	file_t *fp;
 	int i;
 
 	if ((res = load_bin(&bin, &fp, fname)) != CUDA_SUCCESS)

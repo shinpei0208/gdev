@@ -27,15 +27,21 @@
 #ifndef __GDEV_CUDA_UTIL_H__
 #define __GDEV_CUDA_UTIL_H__
 
+#include <linux/err.h>
+#include <linux/fs.h>
 #include <linux/proc_fs.h>
+typedef struct file file_t;
 #ifdef CONFIG_64BIT
 #define Elf_Phdr Elf32_Phdr
 #else
 #define Elf_Phdr Elf64_Phdr
 #endif
-#define FILE struct file
-#define FOPEN(fname) filp_open(fname, O_RDONLY | O_DIRECT, 0)
-#define FSEEK(fp, offset, whence) vfs_llseek(fp, 0, whence)
+static inline file_t *FOPEN(const char *fname)
+{
+	file_t *fp = filp_open(fname, O_RDONLY, 0);
+	return IS_ERR(fp) ? NULL: fp;
+}
+#define FSEEK(fp, offset, whence) generic_file_llseek(fp, 0, whence)
 #define FTELL(fp) (fp)->f_pos
 #define FREAD(ptr, size, fp) kernel_read(fp, 0, ptr, size)
 #define FCLOSE(fp) filp_close(fp, NULL)

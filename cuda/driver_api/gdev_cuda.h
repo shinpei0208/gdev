@@ -75,7 +75,7 @@ struct CUctx_st {
 };
 
 struct CUmod_st {
-	FILE *fp;
+	file_t *fp;
 	void *bin;
 	uint64_t code_addr;
 	uint32_t code_size;
