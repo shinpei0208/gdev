@@ -15,9 +15,6 @@ KBUILD_EXTRA_SYMBOLS = $(GDEVETC)/Module.symvers.kcuda
 all:
 	+make -C $(KERNELDIR) M=$(PWD) modules
 
-$(TARGET).o: $(OBJS)
-	$(LD) $(LD_RFLAG) -r -o $@ $(OBJS)
-
 clean:
 	+make -C $(KERNELDIR) M=$(PWD) clean
 	rm -f *~
