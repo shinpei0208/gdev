@@ -80,6 +80,24 @@ gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr, int type)
 	return NULL;
 }
 
+/* free all memory left in heap. */
+void gdev_garbage_collect(gdev_vas_t *vas)
+{
+	gdev_mem_t *mem;
+
+	/* device memory. */
+	gdev_list_for_each (mem, &vas->mem_list) {
+		gdev_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
+	}
+
+	/* host DMA memory. */
+	gdev_list_for_each (mem, &vas->dma_mem_list) {
+		gdev_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
+	}
+}
+
 /* copy data of @size from @src_addr to @dst_addr. */
 uint32_t gdev_memcpy
 (gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)

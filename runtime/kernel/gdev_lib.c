@@ -39,11 +39,14 @@ gdev_handle_t *gopen(int devnum)
 {
 	char devname[32];
 	gdev_handle_t *handle;
-
-	handle = (gdev_handle_t*)malloc(sizeof(*handle));
+	int fd;
 
 	sprintf(devname, "/dev/gdev%d", devnum);
-	handle->fd = open(devname, O_RDWR);
+	if ((fd = open(devname, O_RDWR)) < 0)
+		return NULL;
+
+	handle = (gdev_handle_t*)malloc(sizeof(*handle));
+	handle->fd = fd;
 	__gdev_list_init(&handle->map_bo_list, NULL);
 
 	return handle;
@@ -131,11 +134,20 @@ free:
 int gmemcpy_to_device
 (gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
+	struct gdev_map_bo *bo;
 	gdev_ioctl_dma_t dma;
 	int fd = handle->fd;
 
+	gdev_list_for_each (bo, &handle->map_bo_list) {
+		if (bo && (bo->map == src_buf))
+			break;
+	}
+	
 	dma.dst_addr = dst_addr;
-	dma.src_buf = src_buf;
+	if (bo)
+		dma.src_buf = (void *) bo->addr;
+	else
+		dma.src_buf = src_buf;
 	dma.size = size;
 
 	return ioctl(fd, GDEV_IOCTL_GMEMCPY_TO_DEVICE, &dma);
@@ -144,11 +156,20 @@ int gmemcpy_to_device
 int gmemcpy_from_device
 (gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
+	struct gdev_map_bo *bo;
 	gdev_ioctl_dma_t dma;
 	int fd = handle->fd;
 
+	gdev_list_for_each (bo, &handle->map_bo_list) {
+		if (bo && (bo->map == dst_buf))
+			break;
+	}
+	
 	dma.src_addr = src_addr;
-	dma.dst_buf = dst_buf;
+	if (bo)
+		dma.dst_buf = (void *) bo->addr;
+	else
+		dma.dst_buf = dst_buf;
 	dma.size = size;
 
 	return ioctl(fd, GDEV_IOCTL_GMEMCPY_FROM_DEVICE, &dma);

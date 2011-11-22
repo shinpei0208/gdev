@@ -149,7 +149,11 @@ int gclose(gdev_handle_t *handle)
 	if (!dma_mem)
 		return -ENOENT;
 
+	/* free the bounce buffer. */
 	__free_dma(handle, dma_mem);
+	/* free all memory left in heap. */
+	gdev_garbage_collect(vas);
+	/* free the objects. */
 	gdev_ctx_free(ctx);
 	gdev_vas_free(vas);
 	gdev_dev_close(gdev);
@@ -171,11 +175,13 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
 	gdev_vas_t *vas = GDEV_VAS_GET(handle);
 
 	if (!(mem = gdev_malloc(vas, size, GDEV_MEM_DEVICE))) {
-		GDEV_PRINT("Failed to allocate memory.\n");
+		GDEV_PRINT("Failed to allocate device memory.\n");
 		return 0;
 	}
 	
 	gdev_heap_add(mem, GDEV_MEM_DEVICE);
+	GDEV_PRINT("Allocated 0x%x at 0x%x in device.\n", 
+			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
 	return GDEV_MEM_ADDR(mem);
 }
@@ -192,6 +198,7 @@ int gfree(gdev_handle_t *handle, uint64_t addr)
 	if ((mem = gdev_heap_lookup(vas, addr, GDEV_MEM_DEVICE))) {
 		gdev_heap_del(mem);
 		gdev_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
 
@@ -213,6 +220,8 @@ void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
 	}
 	
 	gdev_heap_add(mem, GDEV_MEM_DMA);
+	GDEV_PRINT("Allocated 0x%x at 0x%x in host DMA.\n", 
+			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
 	return GDEV_MEM_BUF(mem);
 }
@@ -229,6 +238,7 @@ int gfree_dma(gdev_handle_t *handle, void *buf)
 	if ((mem = gdev_heap_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
 		gdev_heap_del(mem);
 		gdev_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
 

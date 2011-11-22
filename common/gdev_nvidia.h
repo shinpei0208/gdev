@@ -191,6 +191,7 @@ void gdev_heap_init(gdev_vas_t*);
 void gdev_heap_add(gdev_mem_t*, int);
 void gdev_heap_del(gdev_mem_t*);
 gdev_mem_t *gdev_heap_lookup(gdev_vas_t*, uint64_t, int);
+void gdev_garbage_collect(gdev_vas_t*);
 
 /**
  * runtime/driver/architecture-independent inline FIFO functions.
