@@ -43,6 +43,7 @@
 #define Elf_Phdr	Elf64_Phdr
 #define Elf_Sym	 Elf64_Sym
 #endif
+typedef FILE file_t;
 #define FOPEN(fname) fopen(fname, "rb")
 #define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
 #define FTELL(fp) ftell(fp)
