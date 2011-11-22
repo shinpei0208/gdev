@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/unistd.h>
 
 #include "gdev_api.h"
@@ -37,24 +38,27 @@
 gdev_handle_t *gopen(int devnum)
 {
 	char devname[32];
-	gdev_handle_t *handle = (gdev_handle_t*) malloc(sizeof(int));
+	gdev_handle_t *handle;
+
+	handle = (gdev_handle_t*)malloc(sizeof(*handle));
 
 	sprintf(devname, "/dev/gdev%d", devnum);
-	*handle = open(devname, O_RDWR);
+	handle->fd = open(devname, O_RDWR);
+	__gdev_list_init(&handle->map_bo_list, NULL);
 
 	return handle;
 }
 
 int gclose(gdev_handle_t *handle)
 {
-	int fd = *handle;
+	int fd = handle->fd;
 	return close(fd);
 }
 
 uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
 {
 	gdev_ioctl_mem_t mem;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	mem.size = size;
 	ioctl(fd, GDEV_IOCTL_GMALLOC, &mem);
@@ -65,7 +69,7 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
 int gfree(gdev_handle_t *handle, uint64_t addr)
 {
 	gdev_ioctl_mem_t mem;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	mem.addr = addr;
 	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
@@ -73,29 +77,62 @@ int gfree(gdev_handle_t *handle, uint64_t addr)
 
 void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
 {
+	void *map;
+	struct gdev_map_bo *bo;
 	gdev_ioctl_mem_t mem;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	mem.size = size;
-	ioctl(fd, GDEV_IOCTL_GMALLOC, &mem);
+	if (ioctl(fd, GDEV_IOCTL_GMALLOC_DMA, &mem))
+		goto fail_gmalloc_dma;
+	map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mem.addr);
+	if (map == MAP_FAILED)
+		goto fail_map;
 
-	return (void*)mem.addr;
+	bo = (struct gdev_map_bo*)malloc(sizeof(*bo));
+	if (!bo)
+		goto fail_malloc;
+	__gdev_list_init(&bo->list_entry, bo);
+	__gdev_list_add(&bo->list_entry, &handle->map_bo_list);
+	bo->addr = mem.addr;
+	bo->size = mem.size;
+	bo->map = map;
+
+	return map;
+
+fail_malloc:
+	munmap(map, size);
+fail_map:
+	ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
+fail_gmalloc_dma:
+	return NULL;
 }
 
 int gfree_dma(gdev_handle_t *handle, void *buf)
 {
+	struct gdev_map_bo *bo;
 	gdev_ioctl_mem_t mem;
-	int fd = *handle;
+	int fd = handle->fd;
 
-	mem.addr = (uint64_t)buf;
-	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+	gdev_list_for_each (bo, &handle->map_bo_list) {
+		if (bo && (bo->map == buf)) {
+			goto free;
+		}
+	}
+	return -ENOENT;
+
+free:
+	munmap(bo->map, bo->size);
+	mem.addr = bo->addr;
+	free(bo);
+	return ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
 }
 
 int gmemcpy_to_device
 (gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
 	gdev_ioctl_dma_t dma;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	dma.dst_addr = dst_addr;
 	dma.src_buf = src_buf;
@@ -108,7 +145,7 @@ int gmemcpy_from_device
 (gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
 	gdev_ioctl_dma_t dma;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	dma.src_addr = src_addr;
 	dma.dst_buf = dst_buf;
@@ -121,7 +158,7 @@ int gmemcpy_in_device
 (gdev_handle_t *handle, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ioctl_dma_t dma;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	dma.dst_addr = dst_addr;
 	dma.src_addr = src_addr;
@@ -133,7 +170,7 @@ int gmemcpy_in_device
 int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 {
 	gdev_ioctl_launch_t launch;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	launch.kernel = kernel;
 	launch.id = id;
@@ -144,7 +181,7 @@ int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 {
 	gdev_ioctl_sync_t sync;
-	int fd = *handle;
+	int fd = handle->fd;
 
 	sync.id = id;
 	sync.timeout = timeout;
@@ -155,7 +192,7 @@ int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
 {
 	gdev_ioctl_query_t q;
-	int fd = *handle;
+	int fd = handle->fd;
 	int ret;
 
 	q.type = type;
@@ -169,7 +206,7 @@ int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
 int gtune(gdev_handle_t *handle, uint32_t type, uint32_t value)
 {
 	gdev_ioctl_tune_t c;
-	int fd = *handle;
+	int fd = handle->fd;
 	int ret;
 
 	c.type = type;

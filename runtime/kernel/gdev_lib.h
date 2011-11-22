@@ -31,6 +31,7 @@
 #include <stdio.h> /* printf, etc. */
 #include <stdlib.h> /* malloc/free, etc. */
 #include <string.h> /* memcpy, etc. */
+#include "gdev_list.h"
 
 #define GDEV_DEV_GET(handle) (handle)->gdev
 #define GDEV_DEV_SET(handle, dev) (handle)->gdev = (dev)
@@ -59,6 +60,16 @@
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
 
-typedef int gdev_handle_t;
+struct gdev_map_bo {
+	uint64_t addr;
+	uint32_t size;
+	void *map;
+	gdev_list_t list_entry;
+};
+
+typedef struct gdev_handle {
+	int fd;
+	gdev_list_t map_bo_list;
+} gdev_handle_t;
 
 #endif
