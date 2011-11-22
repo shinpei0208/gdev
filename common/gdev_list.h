@@ -51,7 +51,7 @@ static inline void __gdev_list_add
 	entry->next = next;
 	if (next)
 		next->prev = entry;
-	entry->prev = NULL; /* don't link to the head. */
+	entry->prev = head; /* link to the head. */
 	head->next = entry;
 }
 
@@ -59,28 +59,24 @@ static inline void __gdev_list_del(struct gdev_list *entry)
 {
 	struct gdev_list *next = entry->next;
 	struct gdev_list *prev = entry->prev;
-	
-	if (next) {
-		next->prev = entry->prev;
-	}
+
+	/* if prev is null, @entry points to the head, hence something wrong. */
 	if (prev) {
-		prev->next = entry->next;
+		prev->next = next;
+		if (next)
+			next->prev = prev;
+		entry->next = entry->prev = NULL;
 	}
-	entry->next = entry->prev = NULL;
 }
 
 static inline struct gdev_list *__gdev_list_head(struct gdev_list *head)
 {
-	if (!head)
-		return NULL;
-	return head->next;
+	return head ? head->next : NULL;
 }
 
 static inline void *__gdev_list_container(struct gdev_list *entry)
 {
-	if (!entry)
-		return NULL;
-	return entry->container;
+	return entry ? entry->container : NULL;
 }
 
 #define gdev_list_for_each(p, list)							\
