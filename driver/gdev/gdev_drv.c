@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 
 #include "gdev_api.h"
 #include "gdev_conf.h"
@@ -120,6 +121,37 @@ static int gdev_ioctl
 	return 0;
 }
 
+static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	void *buf = (void*) (vma->vm_pgoff << PAGE_SHIFT);
+	uint32_t size = vma->vm_end - vma->vm_start;
+	unsigned long start = vma->vm_start;
+
+	if (size > PAGE_SIZE) {
+		char *vmalloc_area_ptr = (char *)buf;
+		unsigned long pfn;
+		int ret;
+
+		/* loop over all pages, map it page individually */
+		while (size > 0) {
+			pfn = vmalloc_to_pfn(vmalloc_area_ptr);
+			if ((ret = remap_pfn_range(vma, start, pfn, PAGE_SIZE,
+									   PAGE_SHARED)) < 0) {
+				return ret;
+			}
+			start += PAGE_SIZE;
+			vmalloc_area_ptr += PAGE_SIZE;
+			size -= PAGE_SIZE;
+        }
+
+		return 0;
+	}
+	else {
+		return remap_pfn_range(vma, start, virt_to_phys(buf) >> PAGE_SHIFT,
+							   size, PAGE_SHARED);
+	}
+}
+
 static struct file_operations gdev_fops = {
 	.owner = THIS_MODULE,
 	.open = gdev_open,
@@ -129,6 +161,7 @@ static struct file_operations gdev_fops = {
 #else
 	.ioctl = gdev_ioctl,
 #endif
+	.mmap = gdev_mmap,
 };
 
 int gdev_minor_init(struct drm_device *drm)
