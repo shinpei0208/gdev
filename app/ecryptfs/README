@@ -21,6 +21,7 @@ on SSDs.
 The following instruct how to install and use GPU-accelerated eCryptfs.
 We assume that the system is already setup to use eCryptfs. In Fedora,
 for instance, ecryptfs-manger can be used to setup eCryptfs.
+The kcuda module must also be loaded.
 
 sudo modprobe xts
 sudo modprobe aes # may not be necessary depending on environments
