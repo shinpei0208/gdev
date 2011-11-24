@@ -237,8 +237,7 @@ int nvc0_fifo_chan_init_ib (struct pscnv_chan *ch, uint32_t pb_handle, uint32_t 
 	nv_wv32(ch->bo, 0x0c, fifo_regs >> 32);
 
 	nv_wv32(ch->bo, 0x48, ib_start); /* IB */
-	nv_wv32(ch->bo, 0x4c,
-		(ib_start >> 32) | (ib_order << 16));
+	nv_wv32(ch->bo, 0x4c, (ib_start >> 32) | (ib_order << 16));
 	nv_wv32(ch->bo, 0x10, 0xface);
 	nv_wv32(ch->bo, 0x54, 0x2);
 	nv_wv32(ch->bo, 0x9c, 0x100);
@@ -316,9 +315,9 @@ void nvc0_pfifo_page_fault(struct drm_device *dev, int unit)
 	virt = (virt << 32) | nv_rd32(dev, 0x2804 + unit * 0x10);
 	flags = nv_rd32(dev, 0x280c + unit * 0x10);
 
-	NV_INFO(dev, "%s PAGE FAULT at 0x%010llx (%c, %s), ch: %08x\n",
+	NV_INFO(dev, "%s PAGE FAULT at 0x%010llx (%c, %s), flags: %x, ch: %08x\n",
 			pgf_unit_str(unit), virt,
-			(flags & 0x80) ? 'w' : 'r', pgf_cause_str(flags), chan);
+			(flags & 0x80) ? 'w' : 'r', pgf_cause_str(flags), flags, chan);
 }
 
 void nvc0_pfifo_subfifo_fault(struct drm_device *dev, int unit)

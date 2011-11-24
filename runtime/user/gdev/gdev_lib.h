@@ -54,7 +54,11 @@
 #define MALLOC(x) malloc(x)
 #define FREE(x) free(x)
 #define SCHED_YIELD() sched_yield()
-#define MB() //mb()
+#if (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)
+#define MB() __sync_synchronize()
+#else
+#define MB()
+#endif
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
 

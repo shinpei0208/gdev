@@ -4,12 +4,8 @@
 #include <string.h>
 #include <time.h>
 
-#define DATA_END 0x10000000 /* 256MB */
-#define DATA_START DATA_END // 0x400000 /* 4MB */
-#define CHUNK_END 0x2000000 /* 32MB */
-#define CHUNK_START 0x10000 /* 64KB */
-#define PIPELINE_END 4
-#define PIPELINE_START 4
+#define DATA_SIZE 0x10000000 /* 256MB */
+#define CHUNK_SIZE 0x400000 /* 4MB */
 
 int gdev_test_memcpy(uint32_t *in, uint32_t *out, uint32_t size, 
 					 uint32_t chunk_size, int pipeline_count);
@@ -17,8 +13,8 @@ int gdev_test_memcpy(uint32_t *in, uint32_t *out, uint32_t size,
 int main(int argc, char *argv[])
 {
 	uint32_t *in, *out;
-	uint32_t size = 0x10000000;
-	uint32_t ch_size = 0x40000; /* 0x200000 is best */
+	uint32_t size = DATA_SIZE;
+	uint32_t ch_size = CHUNK_SIZE;
 	int pl = 2;
 	int i, tmp;
 
