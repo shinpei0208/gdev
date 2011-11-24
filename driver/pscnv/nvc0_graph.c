@@ -419,7 +419,7 @@ nvc0_graph_generate_context(struct drm_device *dev,
 		return 0;
 	NV_INFO(dev, "PGRAPH: generating default grctx\n");
 
-	grctx = kmalloc(graph->grctx_size, GFP_KERNEL);
+	grctx = kzalloc(graph->grctx_size, GFP_KERNEL);
 	if (!grctx)
 		return -ENOMEM;
 
@@ -757,18 +757,14 @@ nvc0_graph_chan_alloc(struct pscnv_engine *eng, struct pscnv_chan *chan)
 		return -ENOMEM;
 
 	ret = dev_priv->vm->map_kernel(grch->grctx);
-	if (ret) {
-		pscnv_mem_free(grch->grctx);
-		return ret;
-	}
+	if (ret)
+		goto err;
 
 	ret = pscnv_vspace_map(chan->vspace,
 						   grch->grctx, 0x1000, (1ULL << 40) - 1,
 						   0, &grch->grctx_vm);
-	if (ret) {
-		pscnv_mem_free(grch->grctx);
-		return ret;
-	}
+	if (ret)
+		goto err;
 
 	nv_wv32(chan->bo, 0x210, grch->grctx_vm->start | 4);
 	nv_wv32(chan->bo, 0x214, grch->grctx_vm->start >> 32);
@@ -779,19 +775,19 @@ nvc0_graph_chan_alloc(struct pscnv_engine *eng, struct pscnv_chan *chan)
 							   0x1000, (1ULL << 40) - 1, 0,
 							   &nvc0_vs(chan->vspace)->obj08004);
 		if (ret)
-			return ret;
+			goto err;
 
 		ret = pscnv_vspace_map(chan->vspace, graph->obj0800c,
 							   0x1000, (1ULL << 40) - 1, 0,
 							   &nvc0_vs(chan->vspace)->obj0800c);
 		if (ret)
-			return ret;
+			goto err;
 
 		ret = pscnv_vspace_map(chan->vspace, graph->obj19848,
 							   0x1000, (1ULL << 40) - 1, 0,
 							   &nvc0_vs(chan->vspace)->obj19848);
 		if (ret)
-			return ret;
+			goto err;
 	}
 
 	chan->engdata[PSCNV_ENGINE_GRAPH] = grch;
@@ -799,7 +795,7 @@ nvc0_graph_chan_alloc(struct pscnv_engine *eng, struct pscnv_chan *chan)
 	if (!nvc0_vs(chan->vspace)->mmio_bo) {
 		ret = nvc0_graph_create_context_mmio_list(chan->vspace, graph);
 		if (ret)
-			return ret;
+			goto err;
 	}
 
 	if (!graph->grctx_initvals)
@@ -826,6 +822,10 @@ nvc0_graph_chan_alloc(struct pscnv_engine *eng, struct pscnv_chan *chan)
 	dev_priv->vm->bar_flush(dev);
 
 	return 0;
+
+err:
+	pscnv_mem_free(grch->grctx);
+	return ret;
 }
 
 void
@@ -840,15 +840,15 @@ nvc0_graph_chan_free(struct pscnv_engine *eng, struct pscnv_chan *ch)
 	struct nvc0_graph_chan *grch = ch->engdata[PSCNV_ENGINE_GRAPH];
 	struct pscnv_vspace *vs = ch->vspace;
 
-	pscnv_vspace_unmap_node(nvc0_vs(vs)->mmio_vm);
-	pscnv_mem_free(nvc0_vs(vs)->mmio_bo);
-	pscnv_vspace_unmap_node(grch->grctx_vm);
-	pscnv_mem_free(grch->grctx);
-
 	/* don't free memory for obj19848/0800c/08004 here. */
 	pscnv_vspace_unmap_node(nvc0_vs(vs)->obj19848);
 	pscnv_vspace_unmap_node(nvc0_vs(vs)->obj0800c);
 	pscnv_vspace_unmap_node(nvc0_vs(vs)->obj08004);
+
+	pscnv_vspace_unmap_node(nvc0_vs(vs)->mmio_vm);
+	pscnv_mem_free(nvc0_vs(vs)->mmio_bo);
+	pscnv_vspace_unmap_node(grch->grctx_vm);
+	pscnv_mem_free(grch->grctx);
 
 	kfree(grch);
 	ch->engdata[PSCNV_ENGINE_GRAPH] = NULL;

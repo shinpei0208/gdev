@@ -48,13 +48,13 @@
 #define GDEV_MINOR_SET(handle, val) (handle)->dev_id = val
 #define GDEV_PRINT(fmt, arg...) printk("[gdev] " fmt, ##arg)
 #define GDEV_DPRINT(fmt, arg...)				\
-	if (DEBUG_PRINT)							\
+	if (GDEV_DEBUG_PRINT)							\
 		printk("[gdev:debug] " fmt, ##arg)
 
 /* macros for kernel-specific functions. */
 #define MALLOC(x) vmalloc(x)
 #define FREE(x) vfree(x)
-#define SCHED_YIELD() schedule_timeout(1)
+#define SCHED_YIELD() yield()
 #define MB() mb()
 #define COPY_FROM_USER(dst, src, size) \
 	copy_from_user(dst, (void __user *) src, size)

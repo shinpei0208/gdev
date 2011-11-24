@@ -107,6 +107,7 @@ uint32_t gdev_memcpy
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_DMA];
 
+	compute->membar(ctx);
 	/* it's important to emit a fence *before* memcpy():
 	   the EXEC method of the PCOPY and M2MF engines is associated with
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
@@ -125,6 +126,7 @@ uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern)
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
 
+	compute->membar(ctx);
 	/* it's important to emit a fence *after* launch():
 	   the LAUNCH method of the PGRAPH engine is not associated with
 	   the QUERY method, i.e., we have to submit the QUERY method 
@@ -133,16 +135,6 @@ uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern)
 	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, seq);
 	
 	return seq;
-}
-
-/* barrier memory access. */
-void gdev_mb(gdev_ctx_t *ctx)
-{
-	gdev_vas_t *vas = ctx->vas;
-	gdev_device_t *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
-
-	compute->membar(ctx);
 }
 
 /* poll until the resource becomes available. */
@@ -155,7 +147,7 @@ int gdev_poll(gdev_ctx_t *ctx, int type, uint32_t seq, gdev_time_t *timeout)
 	uint32_t val;
 
 	gdev_time_stamp(&time_start);
-	gdev_time_sec(&time_relax, 1); /* relax polling when 1 second elapsed. */
+	gdev_time_ms(&time_relax, 1); /* relax polling when 1 ms elapsed. */
 
 	compute->fence_read(ctx, type, &val);
 

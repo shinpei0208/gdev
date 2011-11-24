@@ -128,6 +128,7 @@ struct gdev_ctx {
 		uint64_t addr;
 		uint32_t sequence[GDEV_FENCE_COUNT];
 	} fence;
+	uint32_t dummy;
 };
 
 /**
@@ -181,7 +182,6 @@ void nvc0_compute_setup(gdev_device_t *gdev);
  */
 uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
 uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
-void gdev_mb(gdev_ctx_t*);
 int gdev_poll(gdev_ctx_t*, int, uint32_t, gdev_time_t*);
 
 /**
@@ -217,7 +217,7 @@ static inline void __gdev_push_fifo
 	ctx->fifo.ib_put++;
 	ctx->fifo.ib_put &= ctx->fifo.ib_mask;
 	MB(); /* is this needed? */
-	ctx->fifo.ib_map[0] = ctx->fifo.ib_map[0]; /* flush writes? */
+	ctx->dummy = ctx->fifo.ib_map[0]; /* flush writes */
 	ctx->fifo.regs[0x8c/4] = ctx->fifo.ib_put;
 }
 
