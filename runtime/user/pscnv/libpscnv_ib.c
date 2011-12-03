@@ -31,7 +31,7 @@ int pscnv_ib_chan_new(int fd, int vid, struct pscnv_ib_chan **res, uint32_t pb_d
 		goto out_chmap;
 	rr->pb_dma = pb_dma;
 
-	if (chipset != 0xc0) {
+	if (chipset < 0xc0) {
 		ret = pscnv_obj_vdma_new(fd, rr->cid, pb_dma, 0x3d, 0, 0, 1ull << 40);
 		if (ret)
 			goto out_vdma;
@@ -65,18 +65,25 @@ int pscnv_ib_chan_new(int fd, int vid, struct pscnv_ib_chan **res, uint32_t pb_d
 	return 0;
 
 out_fifo:
+	printf("fifo\n");
 	pscnv_ib_bo_free(rr->pb);
 out_pb:
+	printf("fb\n");
 	pscnv_ib_bo_free(rr->ib);
 out_ib:
+	printf("ib\n");
 out_vdma:
+	printf("vdma\n");
 	munmap((void*)rr->chmap, 0x1000);
 out_chmap:
+	printf("chmap\n");
 	pscnv_chan_free(fd, rr->cid);
 out_chan:
+	printf("chan\n");
 	if (!vid)
 		pscnv_vspace_free(fd, rr->vid);
 out_vs:
+	printf("vs\n");
 	free(rr);
 	return 1;
 }
