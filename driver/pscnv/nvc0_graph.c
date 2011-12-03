@@ -721,13 +721,35 @@ nvc0_graph_create_context_mmio_list(struct pscnv_vspace *vs,
 	nv_wv32(vo, i++ * 4, 0x80000018);
 
 	magic = 0x02180000;
-	nv_wv32(vo, i++ * 4, 0x00405830);
-	nv_wv32(vo, i++ * 4, magic);
-	for (gpc = 0; gpc < graph->gpc_count; gpc++) {
-		for (tp = 0; tp < graph->gpc_tp_count[gpc]; tp++, magic += 0x0324) {
-			u32 reg = 0x504520 + (gpc * 0x8000) + (tp * 0x0800);
-			nv_wv32(vo, i++ * 4, reg);
-			nv_wv32(vo, i++ * 4, magic);
+	if (dev_priv->chipset != 0xc1) {
+		nv_wv32(vo, i++ * 4, 0x00405830);
+		nv_wv32(vo, i++ * 4, magic);
+		for (gpc = 0; gpc < graph->gpc_count; gpc++) {
+			for (tp = 0; tp < graph->gpc_tp_count[gpc]; tp++, magic += 0x0324) {
+				u32 reg = 0x504520 + (gpc * 0x8000) + (tp * 0x0800);
+				nv_wv32(vo, i++ * 4, reg);
+				nv_wv32(vo, i++ * 4, magic);
+			}
+		}
+	}
+	else {
+		nv_wv32(vo, i++ * 4, 0x00405830);
+		nv_wv32(vo, i++ * 4, magic | 0x0000218);
+		nv_wv32(vo, i++ * 4, 0x004064c4);
+		nv_wv32(vo, i++ * 4, 0x0086ffff);
+		for (gpc = 0; gpc < graph->gpc_count; gpc++) {
+			for (tp = 0; tp < graph->gpc_tp_count[gpc]; tp++) {
+				u32 reg = 0x504520 + (gpc * 0x8000) + (tp * 0x0800);
+				nv_wv32(vo, i++ * 4, reg);
+				nv_wv32(vo, i++ * 4, (1 << 28) | magic);
+				magic += 0x0324;
+			}
+			for (tp = 0; tp < graph->gpc_tp_count[gpc]; tp++) {
+				u32 reg = 0x504544 + (gpc * 0x8000) + (tp * 0x0800);
+				nv_wv32(vo, i++ * 4, reg);
+				nv_wv32(vo, i++ * 4, magic);
+				magic += 0x0324;
+			}
 		}
 	}
 

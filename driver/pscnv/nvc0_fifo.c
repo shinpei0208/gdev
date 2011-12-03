@@ -51,6 +51,7 @@ int nvc0_fifo_init(struct drm_device *dev)
 {
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	struct nvc0_fifo_engine *res = kzalloc(sizeof *res, GFP_KERNEL);
+	int subfifo_count;
 	int i;
 
 	if (!res) {
@@ -109,34 +110,48 @@ int nvc0_fifo_init(struct drm_device *dev)
 		return -ENOMEM;
 	}
 	
-	nv_wr32(dev, 0x2100, 0xffffffff); /* PFIFO_INTR */
+	/* reset PFIFO, enable all available PSUBFIFO areas */
+	nv_mask(dev, 0x000200, 0x00000100, 0x00000000);
+	nv_mask(dev, 0x000200, 0x00000100, 0x00000100);
+	nv_wr32(dev, 0x000204, 0xffffffff);
+	nv_wr32(dev, 0x002204, 0xffffffff);
 
-	nv_wr32(dev, 0x204, 0);
-	nv_wr32(dev, 0x204, 7); /* PMC.SUBFIFO_ENABLE */
+	subfifo_count = hweight32(nv_rd32(dev, 0x002204));
 
-	nv_wr32(dev, 0x2204, 7); /* PFIFO.SUBFIFO_ENABLE */
-
-	/* PFIFO.ENG_SUBFIFO_MASK[0 .. 5] */
-	nv_wr32(dev, 0x2208, 0xfffffffe); /* PGRAPH on subfifo 0 */
-	nv_wr32(dev, 0x220c, 0xfffffffd); /* PVP, PPP, PBSP on subfifo 1 */
-	nv_wr32(dev, 0x2210, 0xfffffffd);
-	nv_wr32(dev, 0x2214, 0xfffffffd);
-	nv_wr32(dev, 0x2218, 0xfffffffb); /* PCOPY0 on subfifo 2 */
-	nv_wr32(dev, 0x221c, 0xfffffffd); /* PCOPY1 on subfifo 1 */
-
-	for (i = 0; i < 3; ++i) { /* PSUBFIFO[i] */
-		nv_wr32(dev, 0x40108 + i * 0x2000, 0xffffffff); /* INTR */
-		nv_wr32(dev, 0x4010c + i * 0x2000, 0xffffffff); /* INTR_EN */
+	/* assign engines to subfifos */
+	if (subfifo_count >= 3) {
+		nv_wr32(dev, 0x002208, ~(1 << 0)); /* PGRAPH */
+		nv_wr32(dev, 0x00220c, ~(1 << 1)); /* PVP */
+		nv_wr32(dev, 0x002210, ~(1 << 1)); /* PPP */
+		nv_wr32(dev, 0x002214, ~(1 << 1)); /* PBSP */
+		nv_wr32(dev, 0x002218, ~(1 << 2)); /* PCE0 (PCOPY0) */
+		nv_wr32(dev, 0x00221c, ~(1 << 1)); /* PCE1 (PCOPY1) */
 	}
 
-	nv_wr32(dev, 0x2200, 1); /* PFIFO.ENABLE */
+	/* PSUBFIFO[n] */
+	for (i = 0; i < subfifo_count; i++) {
+		nv_mask(dev, 0x04013c + (i * 0x2000), 0x10000100, 0x00000000);
+		nv_wr32(dev, 0x040108 + (i * 0x2000), 0xffffffff); /* INTR */
+		nv_wr32(dev, 0x04010c + (i * 0x2000), 0xfffffeff); /* INTR_EN */
+	}
 
-	nv_wr32(dev, 0x2254, /* PFIFO.POLL_AREA */
-		(1 << 28) | (res->ctrl_bo->map1->start >> 12));
+#if 0
+	nv_wr32(dev, 0x204, 0);
+	nv_wr32(dev, 0x204, 7); /* PMC.SUBFIFO_ENABLE */
+	nv_wr32(dev, 0x2204, 7); /* PFIFO.SUBFIFO_ENABLE */
+#endif
+
+	nv_mask(dev, 0x002200, 0x00000001, 0x00000001);
+
+	/* PFIFO.POLL_AREA */
+	nv_wr32(dev, 0x2254, (1 << 28) | (res->ctrl_bo->map1->start >> 12));
 
 	dev_priv->fifo = &res->base;
 
 	nouveau_irq_register(dev, 8, nvc0_fifo_irq_handler);
+
+	nv_wr32(dev, 0x002a00, 0xffffffff); /* clears PFIFO.INTR bit 30 */
+	nv_wr32(dev, 0x002100, 0xffffffff);
 	nv_wr32(dev, 0x2140, 0xbfffffff); /* PFIFO_INTR_EN */
 
 	return 0;
