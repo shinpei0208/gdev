@@ -26,10 +26,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_conf.h"
-#include "gdev_vm.h"
+#ifndef __GDEV_MM_H__
+#define __GDEV_MM_H__
 
-int gdev_vm_request(uint64_t size, int type)
-{
-	return 0;
-}
+int gdev_mm_space(struct gdev_device *gdev, uint64_t size, int type);
+
+#endif

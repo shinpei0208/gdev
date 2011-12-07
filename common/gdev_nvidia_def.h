@@ -41,6 +41,9 @@
  * they should be >= 100.
  */
 #define GDEV_NVIDIA_QUERY_MP_COUNT 100
+#define GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE 101
+#define GDEV_NVIDIA_QUERY_DMA_MEM_SIZE 102
+#define GDEV_NVIDIA_QUERY_CHIPSET 103
 
 /**
  * GPGPU kernel object struct:

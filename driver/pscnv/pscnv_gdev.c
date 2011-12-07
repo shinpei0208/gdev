@@ -37,7 +37,8 @@
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
 /* allocate a new memory object. */
-static inline struct gdev_mem *__gdev_mem_alloc
+static inline 
+struct gdev_mem *__gdev_mem_alloc
 (struct gdev_vas *vas, uint64_t size, uint32_t flags)
 {
 	struct gdev_mem *mem;
@@ -69,7 +70,7 @@ static inline struct gdev_mem *__gdev_mem_alloc
 	else
 		mem->map = NULL;
 
-	gdev_list_init(&mem->list_entry, (void *)mem);
+	gdev_list_init(&mem->list_entry, (void *) mem);
 
 	return mem;
 
@@ -84,7 +85,8 @@ fail_mem:
 }
 
 /* free the specified memory object. */
-static inline void __gdev_mem_free(struct gdev_mem *mem)
+static inline 
+void __gdev_mem_free(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
 	struct pscnv_vspace *vspace = vas->pvas;
@@ -101,45 +103,30 @@ static inline void __gdev_mem_free(struct gdev_mem *mem)
 	kfree(mem);
 }
 
-/* initialize the compute engine. */
-int gdev_compute_init(struct gdev_device *gdev)
-{
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *priv = drm->dev_private;
-	uint32_t chipset = priv->chipset;
-
-    switch (chipset & 0xf0) {
-    case 0xC0:
-		nvc0_compute_setup(gdev);
-        break;
-    case 0x50:
-    case 0x80:
-    case 0x90:
-    case 0xA0:
-		/* TODO: create the compute and m2mf subchannels! */
-		GDEV_PRINT("NV%x not supported.\n", chipset);
-		return -EINVAL;
-    default:
-		GDEV_PRINT("NV%x not supported.\n", chipset);
-		return -EINVAL;
-    }
-
-	return 0;
-}
-
 /* query a piece of the device-specific information. */
-int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
+int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *priv = drm->dev_private;
 	struct drm_pscnv_getparam getparam;
-	uint32_t chipset = priv->chipset;
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		if ((chipset & 0xf0) != 0xc0)
-			return -EINVAL;
 		getparam.param = PSCNV_GETPARAM_MP_COUNT;
+		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*result = getparam.value;
+		break;
+	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
+		getparam.param = PSCNV_GETPARAM_FB_SIZE;
+		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*result = getparam.value;
+		break;
+	case GDEV_NVIDIA_QUERY_DMA_MEM_SIZE:
+		getparam.param = PSCNV_GETPARAM_AGP_SIZE;
+		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*result = getparam.value;
+		break;
+	case GDEV_NVIDIA_QUERY_CHIPSET:
+		getparam.param = PSCNV_GETPARAM_CHIPSET_ID;
 		pscnv_ioctl_getparam(drm, &getparam, NULL);
 		*result = getparam.value;
 		break;
@@ -151,17 +138,19 @@ int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 }
 
 /* open a new Gdev object associated with the specified device. */
-struct gdev_device *gdev_dev_open(int devnum)
+struct gdev_device *gdev_dev_open(int minor)
 {
-	struct gdev_device *gdev = &gdevs[devnum];
-	gdev->use++;
+	struct gdev_device *gdev = &gdevs[minor];
+
+	gdev->users++;
+
 	return gdev;
 }
 
 /* close the specified Gdev object. */
 void gdev_dev_close(struct gdev_device *gdev)
 {
-	gdev->use--;
+	gdev->users--;
 }
 
 /* allocate a new virual address space object. */
@@ -353,21 +342,35 @@ void gdev_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-struct gdev_mem *gdev_malloc(struct gdev_vas *vas, uint64_t size, int type)
+struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		return __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
+		mem = __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
+		if (mem)
+			gdev->mem_used += size;
 	case GDEV_MEM_DMA:
-		return __gdev_mem_alloc(vas, size, PSCNV_GEM_SYSRAM_SNOOP);
+		mem = __gdev_mem_alloc(vas, size, PSCNV_GEM_SYSRAM_SNOOP);
 	default:
 		GDEV_PRINT("Memory type not supported\n");
+		mem = NULL;
 	}
-	return NULL;
+
+	return mem;
 }
 
 /* free the specified memory object. */
-void gdev_free(struct gdev_mem *mem)
+void gdev_mem_free(struct gdev_mem *mem)
 {
+	gdev_vas_t *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_bo *bo = mem->bo;
+
+	if (bo->flags & PSCNV_GEM_VRAM_SMALL)
+		gdev->mem_used -= bo->size;
+
 	return __gdev_mem_free(mem);
 }

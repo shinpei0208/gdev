@@ -65,7 +65,7 @@ struct gdev_ioctl_sync {
 
 struct gdev_ioctl_query {
 	uint32_t type;
-	uint32_t result;
+	uint64_t result;
 };
 
 struct gdev_ioctl_tune {

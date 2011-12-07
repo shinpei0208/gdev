@@ -26,14 +26,27 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __GDEV_VM_H__
-#define __GDEV_VM_H__
+#include "gdev_conf.h"
+#include "gdev_mm.h"
 
-struct gdev_vm_struct {
-	uint64_t total_size;
-	uint64_t used_size;
-};
+static int __gdev_mm_space_device(struct gdev_device *gdev, uint64_t size)
+{
+	return 0;
+}
 
-int gdev_vm_request(uint64_t size, int type);
+static int __gdev_mm_space_dma(struct gdev_device *gdev, uint64_t size)
+{
+	return 0;
+}
 
-#endif
+int gdev_mm_space(struct gdev_device *gdev, uint64_t size, int type)
+{
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		return __gdev_mm_space_device(gdev, size);
+	case GDEV_MEM_DMA:
+		return __gdev_mm_space_dma(gdev, size);
+	}
+	return -EINVAL;
+}
+

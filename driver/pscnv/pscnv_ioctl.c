@@ -54,6 +54,10 @@ int pscnv_ioctl_getparam(struct drm_device *dev, void *data,
 		break;
 	case PSCNV_GETPARAM_AGP_SIZE:
 		goto fail; /* FIXME */
+		if (dev_priv->card_type >= NV_40 && DEVICE_IS_PCIE(dev))
+			getparam->value = 512 * 1024 * 1024;
+		else
+			getparam->value = 64 * 1024 * 1024;
 		break;
 	case PSCNV_GETPARAM_VM_VRAM_BASE:
 		getparam->value = 0; /* deprecated */
