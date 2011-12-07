@@ -24,7 +24,7 @@
 
 #include "gdev_api.h"
 #include "gdev_conf.h"
-#include "gdev_vm.h"
+#include "gdev_mm.h"
 #include "gdev_proto.h"
 
 #define __max(x, y) (x) > (y) ? (x) : (y)
@@ -34,7 +34,7 @@
  * Gdev handle struct: not visible to outside.
  */
 struct gdev_handle {
-	gdev_device_t *gdev; /* gdev handle object. */
+	struct gdev_device *gdev; /* gdev handle object. */
 	gdev_vas_t *vas; /* virtual address space object. */
 	gdev_ctx_t *ctx; /* device context object. */
 	gdev_mem_t **dma_mem; /* host-side DMA memory object (bounce buffer). */
@@ -54,7 +54,7 @@ gdev_mem_t **__malloc_dma(struct gdev_handle *h, gdev_vas_t *vas, uint64_t size)
 		return NULL;
 
 	for (i = 0; i < h->pipeline_count; i++) {
-		dma_mem[i] = gdev_malloc(vas, size, GDEV_MEM_DMA);
+		dma_mem[i] = gdev_mem_alloc(vas, size, GDEV_MEM_DMA);
 		if (!dma_mem[i])
 			return NULL;
 	}
@@ -68,7 +68,7 @@ void __free_dma(struct gdev_handle *h, gdev_mem_t **dma_mem)
 	int i;
 
 	for (i = 0; i < h->pipeline_count; i++)
-		gdev_free(dma_mem[i]);
+		gdev_mem_free(dma_mem[i]);
 
 	FREE(dma_mem);
 }
@@ -80,7 +80,7 @@ void __free_dma(struct gdev_handle *h, gdev_mem_t **dma_mem)
 struct gdev_handle *gopen(int minor)
 {
 	struct gdev_handle *h;
-	gdev_device_t *gdev;
+	struct gdev_device *gdev;
 	gdev_vas_t *vas;
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
@@ -142,7 +142,7 @@ fail_open:
  */
 int gclose(struct gdev_handle *h)
 {
-	gdev_device_t *gdev;
+	struct gdev_device *gdev;
 	gdev_vas_t *vas;
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
@@ -184,19 +184,20 @@ int gclose(struct gdev_handle *h)
  */
 uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (gdev_vm_request(size, GDEV_MEM_DEVICE)) {
+	if (gdev_mm_space(gdev, size, GDEV_MEM_DEVICE)) {
 		GDEV_PRINT("Device memory size exceeds the limit.\n");
 		return 0;
 	}
 
-	if (!(mem = gdev_malloc(vas, size, GDEV_MEM_DEVICE))) {
+	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
 		GDEV_PRINT("Failed to allocate device memory.\n");
 		return 0;
 	}
-	
+
 	gdev_heap_add(mem, GDEV_MEM_DEVICE);
 	GDEV_DPRINT("Allocated 0x%x at 0x%x in device.\n", 
 			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
@@ -215,7 +216,7 @@ int gfree(struct gdev_handle *h, uint64_t addr)
 
 	if ((mem = gdev_heap_lookup(vas, addr, GDEV_MEM_DEVICE))) {
 		gdev_heap_del(mem);
-		gdev_free(mem);
+		gdev_mem_free(mem);
 		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
@@ -229,15 +230,16 @@ int gfree(struct gdev_handle *h, uint64_t addr)
  */
 void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (gdev_vm_request(size, GDEV_MEM_DMA)) {
+	if (gdev_mm_space(gdev, size, GDEV_MEM_DMA)) {
 		GDEV_PRINT("Host DMA memory size exceeds the limit.\n");
 		return 0;
 	}
 
-	if (!(mem = gdev_malloc(vas, size, GDEV_MEM_DMA))) {
+	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA))) {
 		GDEV_PRINT("Failed to allocate host DMA memory.\n");
 		return 0;
 	}
@@ -260,7 +262,7 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 
 	if ((mem = gdev_heap_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
 		gdev_heap_del(mem);
-		gdev_free(mem);
+		gdev_mem_free(mem);
 		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
@@ -713,7 +715,7 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
  * gquery():
  * query the device-specific information.
  */
-int gquery(struct gdev_handle *h, uint32_t type, uint32_t *result)
+int gquery(struct gdev_handle *h, uint32_t type, uint64_t *result)
 {
 	return gdev_query(h->gdev, type, result);
 }

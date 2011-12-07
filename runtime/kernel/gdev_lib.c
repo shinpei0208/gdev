@@ -224,7 +224,7 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 	return ioctl(fd, GDEV_IOCTL_GSYNC, &sync);
 }
 
-int gquery(struct gdev_handle *h, uint32_t type, uint32_t *result)
+int gquery(struct gdev_handle *h, uint32_t type, uint64_t *result)
 {
 	struct gdev_ioctl_query q;
 	int fd = h->fd;

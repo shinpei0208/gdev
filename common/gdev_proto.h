@@ -37,15 +37,18 @@
 typedef struct gdev_vas gdev_vas_t;
 typedef struct gdev_ctx gdev_ctx_t;
 typedef struct gdev_mem gdev_mem_t;
-typedef struct gdev_device gdev_device_t;
 
 /**
  * Gdev device struct:
  */
 struct gdev_device {
 	int id;
-	int use; /* the number of threads/processes using the device. */
+	int users; /* the number of threads/processes using the device. */
 	uint32_t chipset;
+	uint64_t mem_size;
+	uint64_t mem_used;
+	uint64_t dma_mem_size;
+	uint64_t dma_mem_used;
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
 };
@@ -53,16 +56,15 @@ struct gdev_device {
 /**
  * runtime/driver-dependent resource management functions.
  */
-int gdev_compute_init(gdev_device_t *);
-int gdev_query(gdev_device_t *, uint32_t, uint32_t *);
-gdev_device_t *gdev_dev_open(int);
-void gdev_dev_close(gdev_device_t *);
-gdev_vas_t *gdev_vas_new(gdev_device_t *, uint64_t);
+int gdev_query(struct gdev_device *, uint32_t, uint64_t *);
+struct gdev_device *gdev_dev_open(int);
+void gdev_dev_close(struct gdev_device *);
+gdev_vas_t *gdev_vas_new(struct gdev_device *, uint64_t);
 void gdev_vas_free(gdev_vas_t *);
-gdev_ctx_t *gdev_ctx_new(gdev_device_t *, gdev_vas_t *);
+gdev_ctx_t *gdev_ctx_new(struct gdev_device *, gdev_vas_t *);
 void gdev_ctx_free(gdev_ctx_t *);
-gdev_mem_t *gdev_malloc(gdev_vas_t *, uint64_t, int);
-void gdev_free(gdev_mem_t *);
+gdev_mem_t *gdev_mem_alloc(gdev_vas_t *, uint64_t, int);
+void gdev_mem_free(gdev_mem_t *);
 
 /**
  * runtime/driver/architecture-independent compute functions.
@@ -74,6 +76,7 @@ int gdev_poll(gdev_ctx_t *, int, uint32_t, struct gdev_time *);
 /**
  * runtime/driver/architecture-independent heap operations.
  */
+int gdev_compute_init(struct gdev_device *, int, void *);
 void gdev_heap_init(gdev_vas_t *);
 void gdev_heap_add(gdev_mem_t *, int);
 void gdev_heap_del(gdev_mem_t *);

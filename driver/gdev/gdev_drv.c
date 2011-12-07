@@ -190,10 +190,7 @@ int gdev_minor_init(struct drm_device *drm)
 	}
 
 	/* initialize the Gdev compute engine. */
-	gdev->id = i;
-	gdev->priv = drm;
-	gdev->use = 0;
-	gdev_compute_init(gdev);
+	gdev_compute_init(gdev, i, drm);
 
 	return 0;
 }
@@ -204,8 +201,8 @@ int gdev_minor_exit(struct drm_device *drm)
 	struct gdev_device *gdev = &gdevs[i];
 	struct cdev *cdev = &cdevs[i];
 
-	if (gdev->use) {
-		GDEV_PRINT("gdev%d still has %d users.\n", i, gdev->use);
+	if (gdev->users) {
+		GDEV_PRINT("gdev%d still has %d users.\n", i, gdev->users);
 	}
 
 	if (i < gdev_count) {

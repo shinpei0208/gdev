@@ -31,6 +31,35 @@
 #include "gdev_proto.h"
 #include "gdev_time.h"
 
+/* initialize the compute engine. */
+int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
+{
+	gdev->id = minor;
+	gdev->priv = priv;
+	gdev->users = 0;
+	gdev->mem_used = 0;
+	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
+	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
+
+    switch (gdev->chipset & 0xf0) {
+    case 0xC0:
+		nvc0_compute_setup(gdev);
+        break;
+    case 0x50:
+    case 0x80:
+    case 0x90:
+    case 0xA0:
+		/* TODO: create the compute and m2mf subchannels! */
+		GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
+		return -EINVAL;
+    default:
+		GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
+		return -EINVAL;
+    }
+
+	return 0;
+}
+
 void gdev_heap_init(struct gdev_vas *vas)
 {
 	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
@@ -92,13 +121,13 @@ void gdev_garbage_collect(struct gdev_vas *vas)
 
 	/* device memory. */
 	gdev_list_for_each (mem, &vas->mem_list) {
-		gdev_free(mem);
+		gdev_mem_free(mem);
 		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 	}
 
 	/* host DMA memory. */
 	gdev_list_for_each (mem, &vas->dma_mem_list) {
-		gdev_free(mem);
+		gdev_mem_free(mem);
 		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 	}
 }

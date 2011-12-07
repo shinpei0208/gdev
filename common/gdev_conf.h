@@ -42,6 +42,9 @@
    you copy data to/from device memory. */
 //#define GDEV_NO_STATIC_BOUNCE_BUFFER
 
+#define GDEV_SWAP_DEVICE_SIZE 0x2000000
+#define GDEV_SWAP_DMA_SIZE 0x2000000
+
 #define GDEV_DEBUG_PRINT 0
 
 #endif

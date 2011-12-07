@@ -27,6 +27,7 @@
 #include "gdev_proto.h"
 #include "libpscnv.h"
 #include "libpscnv_ib.h"
+#include "pscnv_drm.h"
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/unistd.h>
@@ -34,7 +35,7 @@
 #define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 
 struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
-	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, NULL, NULL}
+	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, NULL, NULL}
 };
 
 /* allocate a new memory object. */
@@ -82,38 +83,26 @@ void __gdev_mem_free(struct gdev_mem *mem)
 	free(mem);
 }
 
-/* initialize the compute engine. */
-int gdev_compute_init(struct gdev_device *gdev)
-{
-	uint32_t chipset = gdev->chipset;
-
-    switch (chipset & 0xF0) {
-    case 0xC0:
-		nvc0_compute_setup(gdev);
-        break;
-    case 0x50:
-    case 0x80:
-    case 0x90:
-    case 0xA0:
-		/* TODO: create the compute and m2mf subchannels! */
-		GDEV_PRINT("NV%x not supported.\n", chipset);
-		return -EINVAL;
-    default:
-		GDEV_PRINT("NV%x not supported.\n", chipset);
-		return -EINVAL;
-    }
-
-	return 0;
-}
-
 /* query a piece of the device-specific information. */
-int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
+int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		if (pscnv_getparam(fd, PSCNV_GETPARAM_MP_COUNT, (uint64_t *)result))
+		if (pscnv_getparam(fd, PSCNV_GETPARAM_MP_COUNT, result))
+			return -EINVAL;
+		break;
+	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
+		if (pscnv_getparam(fd, PSCNV_GETPARAM_FB_SIZE, result))
+			return -EINVAL;
+		break;
+	case GDEV_NVIDIA_QUERY_DMA_MEM_SIZE:
+		if (pscnv_getparam(fd, PSCNV_GETPARAM_AGP_SIZE, result))
+			return -EINVAL;
+		break;
+	case GDEV_NVIDIA_QUERY_CHIPSET:
+		if (pscnv_getparam(fd, PSCNV_GETPARAM_CHIPSET_ID, result))
 			return -EINVAL;
 		break;
 	default:
@@ -128,10 +117,9 @@ struct gdev_device *gdev_dev_open(int minor)
 {
 	char buf[64];
 	int fd;
-	uint64_t chipset;
 	struct gdev_device *gdev = &gdevs[minor];
 
-	if (gdev->use++ > 0) {
+	if (gdev->users++ > 0) {
 		goto end;
 	}
 
@@ -139,16 +127,7 @@ struct gdev_device *gdev_dev_open(int minor)
 	if ((fd = open(buf, O_RDWR, 0)) < 0)
 		return NULL;
 
-    if (pscnv_getparam(fd, PSCNV_GETPARAM_CHIPSET_ID, &chipset)) {
-		close(fd);
-		return NULL;
-	}
-
-	gdev->chipset = (uint32_t)chipset;
-	gdev->id = minor;
-	gdev->priv = (void *) (unsigned long) fd; /* avoid warning :) */
-
-	gdev_compute_init(gdev);
+	gdev_compute_init(gdev, minor, (void *) (unsigned long) fd);
 
 end:
 	return gdev;
@@ -159,7 +138,7 @@ void gdev_dev_close(struct gdev_device *gdev)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
-	if (--gdev->use == 0) {
+	if (--gdev->users == 0) {
 		close(fd);
 	}
 }
@@ -285,7 +264,7 @@ void gdev_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-struct gdev_mem *gdev_malloc(struct gdev_vas *vas, uint64_t size, int type)
+struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
 	switch (type) {
 	case GDEV_MEM_DEVICE:
@@ -300,7 +279,7 @@ struct gdev_mem *gdev_malloc(struct gdev_vas *vas, uint64_t size, int type)
 }
 
 /* free the specified memory object. */
-void gdev_free(struct gdev_mem *mem)
+void gdev_mem_free(struct gdev_mem *mem)
 {
 	return __gdev_mem_free(mem);
 }
