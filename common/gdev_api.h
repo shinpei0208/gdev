@@ -25,36 +25,39 @@
 #ifndef __GDEV_API_H__
 #define __GDEV_API_H__
 
-#ifdef __KERNEL__
-#include "gdev_drv.h"
-#else
-#include "gdev_lib.h"
-#endif
-#include "gdev_time.h"
-#include "gdev_nvidia_def.h"
+#include "gdev_time.h" /* struct gdev_time */
+#include "gdev_nvidia_def.h" /* struct gdev_kernel */
 /* add also:
  * #include "gdev_amd_def.h"
  * #include "gdev_intel_def.h"
  */
 
+/* Gdev handle members are not exposed to users. */
+typedef struct gdev_handle* Ghandle;
+
 /**
  * Gdev APIs:
  */
-gdev_handle_t *gopen(int);
-int gclose(gdev_handle_t*);
-uint64_t gmalloc(gdev_handle_t*, uint64_t);
-int gfree(gdev_handle_t*, uint64_t);
-void *gmalloc_dma(gdev_handle_t *, uint64_t);
-int gfree_dma(gdev_handle_t *, void *);
-int gmemcpy_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
-int gmemcpy_user_to_device(gdev_handle_t*, uint64_t, const void*, uint64_t);
-int gmemcpy_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
-int gmemcpy_user_from_device(gdev_handle_t*, void*, uint64_t, uint64_t);
-int gmemcpy_in_device(gdev_handle_t*, uint64_t, uint64_t, uint64_t);
-int glaunch(gdev_handle_t*, struct gdev_kernel*, uint32_t*);
-int gsync(gdev_handle_t*, uint32_t, gdev_time_t*);
-int gquery(gdev_handle_t*, uint32_t, uint32_t*);
-int gtune(gdev_handle_t*, uint32_t, uint32_t);
+Ghandle gopen(int minor);
+int gclose(Ghandle h);
+uint64_t gmalloc(Ghandle h, uint64_t size);
+int gfree(Ghandle h, uint64_t addr);
+void *gmalloc_dma(Ghandle h, uint64_t size);
+int gfree_dma(Ghandle h, void *buf);
+int gmemcpy_to_device
+(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
+int gmemcpy_user_to_device
+(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
+int gmemcpy_from_device
+(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size);
+int gmemcpy_user_from_device
+(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size);
+int gmemcpy_in_device
+(Ghandle h, uint64_t dst_addr, uint64_t src_addr, uint64_t size);
+int glaunch(Ghandle h, struct gdev_kernel *kernel, uint32_t *id);
+int gsync(Ghandle h, uint32_t id, struct gdev_time *timeout);
+int gquery(Ghandle h, uint32_t type, uint32_t *result);
+int gtune(Ghandle h, uint32_t type, uint32_t value);
 
 /**
  * tuning types for Gdev resource management parameters.

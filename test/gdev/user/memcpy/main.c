@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DATA_SIZE 0x10000000 /* 256MB */
+#define DATA_SIZE 0x20000000 /* 512MB */
 #define CHUNK_SIZE 0x400000 /* 4MB */
 
 int gdev_test_memcpy(uint32_t *in, uint32_t *out, uint32_t size, 

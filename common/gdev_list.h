@@ -31,19 +31,19 @@
 
 /* a list structure: we could use Linux's list_head, but it's not available
    in user-space - hence use our own list structure. */
-typedef struct gdev_list {
+struct gdev_list {
     struct gdev_list *next;
     struct gdev_list *prev;
 	void *container;
-} gdev_list_t;
+};
 
-static inline void __gdev_list_init(struct gdev_list *entry, void *container)
+static inline void gdev_list_init(struct gdev_list *entry, void *container)
 {
 	entry->next = entry->prev = NULL;
 	entry->container = container;
 }
 
-static inline void __gdev_list_add
+static inline void gdev_list_add
 (struct gdev_list *entry, struct gdev_list *head)
 {
 	struct gdev_list *next = head->next;
@@ -55,7 +55,7 @@ static inline void __gdev_list_add
 	head->next = entry;
 }
 
-static inline void __gdev_list_del(struct gdev_list *entry)
+static inline void gdev_list_del(struct gdev_list *entry)
 {
 	struct gdev_list *next = entry->next;
 	struct gdev_list *prev = entry->prev;
@@ -69,19 +69,19 @@ static inline void __gdev_list_del(struct gdev_list *entry)
 	}
 }
 
-static inline struct gdev_list *__gdev_list_head(struct gdev_list *head)
+static inline struct gdev_list *gdev_list_head(struct gdev_list *head)
 {
 	return head ? head->next : NULL;
 }
 
-static inline void *__gdev_list_container(struct gdev_list *entry)
+static inline void *gdev_list_container(struct gdev_list *entry)
 {
 	return entry ? entry->container : NULL;
 }
 
 #define gdev_list_for_each(p, list)							\
-	for (p = __gdev_list_container(__gdev_list_head(list));	\
+	for (p = gdev_list_container(gdev_list_head(list));		\
 		 p != NULL;											\
-		 p = __gdev_list_container((p)->list_entry.next))
+		 p = gdev_list_container((p)->list_entry.next))
 
 #endif

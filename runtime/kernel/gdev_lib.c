@@ -34,34 +34,48 @@
 
 #include "gdev_api.h"
 #include "gdev_ioctl_def.h"
+#include "gdev_lib.h"
+#include "gdev_list.h"
 
-gdev_handle_t *gopen(int devnum)
+struct gdev_map_bo {
+	uint64_t addr;
+	uint32_t size;
+	void *map;
+	struct gdev_list list_entry;
+};
+
+struct gdev_handle {
+	int fd;
+	struct gdev_list map_bo_list;
+};
+
+struct gdev_handle *gopen(int minor)
 {
 	char devname[32];
-	gdev_handle_t *handle;
+	struct gdev_handle *h;
 	int fd;
 
-	sprintf(devname, "/dev/gdev%d", devnum);
+	sprintf(devname, "/dev/gdev%d", minor);
 	if ((fd = open(devname, O_RDWR)) < 0)
 		return NULL;
 
-	handle = (gdev_handle_t*)malloc(sizeof(*handle));
-	handle->fd = fd;
-	__gdev_list_init(&handle->map_bo_list, NULL);
+	h = (struct gdev_handle *) malloc(sizeof(*h));
+	h->fd = fd;
+	gdev_list_init(&h->map_bo_list, NULL);
 
-	return handle;
+	return h;
 }
 
-int gclose(gdev_handle_t *handle)
+int gclose(struct gdev_handle *h)
 {
-	int fd = handle->fd;
+	int fd = h->fd;
 	return close(fd);
 }
 
-uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
+uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 {
-	gdev_ioctl_mem_t mem;
-	int fd = handle->fd;
+	struct gdev_ioctl_mem mem;
+	int fd = h->fd;
 
 	mem.size = size;
 	ioctl(fd, GDEV_IOCTL_GMALLOC, &mem);
@@ -69,21 +83,21 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
 	return mem.addr;
 }
 
-int gfree(gdev_handle_t *handle, uint64_t addr)
+int gfree(struct gdev_handle *h, uint64_t addr)
 {
-	gdev_ioctl_mem_t mem;
-	int fd = handle->fd;
+	struct gdev_ioctl_mem mem;
+	int fd = h->fd;
 
 	mem.addr = addr;
 	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
 }
 
-void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
+void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
 	void *map;
 	struct gdev_map_bo *bo;
-	gdev_ioctl_mem_t mem;
-	int fd = handle->fd;
+	struct gdev_ioctl_mem mem;
+	int fd = h->fd;
 
 	mem.size = size;
 	if (ioctl(fd, GDEV_IOCTL_GMALLOC_DMA, &mem))
@@ -92,11 +106,11 @@ void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
 	if (map == MAP_FAILED)
 		goto fail_map;
 
-	bo = (struct gdev_map_bo*)malloc(sizeof(*bo));
+	bo = (struct gdev_map_bo*) malloc(sizeof(*bo));
 	if (!bo)
 		goto fail_malloc;
-	__gdev_list_init(&bo->list_entry, bo);
-	__gdev_list_add(&bo->list_entry, &handle->map_bo_list);
+	gdev_list_init(&bo->list_entry, bo);
+	gdev_list_add(&bo->list_entry, &h->map_bo_list);
 	bo->addr = mem.addr;
 	bo->size = mem.size;
 	bo->map = map;
@@ -111,13 +125,13 @@ fail_gmalloc_dma:
 	return NULL;
 }
 
-int gfree_dma(gdev_handle_t *handle, void *buf)
+int gfree_dma(struct gdev_handle *h, void *buf)
 {
 	struct gdev_map_bo *bo;
-	gdev_ioctl_mem_t mem;
-	int fd = handle->fd;
+	struct gdev_ioctl_mem mem;
+	int fd = h->fd;
 
-	gdev_list_for_each (bo, &handle->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list) {
 		if (bo && (bo->map == buf)) {
 			goto free;
 		}
@@ -132,13 +146,13 @@ free:
 }
 
 int gmemcpy_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
 	struct gdev_map_bo *bo;
-	gdev_ioctl_dma_t dma;
-	int fd = handle->fd;
+	struct gdev_ioctl_dma dma;
+	int fd = h->fd;
 
-	gdev_list_for_each (bo, &handle->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list) {
 		if (bo && (bo->map == src_buf))
 			break;
 	}
@@ -154,13 +168,13 @@ int gmemcpy_to_device
 }
 
 int gmemcpy_from_device
-(gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
 	struct gdev_map_bo *bo;
-	gdev_ioctl_dma_t dma;
-	int fd = handle->fd;
+	struct gdev_ioctl_dma dma;
+	int fd = h->fd;
 
-	gdev_list_for_each (bo, &handle->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list) {
 		if (bo && (bo->map == dst_buf))
 			break;
 	}
@@ -176,10 +190,10 @@ int gmemcpy_from_device
 }
 
 int gmemcpy_in_device
-(gdev_handle_t *handle, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
-	gdev_ioctl_dma_t dma;
-	int fd = handle->fd;
+	struct gdev_ioctl_dma dma;
+	int fd = h->fd;
 
 	dma.dst_addr = dst_addr;
 	dma.src_addr = src_addr;
@@ -188,10 +202,10 @@ int gmemcpy_in_device
 	return ioctl(fd, GDEV_IOCTL_GMEMCPY_IN_DEVICE, &dma);
 }
 
-int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
+int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
-	gdev_ioctl_launch_t launch;
-	int fd = handle->fd;
+	struct gdev_ioctl_launch launch;
+	int fd = h->fd;
 
 	launch.kernel = kernel;
 	launch.id = id;
@@ -199,10 +213,10 @@ int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
 	return ioctl(fd, GDEV_IOCTL_GLAUNCH, &launch);
 }
 
-int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
+int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 {
-	gdev_ioctl_sync_t sync;
-	int fd = handle->fd;
+	struct gdev_ioctl_sync sync;
+	int fd = h->fd;
 
 	sync.id = id;
 	sync.timeout = timeout;
@@ -210,10 +224,10 @@ int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
 	return ioctl(fd, GDEV_IOCTL_GSYNC, &sync);
 }
 
-int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
+int gquery(struct gdev_handle *h, uint32_t type, uint32_t *result)
 {
-	gdev_ioctl_query_t q;
-	int fd = handle->fd;
+	struct gdev_ioctl_query q;
+	int fd = h->fd;
 	int ret;
 
 	q.type = type;
@@ -224,10 +238,10 @@ int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
 	return 0;
 }
 
-int gtune(gdev_handle_t *handle, uint32_t type, uint32_t value)
+int gtune(struct gdev_handle *h, uint32_t type, uint32_t value)
 {
-	gdev_ioctl_tune_t c;
-	int fd = handle->fd;
+	struct gdev_ioctl_tune c;
+	int fd = h->fd;
 	int ret;
 
 	c.type = type;

@@ -28,116 +28,126 @@
 #ifdef __KERNEL__
 #define gettimeofday(x, y) do_gettimeofday(x)
 #include <linux/time.h>
+#include <linux/types.h>
 #else
 #include <sys/time.h>
+#include <stdint.h>
+#endif
+
+#ifndef NULL
+#define NULL 0
 #endif
 
 #define USEC_1SEC	1000000
 #define USEC_1MSEC	1000
 #define MSEC_1SEC	1000
 
-typedef struct timeval gdev_time_t;
+/* compatible with struct timeval. */
+struct gdev_time {
+	uint64_t sec;
+	uint64_t usec;
+};
 
 /* ret = current time. */
 static inline
-void gdev_time_stamp(gdev_time_t *ret)
+void gdev_time_stamp(struct gdev_time *ret)
 {
-	gettimeofday(ret, NULL);	
+	gettimeofday((struct timeval *) ret, NULL);	
 }
 
 /* ret = x + y. */
 static inline 
-void gdev_time_add(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
+void gdev_time_add(struct gdev_time *ret, struct gdev_time *x, struct gdev_time *y)
 {
-	ret->tv_sec = x->tv_sec + y->tv_sec;
-	ret->tv_usec = x->tv_usec + y->tv_usec;
-	if (ret->tv_usec >= USEC_1SEC) {
-		ret->tv_sec++;
-		ret->tv_usec -= USEC_1SEC;
+	ret->sec = x->sec + y->sec;
+	ret->usec = x->usec + y->usec;
+	if (ret->usec >= USEC_1SEC) {
+		ret->sec++;
+		ret->usec -= USEC_1SEC;
 	}
 }
 
 /* ret = x - y. */
 static inline 
-void gdev_time_sub(gdev_time_t *ret, gdev_time_t *x, gdev_time_t *y)
+void gdev_time_sub(struct gdev_time *ret, struct gdev_time *x, struct gdev_time *y)
 {
-	ret->tv_sec = x->tv_sec - y->tv_sec;
-	ret->tv_usec = x->tv_usec - y->tv_usec;
-	if (ret->tv_usec < 0) {
-		ret->tv_sec--;
-		ret->tv_usec += USEC_1SEC;
+	ret->sec = x->sec - y->sec;
+	ret->usec = x->usec - y->usec;
+	if (ret->usec < 0) {
+		ret->sec--;
+		ret->usec += USEC_1SEC;
 	}
 }
 
 /* ret = x * I. */
 static inline 
-void gdev_time_mul(gdev_time_t *ret, gdev_time_t *x, int I)
+void gdev_time_mul(struct gdev_time *ret, struct gdev_time *x, int I)
 {
-	ret->tv_sec = x->tv_sec * I;
-	ret->tv_usec = x->tv_usec * I;
-	if (ret->tv_usec >= USEC_1SEC) {
-		unsigned long carry = ret->tv_usec / USEC_1SEC;
-		ret->tv_sec += carry;
-		ret->tv_usec -= carry * USEC_1SEC;
+	ret->sec = x->sec * I;
+	ret->usec = x->usec * I;
+	if (ret->usec >= USEC_1SEC) {
+		unsigned long carry = ret->usec / USEC_1SEC;
+		ret->sec += carry;
+		ret->usec -= carry * USEC_1SEC;
 	}
 }
 
 /* ret = x / I. */
 static inline 
-void gdev_time_div(gdev_time_t *ret, gdev_time_t *x, int I)
+void gdev_time_div(struct gdev_time *ret, struct gdev_time *x, int I)
 {
-	ret->tv_sec = x->tv_sec / I;
-	ret->tv_usec = x->tv_usec / I;
+	ret->sec = x->sec / I;
+	ret->usec = x->usec / I;
 }
 
 /* x >= y. */
 static inline
-int gdev_time_ge(gdev_time_t *x, gdev_time_t *y)
+int gdev_time_ge(struct gdev_time *x, struct gdev_time *y)
 {
-	return x->tv_sec == y->tv_sec ? 
-		x->tv_usec >= y->tv_usec :
-		x->tv_sec >= y->tv_sec;
+	return x->sec == y->sec ? 
+		x->usec >= y->usec :
+		x->sec >= y->sec;
 }
 
-/* tvge: x <= y. */
+/* x <= y. */
 static inline 
-int gdev_time_le(gdev_time_t *x, gdev_time_t *y)
+int gdev_time_le(struct gdev_time *x, struct gdev_time *y)
 {
-	return x->tv_sec == y->tv_sec ? 
-		x->tv_usec <= y->tv_usec :
-		x->tv_sec <= y->tv_sec;
+	return x->sec == y->sec ? 
+		x->usec <= y->usec :
+		x->sec <= y->sec;
 }
 
-/* generate gdev_time_t from seconds. */
+/* generate struct gdev_time from seconds. */
 static inline 
-void gdev_time_sec(gdev_time_t *ret, unsigned long sec)
+void gdev_time_sec(struct gdev_time *ret, unsigned long sec)
 {
-	ret->tv_sec = sec;
-	ret->tv_usec = 0;
+	ret->sec = sec;
+	ret->usec = 0;
 }
 
-/* generate gdev_time_t from milliseconds. */
+/* generate struct gdev_time from milliseconds. */
 static inline 
-void gdev_time_ms(gdev_time_t *ret, unsigned long ms)
+void gdev_time_ms(struct gdev_time *ret, unsigned long ms)
 {
 	unsigned long carry = ms / MSEC_1SEC;
-	ret->tv_sec = carry;
-	ret->tv_usec = (ms - carry * MSEC_1SEC) * USEC_1MSEC;
+	ret->sec = carry;
+	ret->usec = (ms - carry * MSEC_1SEC) * USEC_1MSEC;
 }
 
-/* generate gdev_time_t from microseconds. */
+/* generate struct gdev_time from microseconds. */
 static inline 
-void gdev_time_us(gdev_time_t *ret, unsigned long us)
+void gdev_time_us(struct gdev_time *ret, unsigned long us)
 {
-	ret->tv_sec = 0;
-	ret->tv_usec = us;
+	ret->sec = 0;
+	ret->usec = us;
 }
 
 /* clear the timeval values. */
 static inline 
-void gdev_time_clear(gdev_time_t *tv)
+void gdev_time_clear(struct gdev_time *t)
 {
-	tv->tv_sec = tv->tv_usec = 0;
+	t->sec = t->usec = 0;
 }
 
 #endif

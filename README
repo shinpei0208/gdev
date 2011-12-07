@@ -31,7 +31,7 @@ header files that include GPU command definitions.
 Gdev requires envytools to compile fermi firmware code.
 
 cd $(TOPDIR)
-git clone git://github.com/pathscale/envytools.git
+git clone git://0x04.net/envytools.git
 cd envytools
 mkdir build
 cd build

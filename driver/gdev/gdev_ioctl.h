@@ -28,16 +28,16 @@
 #include "gdev_api.h"
 #include "gdev_ioctl_def.h"
 
-int gdev_ioctl_gmalloc(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gfree(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gmalloc_dma(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gfree_dma(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gmemcpy_to_device(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gmemcpy_from_device(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gmemcpy_in_device(gdev_handle_t*, unsigned long);
-int gdev_ioctl_glaunch(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gsync(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gquery(gdev_handle_t*, unsigned long);
-int gdev_ioctl_gtune(gdev_handle_t*, unsigned long);
+int gdev_ioctl_gmalloc(Ghandle h, unsigned long arg);
+int gdev_ioctl_gfree(Ghandle h, unsigned long arg);
+int gdev_ioctl_gmalloc_dma(Ghandle h, unsigned long arg);
+int gdev_ioctl_gfree_dma(Ghandle h, unsigned long arg);
+int gdev_ioctl_gmemcpy_to_device(Ghandle h, unsigned long arg);
+int gdev_ioctl_gmemcpy_from_device(Ghandle h, unsigned long arg);
+int gdev_ioctl_gmemcpy_in_device(Ghandle h, unsigned long arg);
+int gdev_ioctl_glaunch(Ghandle h, unsigned long arg);
+int gdev_ioctl_gsync(Ghandle h, unsigned long arg);
+int gdev_ioctl_gquery(Ghandle h, unsigned long arg);
+int gdev_ioctl_gtune(Ghandle h, unsigned long arg);
 
 #endif

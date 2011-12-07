@@ -30,7 +30,7 @@
 #include "gdev_list.h"
 
 struct CUctx_st *gdev_ctx_current = NULL;
-gdev_list_t gdev_ctx_list;
+struct gdev_list gdev_ctx_list;
 
 /**
  * Creates a new CUDA context and associates it with the calling thread. 
@@ -96,7 +96,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	CUresult res;
 	struct CUctx_st *ctx;
 	struct gdev_cuda_info *cuda_info;
-	gdev_handle_t *handle;
+	Ghandle handle;
 	int minor = dev;
 
 	if (!gdev_initialized)
@@ -131,9 +131,9 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	cuda_info->warp_size = 32;
 
 	/* save the current context to the stack, if necessary. */
-	__gdev_list_init(&ctx->list_entry, ctx);
+	gdev_list_init(&ctx->list_entry, ctx);
 	if (gdev_ctx_current) {
-		__gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
+		gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
 	}
 
 	gdev_ctx_current = ctx;	/* set to the current context. */
@@ -164,7 +164,7 @@ fail_malloc_ctx:
  */
 CUresult cuCtxDestroy(CUcontext ctx)
 {
-	gdev_list_t *list_head;
+	struct gdev_list *list_head;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -173,10 +173,10 @@ CUresult cuCtxDestroy(CUcontext ctx)
 	if (gclose(ctx->gdev_handle))
 		return CUDA_ERROR_INVALID_CONTEXT;
 
-	list_head = __gdev_list_head(&gdev_ctx_list);
-	gdev_ctx_current = __gdev_list_container(list_head);
+	list_head = gdev_list_head(&gdev_ctx_list);
+	gdev_ctx_current = gdev_list_container(list_head);
 	if (gdev_ctx_current)
-		__gdev_list_del(&gdev_ctx_current->list_entry);
+		gdev_list_del(&gdev_ctx_current->list_entry);
 
 	FREE(ctx);
 
@@ -229,7 +229,7 @@ CUresult cuCtxPushCurrent(CUcontext ctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
 	/* save the current context to the stack. */
-	__gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);
+	gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);
 	/* set @ctx to the current context. */
 	gdev_ctx_current = ctx;
 
@@ -261,17 +261,17 @@ CUresult cuCtxPushCurrent(CUcontext ctx)
  */
 CUresult cuCtxPopCurrent(CUcontext *pctx)
 {
-	gdev_list_t *list_head;
+	struct gdev_list *list_head;
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!pctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
 	*pctx = gdev_ctx_current;
-	list_head = __gdev_list_head(&gdev_ctx_list);
-	gdev_ctx_current = __gdev_list_container(list_head);
+	list_head = gdev_list_head(&gdev_ctx_list);
+	gdev_ctx_current = gdev_list_container(list_head);
 	if (gdev_ctx_current)
-		__gdev_list_del(&gdev_ctx_current->list_entry);
+		gdev_list_del(&gdev_ctx_current->list_entry);
 	
 	return CUDA_SUCCESS;
 }
