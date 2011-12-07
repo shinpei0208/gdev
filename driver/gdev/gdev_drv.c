@@ -35,10 +35,14 @@
 #include "gdev_conf.h"
 #include "gdev_drv.h"
 #include "gdev_ioctl.h"
+#include "gdev_proto.h"
 
-struct gdev_drv gdrv;
+dev_t dev;
+struct cdev *cdevs;
+struct gdev_device *gdevs;
+int gdev_count;
 
-static int __get_devnum(struct file *filp)
+static int __get_minor(struct file *filp)
 {
 	char *devname = filp->f_dentry->d_iname;
 	if (strncmp(devname, "gdev", 4) == 0) {
@@ -50,15 +54,15 @@ static int __get_devnum(struct file *filp)
 
 static int gdev_open(struct inode *inode, struct file *filp)
 {
-	int devnum;
-	gdev_handle_t *handle;
+	int minor;
+	Ghandle handle;
 	
-	if ((devnum = __get_devnum(filp)) < 0) {
+	if ((minor = __get_minor(filp)) < 0) {
 		GDEV_PRINT("Could not find device.\n");
 		return -EINVAL;
 	}
 
-	if (!(handle = gopen(devnum))) {
+	if (!(handle = gopen(minor))) {
 		GDEV_PRINT("Out of resource.\n");
 		return -ENOMEM;
 	}
@@ -70,7 +74,7 @@ static int gdev_open(struct inode *inode, struct file *filp)
 
 static int gdev_release(struct inode *inode, struct file *filp)
 {
-	gdev_handle_t *handle = filp->private_data;
+	Ghandle handle = filp->private_data;
 
 	if (!handle) {
 		GDEV_PRINT("Device not opened.\n");
@@ -88,7 +92,7 @@ static int gdev_ioctl
 (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 {
-	gdev_handle_t *handle = filp->private_data;
+	Ghandle handle = filp->private_data;
 
 	switch (cmd) {
 	case GDEV_IOCTL_GMALLOC:
@@ -168,17 +172,18 @@ int gdev_minor_init(struct drm_device *drm)
 {
 	int ret;
 	int i = drm->primary->index;
-	struct gdev_device *gdev = &gdrv.gdev[i];
+	struct gdev_device *gdev = &gdevs[i];
+	struct cdev *cdev = &cdevs[i];
 
-	if (i >= gdrv.count) {
+	if (i >= gdev_count) {
 		GDEV_PRINT("Could not find gdev%d.\n", i);
 		return -EINVAL;
 	}
 
 	/* register a new character device. */
 	GDEV_PRINT("Adding gdev%d.\n", i);
-	cdev_init(&gdev->cdev, &gdev_fops);
-	ret = cdev_add(&gdev->cdev, gdrv.dev, 1);
+	cdev_init(cdev, &gdev_fops);
+	ret = cdev_add(cdev, dev, 1);
 	if (ret < 0) {
 		GDEV_PRINT("Failed to register gdev%d.\n", i);
 		return ret;
@@ -186,7 +191,7 @@ int gdev_minor_init(struct drm_device *drm)
 
 	/* initialize the Gdev compute engine. */
 	gdev->id = i;
-	gdev->drm = drm;
+	gdev->priv = drm;
 	gdev->use = 0;
 	gdev_compute_init(gdev);
 
@@ -196,16 +201,17 @@ int gdev_minor_init(struct drm_device *drm)
 int gdev_minor_exit(struct drm_device *drm)
 {
 	int i = drm->primary->index;
-	struct gdev_device *gdev = &gdrv.gdev[i];
+	struct gdev_device *gdev = &gdevs[i];
+	struct cdev *cdev = &cdevs[i];
 
 	if (gdev->use) {
 		GDEV_PRINT("gdev%d still has %d users.\n", i, gdev->use);
 	}
 
-	if (i < gdrv.count) {
+	if (i < gdev_count) {
 		GDEV_PRINT("Removing gdev%d.\n", i);
-		gdev->drm = NULL;
-		cdev_del(&gdev->cdev);
+		gdev->priv = NULL;
+		cdev_del(cdev);
 	}
 	
 	return 0;
@@ -222,7 +228,7 @@ int gdev_major_init(struct pci_driver *pdriver)
 	GDEV_PRINT("Initializing module...\n");
 
 	/* count how many devices are installed. */
-	gdrv.count = 0;
+	gdev_count = 0;
 	for (i = 0; pdriver->id_table[i].vendor != 0; i++) {
 		pid = &pdriver->id_table[i];
 		while ((pdev =
@@ -231,20 +237,22 @@ int gdev_major_init(struct pci_driver *pdriver)
 			if ((pdev->class & pid->class_mask) != pid->class)
 				continue;
 			
-			gdrv.count++;
+			gdev_count++;
 		}
 	}
 
-	GDEV_PRINT("Found %d GPU device(s).\n", gdrv.count);
+	GDEV_PRINT("Found %d GPU device(s).\n", gdev_count);
 
-	ret = alloc_chrdev_region(&gdrv.dev, 0, gdrv.count, MODULE_NAME);
+	ret = alloc_chrdev_region(&dev, 0, gdev_count, MODULE_NAME);
 	if (ret < 0) {
 		GDEV_PRINT("Failed to allocate module.\n");
 		return ret;
 	}
 
 	/* allocate Gdev device objects. */
-	gdrv.gdev = kmalloc(sizeof(struct gdev_device) * gdrv.count, GFP_KERNEL);
+	gdevs = kmalloc(sizeof(struct gdev_device) * gdev_count, GFP_KERNEL);
+	/* allocate character device objects. */
+	cdevs = kmalloc(sizeof(struct cdev) * gdev_count, GFP_KERNEL);
 
 	/* create /proc entries. */
 	gdev_create_proc();
@@ -257,15 +265,16 @@ int gdev_major_exit(void)
 	GDEV_PRINT("Exiting module...\n");
 
 	gdev_delete_proc();
-	kfree(gdrv.gdev);
-	unregister_chrdev_region(gdrv.dev, gdrv.count);
+	kfree(cdevs);
+	kfree(gdevs);
+	unregister_chrdev_region(dev, gdev_count);
 
 	return 0;
 }
 
 int gdev_getinfo_device_count(void)
 {
-	return gdrv.count;
+	return gdev_count;
 }
 EXPORT_SYMBOL(gdev_getinfo_device_count);
 

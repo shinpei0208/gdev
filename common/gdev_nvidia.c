@@ -1,5 +1,9 @@
 /*
  * Copyright 2011 Shinpei Kato
+ *
+ * University of California at Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,25 +28,26 @@
 
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
+#include "gdev_proto.h"
 #include "gdev_time.h"
 
-void gdev_heap_init(gdev_vas_t *vas)
+void gdev_heap_init(struct gdev_vas *vas)
 {
-	__gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
-	__gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
+	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
 }
 
 /* add the device memory object to the memory list. */
-void gdev_heap_add(gdev_mem_t *mem, int type)
+void gdev_heap_add(struct gdev_mem *mem, int type)
 {
-	gdev_vas_t *vas = mem->vas;
+	struct gdev_vas *vas = mem->vas;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		__gdev_list_add(&mem->list_entry, &vas->mem_list);
+		gdev_list_add(&mem->list_entry, &vas->mem_list);
 		break;
 	case GDEV_MEM_DMA:
-		__gdev_list_add(&mem->list_entry, &vas->dma_mem_list);
+		gdev_list_add(&mem->list_entry, &vas->dma_mem_list);
 		break;
 	default:
 		GDEV_PRINT("Memory type not supported\n");
@@ -50,15 +55,15 @@ void gdev_heap_add(gdev_mem_t *mem, int type)
 }
 
 /* delete the device memory object from the memory list. */
-void gdev_heap_del(gdev_mem_t *mem)
+void gdev_heap_del(struct gdev_mem *mem)
 {
-	__gdev_list_del(&mem->list_entry);
+	gdev_list_del(&mem->list_entry);
 }
 
 /* look up the memory object allocated at the specified address. */
-gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr, int type)
+struct gdev_mem *gdev_heap_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 {
-	gdev_mem_t *mem;
+	struct gdev_mem *mem;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
@@ -81,9 +86,9 @@ gdev_mem_t *gdev_heap_lookup(gdev_vas_t *vas, uint64_t addr, int type)
 }
 
 /* free all memory left in heap. */
-void gdev_garbage_collect(gdev_vas_t *vas)
+void gdev_garbage_collect(struct gdev_vas *vas)
 {
-	gdev_mem_t *mem;
+	struct gdev_mem *mem;
 
 	/* device memory. */
 	gdev_list_for_each (mem, &vas->mem_list) {
@@ -100,10 +105,10 @@ void gdev_garbage_collect(gdev_vas_t *vas)
 
 /* copy data of @size from @src_addr to @dst_addr. */
 uint32_t gdev_memcpy
-(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
-	gdev_vas_t *vas = ctx->vas;
-	gdev_device_t *gdev = vas->gdev;
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_DMA];
 
@@ -119,10 +124,10 @@ uint32_t gdev_memcpy
 }
 
 /* launch the kernel onto the GPU. */
-uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern)
+uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 {
-	gdev_vas_t *vas = ctx->vas;
-	gdev_device_t *gdev = vas->gdev;
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
 
@@ -138,11 +143,12 @@ uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern)
 }
 
 /* poll until the resource becomes available. */
-int gdev_poll(gdev_ctx_t *ctx, int type, uint32_t seq, gdev_time_t *timeout)
+int gdev_poll
+(struct gdev_ctx *ctx, int type, uint32_t seq, struct gdev_time *timeout)
 {
-	gdev_time_t time_start, time_now, time_elapse, time_relax;
-	gdev_vas_t *vas = ctx->vas;
-	gdev_device_t *gdev = vas->gdev;
+	struct gdev_time time_start, time_now, time_elapse, time_relax;
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t val;
 

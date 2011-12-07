@@ -24,22 +24,36 @@
 
 #include "gdev_api.h"
 #include "gdev_conf.h"
+#include "gdev_vm.h"
+#include "gdev_proto.h"
 
 #define __max(x, y) (x) > (y) ? (x) : (y)
 #define __min(x, y) (x) < (y) ? (x) : (y)
 
+/**
+ * Gdev handle struct: not visible to outside.
+ */
+struct gdev_handle {
+	gdev_device_t *gdev; /* gdev handle object. */
+	gdev_vas_t *vas; /* virtual address space object. */
+	gdev_ctx_t *ctx; /* device context object. */
+	gdev_mem_t **dma_mem; /* host-side DMA memory object (bounce buffer). */
+	uint32_t chunk_size; /* configurable memcpy chunk size. */
+	int pipeline_count; /* configurable memcpy pipeline count. */
+	int dev_id; /* device ID. */
+};
+
 static inline 
-gdev_mem_t **__malloc_dma(gdev_handle_t *handle, gdev_vas_t *vas, uint64_t size)
+gdev_mem_t **__malloc_dma(struct gdev_handle *h, gdev_vas_t *vas, uint64_t size)
 {
 	gdev_mem_t **dma_mem;
-	int pipelines = GDEV_PIPELINE_GET(handle);
 	int i;
 
-	dma_mem = MALLOC(sizeof(*dma_mem) * pipelines);
+	dma_mem = MALLOC(sizeof(*dma_mem) * h->pipeline_count);
 	if (!dma_mem)
 		return NULL;
 
-	for (i = 0; i < pipelines; i++) {
+	for (i = 0; i < h->pipeline_count; i++) {
 		dma_mem[i] = gdev_malloc(vas, size, GDEV_MEM_DMA);
 		if (!dma_mem[i])
 			return NULL;
@@ -49,12 +63,11 @@ gdev_mem_t **__malloc_dma(gdev_handle_t *handle, gdev_vas_t *vas, uint64_t size)
 }
 
 static inline
-void __free_dma(gdev_handle_t *handle, gdev_mem_t **dma_mem)
+void __free_dma(struct gdev_handle *h, gdev_mem_t **dma_mem)
 {
 	int i;
-	int pipelines = GDEV_PIPELINE_GET(handle);
 
-	for (i = 0; i < pipelines; i++)
+	for (i = 0; i < h->pipeline_count; i++)
 		gdev_free(dma_mem[i]);
 
 	FREE(dma_mem);
@@ -64,22 +77,22 @@ void __free_dma(gdev_handle_t *handle, gdev_mem_t **dma_mem)
  * gopen():
  * create a new GPU context on the given device #@devnum.
  */
-gdev_handle_t *gopen(int devnum)
+struct gdev_handle *gopen(int minor)
 {
+	struct gdev_handle *h;
 	gdev_device_t *gdev;
-	gdev_handle_t *handle;
 	gdev_vas_t *vas;
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
 
-	if (!(handle = MALLOC(sizeof(*handle))))
+	if (!(h = MALLOC(sizeof(*h))))
 		return NULL;
 
-	GDEV_PIPELINE_SET(handle, GDEV_PIPELINE_DEFAULT_COUNT);
-	GDEV_CHUNK_SET(handle, GDEV_CHUNK_DEFAULT_SIZE);
+	h->pipeline_count = GDEV_PIPELINE_DEFAULT_COUNT;
+	h->chunk_size = GDEV_CHUNK_DEFAULT_SIZE;
 
 	/* open the specified device. */
-	gdev = gdev_dev_open(devnum);
+	gdev = gdev_dev_open(minor);
 	if (!gdev)
 		goto fail_open;
 
@@ -97,19 +110,19 @@ gdev_handle_t *gopen(int devnum)
 	gdev_heap_init(vas);
 	
 	/* allocate static bounce bound buffer objects. */
-	dma_mem = __malloc_dma(handle, vas, GDEV_CHUNK_GET(handle));
+	dma_mem = __malloc_dma(h, vas, GDEV_CHUNK_DEFAULT_SIZE);
 	if (!dma_mem)
 		goto fail_dma;
 
-	GDEV_DMA_SET(handle, dma_mem);
-	GDEV_VAS_SET(handle, vas);
-	GDEV_CTX_SET(handle, ctx);
-	GDEV_DEV_SET(handle, gdev);
-	GDEV_MINOR_SET(handle, devnum);
+	h->dma_mem = dma_mem;
+	h->vas = vas;
+	h->ctx = ctx;
+	h->gdev = gdev;
+	h->dev_id = minor;
 
-	GDEV_PRINT("Opened gdev%d.\n", devnum);
+	GDEV_PRINT("Opened gdev%d.\n", minor);
 
-	return handle;
+	return h;
 
 fail_dma:
 	gdev_ctx_free(ctx);
@@ -118,7 +131,7 @@ fail_ctx:
 fail_vas:
 	gdev_dev_close(gdev);
 fail_open:
-	GDEV_PRINT("Failed to open gdev%d.\n", devnum);
+	GDEV_PRINT("Failed to open gdev%d.\n", minor);
 
 	return NULL;
 }
@@ -127,30 +140,30 @@ fail_open:
  * gclose():
  * destroy the GPU context associated with @handle.
  */
-int gclose(gdev_handle_t *handle)
+int gclose(struct gdev_handle *h)
 {
 	gdev_device_t *gdev;
 	gdev_vas_t *vas;
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
 
-	if (!handle)
+	if (!h)
 		return -ENOENT;
-	gdev = GDEV_DEV_GET(handle);
+	gdev = h->gdev;
 	if (!gdev)
 		return -ENOENT;
-	ctx = GDEV_CTX_GET(handle);
+	ctx = h->ctx;
 	if (!ctx)
 		return -ENOENT;
-	vas = GDEV_VAS_GET(handle);
+	vas = h->vas;
 	if (!vas)
 		return -ENOENT;
-	dma_mem = GDEV_DMA_GET(handle);
+	dma_mem = h->dma_mem;
 	if (!dma_mem)
 		return -ENOENT;
 
 	/* free the bounce buffer. */
-	__free_dma(handle, dma_mem);
+	__free_dma(h, dma_mem);
 	/* free all memory left in heap. */
 	gdev_garbage_collect(vas);
 	/* free the objects. */
@@ -158,9 +171,9 @@ int gclose(gdev_handle_t *handle)
 	gdev_vas_free(vas);
 	gdev_dev_close(gdev);
 
-	GDEV_PRINT("Closed gdev%d.\n", GDEV_MINOR_GET(handle));
+	GDEV_PRINT("Closed gdev%d.\n", h->dev_id);
 
-	FREE(handle);
+	FREE(h);
 
 	return 0;
 }
@@ -169,10 +182,15 @@ int gclose(gdev_handle_t *handle)
  * gmalloc():
  * allocate new device memory space.
  */
-uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
+uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 {
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+
+	if (gdev_vm_request(size, GDEV_MEM_DEVICE)) {
+		GDEV_PRINT("Device memory size exceeds the limit.\n");
+		return 0;
+	}
 
 	if (!(mem = gdev_malloc(vas, size, GDEV_MEM_DEVICE))) {
 		GDEV_PRINT("Failed to allocate device memory.\n");
@@ -190,10 +208,10 @@ uint64_t gmalloc(gdev_handle_t *handle, uint64_t size)
  * gfree():
  * free the memory space allocated at the specified address.
  */
-int gfree(gdev_handle_t *handle, uint64_t addr)
+int gfree(struct gdev_handle *h, uint64_t addr)
 {
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
 
 	if ((mem = gdev_heap_lookup(vas, addr, GDEV_MEM_DEVICE))) {
 		gdev_heap_del(mem);
@@ -209,10 +227,15 @@ int gfree(gdev_handle_t *handle, uint64_t addr)
  * gmalloc_dma():
  * allocate new host dma memory space.
  */
-void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
+void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+
+	if (gdev_vm_request(size, GDEV_MEM_DMA)) {
+		GDEV_PRINT("Host DMA memory size exceeds the limit.\n");
+		return 0;
+	}
 
 	if (!(mem = gdev_malloc(vas, size, GDEV_MEM_DMA))) {
 		GDEV_PRINT("Failed to allocate host DMA memory.\n");
@@ -230,10 +253,10 @@ void *gmalloc_dma(gdev_handle_t *handle, uint64_t size)
  * gfree_dma():
  * free the host dma memory space allocated at the specified buffer.
  */
-int gfree_dma(gdev_handle_t *handle, void *buf)
+int gfree_dma(struct gdev_handle *h, void *buf)
 {
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
 
 	if ((mem = gdev_heap_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
 		gdev_heap_del(mem);
@@ -274,13 +297,12 @@ int __copy_to_user_wrapper(void *dst, const void *src, uint32_t size)
  */
 static
 int __gmemcpy_to_device_pipeline
-(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size, 
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, 
  int (*memcpy_host)(void*, const void*, uint32_t))
 {
 	gdev_mem_t **dma_mem;
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	int pipelines = GDEV_PIPELINE_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint64_t dma_addr[GDEV_PIPELINE_MAX_COUNT] = {0};
@@ -291,14 +313,14 @@ int __gmemcpy_to_device_pipeline
 	int i;
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	if (!(dma_mem = __dma_alloc(vas, ctx, size)))
 		return -ENOMEM;
 #else
-	dma_mem = GDEV_DMA_GET(handle);
+	dma_mem = h->dma_mem;
 #endif
 
-	for (i = 0; i < pipelines; i++) {
+	for (i = 0; i < h->pipeline_count; i++) {
 		dma_addr[i] = GDEV_MEM_ADDR(dma_mem[i]);
 		dma_buf[i] = GDEV_MEM_BUF(dma_mem[i]);
 		fence[i] = 0;
@@ -306,7 +328,7 @@ int __gmemcpy_to_device_pipeline
 
 	offset = 0;
 	for (;;) {
-		for (i = 0; i < pipelines; i++) {
+		for (i = 0; i < h->pipeline_count; i++) {
 			dma_size = __min(rest_size, chunk_size);
 			rest_size -= dma_size;
 			/* HtoH */
@@ -329,7 +351,7 @@ int __gmemcpy_to_device_pipeline
 	}
 end:
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	__free_dma(handle, dma_mem);
+	__free_dma(h, dma_mem);
 #endif
 
 	return ret;
@@ -341,12 +363,12 @@ end:
  */
 static
 int __gmemcpy_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size, 
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, 
  int (*memcpy_host)(void*, const void*, uint32_t))
 {
 	gdev_mem_t **dma_mem;
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint64_t dma_addr[GDEV_PIPELINE_MAX_COUNT] = {0};
@@ -356,11 +378,11 @@ int __gmemcpy_to_device
 	int ret = 0;
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	if (!(dma_mem = __dma_alloc(vas, ctx, size)))
 		return -ENOMEM;
 #else
-	dma_mem = GDEV_DMA_GET(handle);
+	dma_mem = h->dma_mem;
 #endif
 
 	dma_addr[0] = GDEV_MEM_ADDR(dma_mem[0]);
@@ -381,7 +403,7 @@ int __gmemcpy_to_device
 
 end:
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	__free_dma(handle, dma_mem);
+	__free_dma(h, dma_mem);
 #endif
 
 	return ret;
@@ -390,12 +412,12 @@ end:
 /**
  * real entity to perform gmemcpy_to_device() directly with dma memory.
  */
-static
+static 
 int __gmemcpy_dma_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint32_t fence;
@@ -421,13 +443,12 @@ int __gmemcpy_dma_to_device
  */
 static
 int __gmemcpy_from_device_pipeline
-(gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size, 
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, 
  int (*memcpy_host)(void*, const void*, uint32_t))
 {
 	gdev_mem_t **dma_mem;
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	int pipelines = GDEV_PIPELINE_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint64_t dma_addr[GDEV_PIPELINE_MAX_COUNT] = {0};
@@ -438,15 +459,15 @@ int __gmemcpy_from_device_pipeline
 	int i;
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	uint64_t dma_size = __min(size, chunk_size);
-	if (!(dma_mem = __malloc_dma(handle, vas, dma_size)))
+	if (!(dma_mem = __malloc_dma(h, vas, dma_size)))
 		return -ENOMEM;
 #else
-	dma_mem = GDEV_DMA_GET(handle);
+	dma_mem = h->dma_mem;
 #endif
 
-	for (i = 0; i < pipelines; i++) {
+	for (i = 0; i < h->pipeline_count; i++) {
 		dma_addr[i] = GDEV_MEM_ADDR(dma_mem[i]);
 		dma_buf[i] = GDEV_MEM_BUF(dma_mem[i]);
 		fence[i] = 0;
@@ -458,7 +479,7 @@ int __gmemcpy_from_device_pipeline
 	/* DtoH */
 	fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
 	for (;;) {
-		for (i = 0; i < pipelines; i++) {
+		for (i = 0; i < h->pipeline_count; i++) {
 			if (rest_size == 0) {
 				/* HtoH */
 				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
@@ -471,7 +492,7 @@ int __gmemcpy_from_device_pipeline
 			offset += dma_size;
 
 			/* DtoH */
-			if (i + 1 == pipelines) {
+			if (i + 1 == h->pipeline_count) {
 				fence[0] = gdev_memcpy(ctx, dma_addr[0], 
 									   src_addr + offset, dma_size);
 			}
@@ -490,7 +511,7 @@ int __gmemcpy_from_device_pipeline
 	}
 end:
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	__free_dma(handle, dma_mem);
+	__free_dma(h, dma_mem);
 #endif
 
 	return ret;
@@ -502,12 +523,12 @@ end:
  */
 static
 int __gmemcpy_from_device
-(gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size, 
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, 
  int (*memcpy_host)(void*, const void*, uint32_t))
 {
 	gdev_mem_t **dma_mem;
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint64_t dma_addr[GDEV_PIPELINE_MAX_COUNT] = {0};
@@ -517,12 +538,12 @@ int __gmemcpy_from_device
 	int ret = 0;
 
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	uint64_t dma_size = __min(size, chunk_size);
-	if (!(dma_mem = __malloc_dma(handle, vas, dma_size)))
+	if (!(dma_mem = __malloc_dma(h, vas, dma_size)))
 		return -ENOMEM;
 #else
-	dma_mem = GDEV_DMA_GET(handle);
+	dma_mem = h->dma_mem;
 #endif
 
 	dma_addr[0] = GDEV_MEM_ADDR(dma_mem[0]);
@@ -543,7 +564,7 @@ int __gmemcpy_from_device
 	}
 end:
 #ifdef GDEV_NO_STATIC_BOUNCE_BUFFER
-	__free_dma(handle, dma_mem);
+	__free_dma(h, dma_mem);
 #endif
 
 	return ret;
@@ -554,10 +575,10 @@ end:
  */
 static
 int __gmemcpy_dma_from_device
-(gdev_handle_t *handle, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-	uint32_t chunk_size = GDEV_CHUNK_GET(handle);
+	gdev_ctx_t *ctx = h->ctx;
+	uint32_t chunk_size = h->chunk_size;
 	uint64_t rest_size = size;
 	uint64_t offset;
 	uint32_t fence;
@@ -582,18 +603,18 @@ int __gmemcpy_dma_from_device
  * copy data from @buf to the device memory at @addr.
  */
 int gmemcpy_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
 
 	if (hmem)
-		return __gmemcpy_dma_to_device(handle, dst_addr, hmem->addr, size);
-	else if (GDEV_PIPELINE_GET(handle) > 1)
-		return __gmemcpy_to_device_pipeline(handle, dst_addr, src_buf, size,
+		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+	else if (h->pipeline_count > 1)
+		return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
 											__memcpy_wrapper);
 	else
-		return __gmemcpy_to_device(handle, dst_addr, src_buf, size,
+		return __gmemcpy_to_device(h, dst_addr, src_buf, size,
 								   __memcpy_wrapper);
 }
 
@@ -602,18 +623,18 @@ int gmemcpy_to_device
  * copy data from "user-space" @buf to the device memory at @addr.
  */
 int gmemcpy_user_to_device
-(gdev_handle_t *handle, uint64_t dst_addr, const void *src_buf, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
 
 	if (hmem)
-		return __gmemcpy_dma_to_device(handle, dst_addr, hmem->addr, size);
-	else if (GDEV_PIPELINE_GET(handle) > 1)
-		return __gmemcpy_to_device_pipeline(handle, dst_addr, src_buf, size, 
+		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+	else if (h->pipeline_count > 1)
+		return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
 											__copy_from_user_wrapper);
 	else
-		return __gmemcpy_to_device(handle, dst_addr, src_buf, size, 
+		return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
 								   __copy_from_user_wrapper);
 }
 
@@ -622,18 +643,18 @@ int gmemcpy_user_to_device
  * copy data from the device memory at @addr to @buf.
  */
 int gmemcpy_from_device
-(gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
 
 	if (hmem)
-		return __gmemcpy_dma_from_device(handle, hmem->addr, src_addr, size);
-	if (GDEV_PIPELINE_GET(handle) > 1)
-		return __gmemcpy_from_device_pipeline(handle, dst_buf, src_addr, size, 
+		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	if (h->pipeline_count > 1)
+		return __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
 											  __memcpy_wrapper);
 	else
-		return __gmemcpy_from_device(handle, dst_buf, src_addr, size, 
+		return __gmemcpy_from_device(h, dst_buf, src_addr, size, 
 									 __memcpy_wrapper);
 }
 
@@ -642,18 +663,18 @@ int gmemcpy_from_device
  * copy data from the device memory at @addr to "user-space" @buf.
  */
 int gmemcpy_user_from_device
-(gdev_handle_t *handle, void *dst_buf, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
+	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
 
 	if (hmem)
-		return __gmemcpy_dma_from_device(handle, hmem->addr, src_addr, size);
-	if (GDEV_PIPELINE_GET(handle) > 1)
-		return __gmemcpy_from_device_pipeline(handle, dst_buf, src_addr, size, 
+		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	if (h->pipeline_count > 1)
+		return __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
 											  __copy_to_user_wrapper);
 	else
-		return __gmemcpy_from_device(handle, dst_buf, src_addr, size, 
+		return __gmemcpy_from_device(h, dst_buf, src_addr, size, 
 									 __copy_to_user_wrapper);
 }
 
@@ -662,7 +683,7 @@ int gmemcpy_user_from_device
  * copy data of the given size within the device memory.
  */
 int gmemcpy_in_device
-(gdev_handle_t *handle, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	/* to be implemented */
 	return 0;
@@ -672,9 +693,9 @@ int gmemcpy_in_device
  * glaunch():
  * launch the GPU kernel.
  */
-int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
+int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
-	*id = gdev_launch(GDEV_CTX_GET(handle), kernel);
+	*id = gdev_launch(h->ctx, kernel);
 	return 0;
 }
 
@@ -683,30 +704,28 @@ int glaunch(gdev_handle_t *handle, struct gdev_kernel *kernel, uint32_t *id)
  * poll until the GPU becomes available.
  * @timeout is a unit of milliseconds.
  */
-int gsync(gdev_handle_t *handle, uint32_t id, gdev_time_t *timeout)
+int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 {
-	gdev_ctx_t *ctx = GDEV_CTX_GET(handle);
-
-	return gdev_poll(ctx, GDEV_FENCE_COMPUTE, id, timeout);
+	return gdev_poll(h->ctx, GDEV_FENCE_COMPUTE, id, timeout);
 }
 
 /**
  * gquery():
  * query the device-specific information.
  */
-int gquery(gdev_handle_t *handle, uint32_t type, uint32_t *result)
+int gquery(struct gdev_handle *h, uint32_t type, uint32_t *result)
 {
-	return gdev_query(handle->gdev, type, result);
+	return gdev_query(h->gdev, type, result);
 }
 
 /**
  * gtune():
  * tune resource management parameters.
  */
-int gtune(gdev_handle_t *handle, uint32_t type, uint32_t value)
+int gtune(struct gdev_handle *h, uint32_t type, uint32_t value)
 {
-	gdev_vas_t *vas = GDEV_VAS_GET(handle);
-	gdev_mem_t **dma_mem = GDEV_DMA_GET(handle);
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t **dma_mem = h->dma_mem;
 
 	switch (type) {
 	case GDEV_TUNE_MEMCPY_PIPELINE_COUNT:
@@ -715,15 +734,15 @@ int gtune(gdev_handle_t *handle, uint32_t type, uint32_t value)
 			return -EINVAL;
 		}
 #ifndef GDEV_NO_STATIC_BOUNCE_BUFFER
-		__free_dma(handle, dma_mem);
+		__free_dma(h, dma_mem);
 #endif
 		/* change the pipeline count here. */
-		GDEV_PIPELINE_SET(handle, value);
+		h->pipeline_count = value;
 #ifndef GDEV_NO_STATIC_BOUNCE_BUFFER
-		dma_mem = __malloc_dma(handle, vas, GDEV_CHUNK_GET(handle));
+		dma_mem = __malloc_dma(h, vas, h->chunk_size);
 		if (!dma_mem)
 			return -ENOMEM;
-		GDEV_DMA_SET(handle, dma_mem);
+		h->dma_mem = dma_mem;
 #endif
 		break;
 	case GDEV_TUNE_MEMCPY_CHUNK_SIZE:
@@ -731,15 +750,15 @@ int gtune(gdev_handle_t *handle, uint32_t type, uint32_t value)
 			return -EINVAL;
 		}
 #ifndef GDEV_NO_STATIC_BOUNCE_BUFFER
-		__free_dma(handle, dma_mem);
+		__free_dma(h, dma_mem);
 #endif
 		/* change the chunk size here. */
-		GDEV_CHUNK_SET(handle, value);
+		h->chunk_size = value;
 #ifndef GDEV_NO_STATIC_BOUNCE_BUFFER
-		dma_mem = __malloc_dma(handle, vas, GDEV_CHUNK_GET(handle));
+		dma_mem = __malloc_dma(h, vas, h->chunk_size);
 		if (!dma_mem)
 			return -ENOMEM;
-		GDEV_DMA_SET(handle, dma_mem);
+		h->dma_mem = dma_mem;
 #endif
 		break;
 	default:

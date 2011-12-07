@@ -128,7 +128,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	uint64_t a_addr, b_addr, c_addr;
 	uint64_t result[3];
 
-	gdev_handle_t *handle;
+	Ghandle handle;
 	struct gdev_kernel k;
 
 	/* initialize A[] & B[] */

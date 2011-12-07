@@ -145,7 +145,7 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-	gdev_handle_t *handle;
+	Ghandle handle;
 	uint32_t id;
 
 	if (!gdev_initialized)

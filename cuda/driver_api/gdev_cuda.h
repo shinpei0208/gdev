@@ -35,6 +35,11 @@
 #define NULL 0
 #endif
 
+#ifdef __KERNEL__
+#include "gdev_drv.h"
+#else
+#include "gdev_lib.h"
+#endif
 #include "gdev_api.h"
 #include "gdev_list.h"
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
@@ -69,8 +74,8 @@ struct gdev_cuda_raw_func {
 };
 
 struct CUctx_st {
-	gdev_handle_t *gdev_handle;
-	gdev_list_t list_entry;
+	Ghandle gdev_handle;
+	struct gdev_list list_entry;
 	struct gdev_cuda_info cuda_info;
 };
 
@@ -88,14 +93,14 @@ struct CUmod_st {
 		void *buf;
 	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT]; /* global to functions. */
 	uint32_t func_count;
-	gdev_list_t func_list;
+	struct gdev_list func_list;
 	struct CUctx_st *ctx;
 };
 
 struct CUfunc_st {
 	struct gdev_kernel kernel;
 	struct gdev_cuda_raw_func raw_func;
-	gdev_list_t list_entry;
+	struct gdev_list list_entry;
 	struct CUmod_st *mod;
 };
 
@@ -117,7 +122,7 @@ struct CUgraphicsResource_st {
 extern int gdev_initialized;
 extern int gdev_device_count;
 extern struct CUctx_st *gdev_ctx_current;
-extern gdev_list_t gdev_ctx_list;
+extern struct gdev_list gdev_ctx_list;
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);

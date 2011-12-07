@@ -51,7 +51,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	struct CUmod_st *mod;
 	struct CUctx_st *ctx;
 	void *bnc_buf;
-	gdev_handle_t *handle;
+	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -182,7 +182,7 @@ CUresult cuModuleUnload(CUmodule hmod)
 {
 	CUresult res;
 	struct CUmod_st *mod = hmod;
-	gdev_handle_t *handle;
+	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;

@@ -1,5 +1,9 @@
 /*
  * Copyright 2011 Shinpei Kato
+ *
+ * University of California at Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -30,9 +34,9 @@
 #else
 #include "gdev_lib.h"
 #endif
+#include "gdev_nvidia_def.h"
 #include "gdev_list.h"
 #include "gdev_time.h"
-#include "gdev_nvidia_def.h"
 
 //#define GDEV_DMA_PCOPY
 
@@ -92,7 +96,7 @@
  */
 struct gdev_vas {
 	void *pvas; /* driver private object. */
-	gdev_device_t *gdev; /* vas is associated with a specific device. */
+	struct gdev_device *gdev; /* vas is associated with a specific device. */
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 };
@@ -102,7 +106,7 @@ struct gdev_vas {
  */
 struct gdev_ctx {
 	void *pctx; /* driver private object. */
-	gdev_vas_t *vas; /* chan is associated with a specific vas object. */
+	struct gdev_vas *vas; /* chan is associated with a specific vas object. */
 	struct gdev_fifo {
 		volatile uint32_t *regs; /* channel control registers. */
 		void *ib_bo; /* driver private object. */
@@ -136,7 +140,7 @@ struct gdev_ctx {
  */
 struct gdev_mem {
 	void *bo; /* driver private object. */
-	gdev_vas_t *vas; /* mem is associated with a specific vas object. */
+	struct gdev_vas *vas; /* mem is associated with a specific vas object. */
 	struct gdev_list list_entry; /* entry to the memory list. */
 	uint64_t addr; /* virtual memory address. */
 	void *map; /* memory-mapped buffer (for host only). */
@@ -144,12 +148,13 @@ struct gdev_mem {
 
 /* private compute functions. */
 struct gdev_compute {
-	void (*launch)(gdev_ctx_t*, struct gdev_kernel*);
-	void (*fence_write)(gdev_ctx_t*, int, uint32_t);
-	void (*fence_read)(gdev_ctx_t*, int, uint32_t*);
-	void (*memcpy)(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
-	void (*membar)(gdev_ctx_t*);
-	void (*init)(gdev_ctx_t*);
+	void (*launch)(struct gdev_ctx *, struct gdev_kernel *);
+	void (*fence_write)(struct gdev_ctx *, int, uint32_t);
+	void (*fence_read)(struct gdev_ctx *, int, uint32_t *);
+	void (*memcpy)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
+	void (*memcpy_evict)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
+	void (*membar)(struct gdev_ctx *);
+	void (*init)(struct gdev_ctx *);
 };
 
 /**
@@ -159,39 +164,9 @@ struct gdev_compute {
 #define GDEV_MEM_BUF(mem) (mem)->map
 
 /**
- * runtime/driver-dependent resource management functions.
- */
-int gdev_compute_init(gdev_device_t*);
-int gdev_query(gdev_device_t*, uint32_t, uint32_t*);
-gdev_device_t *gdev_dev_open(int);
-void gdev_dev_close(gdev_device_t*);
-gdev_vas_t *gdev_vas_new(gdev_device_t*, uint64_t);
-void gdev_vas_free(gdev_vas_t*);
-gdev_ctx_t *gdev_ctx_new(gdev_device_t*, gdev_vas_t*);
-void gdev_ctx_free(gdev_ctx_t*);
-gdev_mem_t *gdev_malloc(gdev_vas_t*, uint64_t, int);
-void gdev_free(gdev_mem_t*);
-
-/**
  * architecture-dependent setup functions.
  */
-void nvc0_compute_setup(gdev_device_t *gdev);
-
-/**
- * runtime/driver/architecture-independent compute functions.
- */
-uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
-uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
-int gdev_poll(gdev_ctx_t*, int, uint32_t, gdev_time_t*);
-
-/**
- * runtime/driver/architecture-independent heap operations.
- */
-void gdev_heap_init(gdev_vas_t*);
-void gdev_heap_add(gdev_mem_t*, int);
-void gdev_heap_del(gdev_mem_t*);
-gdev_mem_t *gdev_heap_lookup(gdev_vas_t*, uint64_t, int);
-void gdev_garbage_collect(gdev_vas_t*);
+void nvc0_compute_setup(struct gdev_device *);
 
 /**
  * runtime/driver/architecture-independent inline FIFO functions.
@@ -202,7 +177,7 @@ static inline void __gdev_relax_fifo(void)
 }
 
 static inline void __gdev_push_fifo
-(gdev_ctx_t *ctx, uint64_t base, uint32_t len, int flags)
+(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
 {
 	uint64_t w = base | (uint64_t)len << 40 | (uint64_t)flags << 40;
 	while (((ctx->fifo.ib_put + 1) & ctx->fifo.ib_mask) == ctx->fifo.ib_get) {
@@ -221,7 +196,7 @@ static inline void __gdev_push_fifo
 	ctx->fifo.regs[0x8c/4] = ctx->fifo.ib_put;
 }
 
-static inline void __gdev_update_get(gdev_ctx_t *ctx)
+static inline void __gdev_update_get(struct gdev_ctx *ctx)
 {
 	uint32_t lo = ctx->fifo.regs[0x58/4];
 	uint32_t hi = ctx->fifo.regs[0x5c/4];
@@ -233,7 +208,7 @@ static inline void __gdev_update_get(gdev_ctx_t *ctx)
 	}
 }
 
-static inline void __gdev_fire_ring(gdev_ctx_t *ctx)
+static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 {
 	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
 		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
@@ -254,7 +229,7 @@ static inline void __gdev_fire_ring(gdev_ctx_t *ctx)
 	}
 }
 
-static inline void __gdev_out_ring(gdev_ctx_t *ctx, uint32_t word)
+static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
 {
 	while (((ctx->fifo.pb_pos + 4) & ctx->fifo.pb_mask) == ctx->fifo.pb_get) {
 		uint32_t old = ctx->fifo.pb_get;
@@ -270,25 +245,25 @@ static inline void __gdev_out_ring(gdev_ctx_t *ctx, uint32_t word)
 }
 
 static inline void __gdev_begin_ring_nv50
-(gdev_ctx_t *ctx, int subc, int mthd, int len)
+(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, mthd | (subc<<13) | (len<<18));
 }
 
 static inline void __gdev_begin_ring_nv50_const
-(gdev_ctx_t *ctx, int subc, int mthd, int len)
+(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, mthd | (subc<<13) | (len<<18) | (0x4<<28));
 }
 
 static inline void __gdev_begin_ring_nvc0
-(gdev_ctx_t *ctx, int subc, int mthd, int len)
+(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, (0x2<<28) | (len<<16) | (subc<<13) | (mthd>>2));
 }
 
 static inline void __gdev_begin_ring_nvc0_const
-(gdev_ctx_t *ctx, int subc, int mthd, int len)
+(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, (0x6<<28) | (len<<16) | (subc<<13) | (mthd>>2));
 }

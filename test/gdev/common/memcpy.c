@@ -24,7 +24,7 @@ static inline void tvsub(struct timeval *x,
 int gdev_test_memcpy(uint32_t *in, uint32_t *out, uint32_t size, 
 					 uint32_t chunk_size, int pipeline_count)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	uint64_t data_addr;
 	struct timeval tv;
 	struct timeval tv_total_start, tv_total_end;

@@ -35,7 +35,7 @@ static int device_count_read
 (char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	char kbuf[64];
-	sprintf(kbuf, "%d", gdrv.count);
+	sprintf(kbuf, "%d", gdev_count);
 	return gdev_proc_read(kbuf, page, count, eof);
 }
 
@@ -44,7 +44,7 @@ static int device_count_write
 {
 	char kbuf[64];
 	count = gdev_proc_write(kbuf, buf, count);
-	sscanf(kbuf, "%d", &gdrv.count);
+	sscanf(kbuf, "%d", &gdev_count);
 	return count;
 }
 

@@ -28,9 +28,9 @@
 
 #define GDEV_MEMCPY_USER_DIRECT
 
-int gdev_ioctl_gmalloc(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gmalloc(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_mem_t m;
+	struct gdev_ioctl_mem m;
 
 	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
 		return -EFAULT;
@@ -44,9 +44,9 @@ int gdev_ioctl_gmalloc(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gfree(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gfree(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_mem_t m;
+	struct gdev_ioctl_mem m;
 
 	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
 		return -EFAULT;
@@ -54,9 +54,9 @@ int gdev_ioctl_gfree(gdev_handle_t *handle, unsigned long arg)
 	return gfree(handle, m.addr);
 }
 
-int gdev_ioctl_gmalloc_dma(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gmalloc_dma(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_mem_t m;
+	struct gdev_ioctl_mem m;
 
 	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
 		return -EFAULT;
@@ -70,9 +70,9 @@ int gdev_ioctl_gmalloc_dma(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gfree_dma(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gfree_dma(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_mem_t m;
+	struct gdev_ioctl_mem m;
 
 	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
 		return -EFAULT;
@@ -80,9 +80,9 @@ int gdev_ioctl_gfree_dma(gdev_handle_t *handle, unsigned long arg)
 	return gfree_dma(handle, (void*)m.addr);
 }
 
-int gdev_ioctl_gmemcpy_to_device(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gmemcpy_to_device(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_dma_t dma;
+	struct gdev_ioctl_dma dma;
 	int ret;
 #ifndef GDEV_MEMCPY_USER_DIRECT
 	void *buf;
@@ -120,9 +120,9 @@ int gdev_ioctl_gmemcpy_to_device(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gmemcpy_from_device(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gmemcpy_from_device(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_dma_t dma;
+	struct gdev_ioctl_dma dma;
 	int ret;
 #ifndef GDEV_MEMCPY_USER_DIRECT
 	void *buf;
@@ -160,9 +160,9 @@ int gdev_ioctl_gmemcpy_from_device(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gmemcpy_in_device(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gmemcpy_in_device(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_dma_t dma;
+	struct gdev_ioctl_dma dma;
 
 	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
 		return -EFAULT;
@@ -170,9 +170,9 @@ int gdev_ioctl_gmemcpy_in_device(gdev_handle_t *handle, unsigned long arg)
 	return gmemcpy_in_device(handle, dma.dst_addr, dma.src_addr, dma.size);
 }
 
-int gdev_ioctl_glaunch(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_glaunch(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_launch_t launch;
+	struct gdev_ioctl_launch launch;
 	struct gdev_kernel kernel;
 	uint32_t id;
 
@@ -190,10 +190,10 @@ int gdev_ioctl_glaunch(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gsync(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gsync(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_sync_t sync;
-	gdev_time_t timeout;
+	struct gdev_ioctl_sync sync;
+	struct gdev_time timeout;
 
 	if (copy_from_user(&sync, (void __user *)arg, sizeof(sync)))
 		return -EFAULT;
@@ -207,9 +207,9 @@ int gdev_ioctl_gsync(gdev_handle_t *handle, unsigned long arg)
 	return gsync(handle, sync.id, &timeout);
 }
 
-int gdev_ioctl_gquery(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gquery(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_query_t q;
+	struct gdev_ioctl_query q;
 
 	if (copy_from_user(&q, (void __user *)arg, sizeof(q)))
 		return -EFAULT;
@@ -223,9 +223,9 @@ int gdev_ioctl_gquery(gdev_handle_t *handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gtune(gdev_handle_t *handle, unsigned long arg)
+int gdev_ioctl_gtune(Ghandle handle, unsigned long arg)
 {
-	gdev_ioctl_tune_t c;
+	struct gdev_ioctl_tune c;
 
 	if (copy_from_user(&c, (void __user *)arg, sizeof(c)))
 		return -EFAULT;

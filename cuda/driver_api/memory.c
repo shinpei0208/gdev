@@ -50,7 +50,7 @@
  */
 CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	uint64_t addr;
 	uint32_t size = bytesize;
 
@@ -83,7 +83,7 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
  */
 CUresult cuMemFree(CUdeviceptr dptr)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	uint64_t addr = dptr;
 
 	if (!gdev_initialized)
@@ -129,7 +129,7 @@ CUresult cuMemFree(CUdeviceptr dptr)
  */
 CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	void *buf;
 	uint32_t size = bytesize;
 
@@ -162,7 +162,7 @@ CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
  */
 CUresult cuMemFreeHost(void *p)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	void *buf = p;
 
 	if (!gdev_initialized)
@@ -195,7 +195,7 @@ CUresult cuMemFreeHost(void *p)
 CUresult cuMemcpyHtoD
 (CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	const void *src_buf = srcHost;
 	uint64_t dst_addr = dstDevice;
 	uint32_t size = ByteCount;
@@ -232,7 +232,7 @@ CUresult cuMemcpyHtoD
 CUresult cuMemcpyDtoH
 (void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
-	gdev_handle_t *handle;
+	Ghandle handle;
 	void *dst_buf = dstHost;
 	uint64_t src_addr = srcDevice;
 	uint32_t size = ByteCount;

@@ -187,7 +187,7 @@ static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
 		mod->cmem[i].raw_size = 0;
 		mod->cmem[i].buf = NULL;
 	}
-	__gdev_list_init(&mod->func_list, NULL);
+	gdev_list_init(&mod->func_list, NULL);
 }
 
 static void init_kernel(struct gdev_kernel *k)
@@ -374,8 +374,8 @@ static CUresult cubin_func
 		}
 	}
 
-	__gdev_list_init(&func->list_entry, func);
-	__gdev_list_add(&func->list_entry, &mod->func_list);
+	gdev_list_init(&func->list_entry, func);
+	gdev_list_add(&func->list_entry, &mod->func_list);
 	mod->func_count++;
 	func->mod = mod;
 
@@ -538,7 +538,7 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 {
 	struct CUfunc_st *func;
 	struct gdev_cuda_raw_func *raw_func;
-	gdev_list_t *entry = __gdev_list_head(&mod->func_list);
+	struct gdev_list *entry = gdev_list_head(&mod->func_list);
 
 	if (!mod->bin || !mod->fp)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -546,7 +546,7 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 	/* use while() instead of gdev_list_for_each(). 
 	   free(func) will delte the entry itself in gdev_list_for_each(). */
 	while (entry) {
-		func = __gdev_list_container(entry);
+		func = gdev_list_container(entry);
 		entry = entry->next;
 		raw_func = &func->raw_func;
 		FREE(raw_func->param_info);

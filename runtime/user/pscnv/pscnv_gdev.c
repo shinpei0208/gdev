@@ -24,6 +24,7 @@
 
 #include "gdev_conf.h"
 #include "gdev_lib.h"
+#include "gdev_proto.h"
 #include "libpscnv.h"
 #include "libpscnv_ib.h"
 #include <fcntl.h>
@@ -32,18 +33,20 @@
 
 #define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 
-gdev_device_t gdev[GDEV_DEVICE_MAX_COUNT] = {[0 ... GDEV_DEVICE_MAX_COUNT-1] = 
-											 {0, 0, 0, 0, NULL}};
+struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
+	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, NULL, NULL}
+};
 
 /* allocate a new memory object. */
-static inline gdev_mem_t *__gdev_mem_alloc
-(gdev_vas_t *vas, uint64_t size, uint32_t flags)
+static inline
+struct gdev_mem *__gdev_mem_alloc
+(struct gdev_vas *vas, uint64_t size, uint32_t flags)
 {
-	gdev_mem_t *mem;
+	struct gdev_mem *mem;
 	struct pscnv_ib_chan *chan = vas->pvas;
 	struct pscnv_ib_bo *bo;
 	
-	if (!(mem = (gdev_mem_t*) malloc(sizeof(*mem))))
+	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
 		goto fail_mem;
 
 	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, flags, 0, size, 0, &bo))
@@ -57,7 +60,7 @@ static inline gdev_mem_t *__gdev_mem_alloc
 	else
 		mem->map = NULL;
 
-	__gdev_list_init(&mem->list_entry, (void *)mem);
+	gdev_list_init(&mem->list_entry, (void *)mem);
 
 	return mem;
 
@@ -69,7 +72,8 @@ fail_mem:
 }
 
 /* free the specified memory object. */
-static inline void __gdev_mem_free(gdev_mem_t *mem)
+static inline
+void __gdev_mem_free(struct gdev_mem *mem)
 {
 	struct pscnv_ib_bo *bo = mem->bo;
 
@@ -79,7 +83,7 @@ static inline void __gdev_mem_free(gdev_mem_t *mem)
 }
 
 /* initialize the compute engine. */
-int gdev_compute_init(gdev_device_t *gdev)
+int gdev_compute_init(struct gdev_device *gdev)
 {
 	uint32_t chipset = gdev->chipset;
 
@@ -105,7 +109,7 @@ int gdev_compute_init(gdev_device_t *gdev)
 /* query a piece of the device-specific information. */
 int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 {
-	int fd = gdev->fd;
+	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
@@ -120,18 +124,18 @@ int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 }
 
 /* open a new Gdev object associated with the specified device. */
-gdev_device_t *gdev_dev_open(int devnum)
+struct gdev_device *gdev_dev_open(int minor)
 {
 	char buf[64];
 	int fd;
 	uint64_t chipset;
-	gdev_device_t *dev = &gdev[devnum];
+	struct gdev_device *gdev = &gdevs[minor];
 
-	if (dev->use++ > 0) {
+	if (gdev->use++ > 0) {
 		goto end;
 	}
 
-	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, devnum);
+	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
 	if ((fd = open(buf, O_RDWR, 0)) < 0)
 		return NULL;
 
@@ -140,31 +144,33 @@ gdev_device_t *gdev_dev_open(int devnum)
 		return NULL;
 	}
 
-	dev->chipset = (uint32_t)chipset;
-	dev->id = devnum;
-	dev->fd = fd;
+	gdev->chipset = (uint32_t)chipset;
+	gdev->id = minor;
+	gdev->priv = (void *) (unsigned long) fd; /* avoid warning :) */
 
-	gdev_compute_init(dev);
+	gdev_compute_init(gdev);
 
 end:
-	return dev;
+	return gdev;
 }
 
 /* close the specified Gdev object. */
-void gdev_dev_close(gdev_device_t *dev)
+void gdev_dev_close(struct gdev_device *gdev)
 {
-	if (--dev->use == 0) {
-		close(dev->fd);
+	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
+
+	if (--gdev->use == 0) {
+		close(fd);
 	}
 }
 
 /* allocate a new virual address space object. 
    pscnv_ib_chan_new() will allocate a channel object, too. */
-gdev_vas_t *gdev_vas_new(gdev_device_t *dev, uint64_t size)
+struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 {
-	int fd = dev->fd;
-	uint32_t chipset = dev->chipset;
-	gdev_vas_t *vas;
+	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
+	uint32_t chipset = gdev->chipset;
+	struct gdev_vas *vas;
 	struct pscnv_ib_chan *chan;
 
 	if (!(vas = malloc(sizeof(*vas))))
@@ -173,8 +179,8 @@ gdev_vas_t *gdev_vas_new(gdev_device_t *dev, uint64_t size)
     if (pscnv_ib_chan_new(fd, 0, &chan, 0, 0, 0, chipset))
         goto fail_chan;
 
-	vas->gdev = dev;
-	vas->pvas = (void *)chan; /* private object. */
+	vas->gdev = gdev;
+	vas->pvas = (void *) chan; /* private object. */
 
 	return vas;
 
@@ -186,11 +192,11 @@ fail_vas:
 }
 
 /* free the specified virtual address space object. */
-void gdev_vas_free(gdev_vas_t *vas)
+void gdev_vas_free(struct gdev_vas *vas)
 {
-	gdev_device_t *dev = vas->gdev;
-	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *)vas->pvas;
-	int fd = dev->fd;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
+	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
 	pscnv_ib_bo_free(chan->pb);
 	pscnv_ib_bo_free(chan->ib);
@@ -204,13 +210,13 @@ void gdev_vas_free(gdev_vas_t *vas)
 /* create a new GPU context object. 
    there are not many to do here, as we have already allocated a channel
    object in gdev_vas_new(), i.e., @vas holds it. */
-gdev_ctx_t *gdev_ctx_new(gdev_device_t *dev, gdev_vas_t *vas)
+struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
-	gdev_ctx_t *ctx;
-	struct gdev_compute *compute = dev->compute;
+	struct gdev_ctx *ctx;
+	struct gdev_compute *compute = gdev->compute;
 	struct pscnv_ib_bo *fence_bo;
-	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *)vas->pvas;
-	uint32_t chipset = dev->chipset;
+	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
+	uint32_t chipset = gdev->chipset;
 	int i;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
@@ -272,14 +278,14 @@ fail_ctx:
 }
 
 /* destroy the specified GPU context object. */
-void gdev_ctx_free(gdev_ctx_t *ctx)
+void gdev_ctx_free(struct gdev_ctx *ctx)
 {
 	pscnv_ib_bo_free(ctx->fence.bo);
 	free(ctx);
 }
 
 /* allocate a new memory object. */
-gdev_mem_t *gdev_malloc(gdev_vas_t *vas, uint64_t size, int type)
+struct gdev_mem *gdev_malloc(struct gdev_vas *vas, uint64_t size, int type)
 {
 	switch (type) {
 	case GDEV_MEM_DEVICE:
@@ -294,7 +300,7 @@ gdev_mem_t *gdev_malloc(gdev_vas_t *vas, uint64_t size, int type)
 }
 
 /* free the specified memory object. */
-void gdev_free(gdev_mem_t *mem)
+void gdev_free(struct gdev_mem *mem)
 {
 	return __gdev_mem_free(mem);
 }

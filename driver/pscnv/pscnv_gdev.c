@@ -22,9 +22,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_conf.h"
 #include "gdev_drv.h"
 #include "gdev_list.h"
+#include "gdev_nvidia.h"
+#include "gdev_proto.h"
 #include "nouveau_drv.h"
 #include "pscnv_chan.h"
 #include "pscnv_fifo.h"
@@ -36,12 +37,12 @@
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
 /* allocate a new memory object. */
-static inline gdev_mem_t *__gdev_mem_alloc
-(gdev_vas_t *vas, uint64_t size, uint32_t flags)
+static inline struct gdev_mem *__gdev_mem_alloc
+(struct gdev_vas *vas, uint64_t size, uint32_t flags)
 {
-	gdev_mem_t *mem;
-	gdev_device_t *gdev = vas->gdev;
-	struct drm_device *drm = gdev->drm;
+	struct gdev_mem *mem;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_bo *bo;
 	struct pscnv_mm_node *mm;
@@ -68,7 +69,7 @@ static inline gdev_mem_t *__gdev_mem_alloc
 	else
 		mem->map = NULL;
 
-	__gdev_list_init(&mem->list_entry, (void *)mem);
+	gdev_list_init(&mem->list_entry, (void *)mem);
 
 	return mem;
 
@@ -83,9 +84,9 @@ fail_mem:
 }
 
 /* free the specified memory object. */
-static inline void __gdev_mem_free(gdev_mem_t *mem)
+static inline void __gdev_mem_free(struct gdev_mem *mem)
 {
-	gdev_vas_t *vas = mem->vas;
+	struct gdev_vas *vas = mem->vas;
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_bo *bo = mem->bo;
 
@@ -101,9 +102,9 @@ static inline void __gdev_mem_free(gdev_mem_t *mem)
 }
 
 /* initialize the compute engine. */
-int gdev_compute_init(gdev_device_t *gdev)
+int gdev_compute_init(struct gdev_device *gdev)
 {
-	struct drm_device *drm = gdev->drm;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *priv = drm->dev_private;
 	uint32_t chipset = priv->chipset;
 
@@ -127,9 +128,9 @@ int gdev_compute_init(gdev_device_t *gdev)
 }
 
 /* query a piece of the device-specific information. */
-int gdev_query(gdev_device_t *gdev, uint32_t type, uint32_t *result)
+int gdev_query(struct gdev_device *gdev, uint32_t type, uint32_t *result)
 {
-	struct drm_device *drm = gdev->drm;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *priv = drm->dev_private;
 	struct drm_pscnv_getparam getparam;
 	uint32_t chipset = priv->chipset;
@@ -150,24 +151,24 @@ int gdev_query(gdev_device_t *gdev, uint32_t type, uint32_t *result)
 }
 
 /* open a new Gdev object associated with the specified device. */
-gdev_device_t *gdev_dev_open(int devnum)
+struct gdev_device *gdev_dev_open(int devnum)
 {
-	gdev_device_t *gdev = &gdrv.gdev[devnum];
+	struct gdev_device *gdev = &gdevs[devnum];
 	gdev->use++;
 	return gdev;
 }
 
 /* close the specified Gdev object. */
-void gdev_dev_close(gdev_device_t *gdev)
+void gdev_dev_close(struct gdev_device *gdev)
 {
 	gdev->use--;
 }
 
 /* allocate a new virual address space object. */
-gdev_vas_t *gdev_vas_new(gdev_device_t *gdev, uint64_t size)
+struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 {
-	gdev_vas_t *vas;
-	struct drm_device *drm = gdev->drm;
+	struct gdev_vas *vas;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct pscnv_vspace *vspace;
 
 	if (!(vas = kzalloc(sizeof(*vas), GFP_KERNEL)))
@@ -191,7 +192,7 @@ fail_vas:
 }
 
 /* free the specified virtual address space object. */
-void gdev_vas_free(gdev_vas_t *vas)
+void gdev_vas_free(struct gdev_vas *vas)
 {
 	struct pscnv_vspace *vspace = vas->pvas;
 
@@ -202,11 +203,11 @@ void gdev_vas_free(gdev_vas_t *vas)
 }
 
 /* create a new GPU context object. */
-gdev_ctx_t *gdev_ctx_new(gdev_device_t *gdev, gdev_vas_t *vas)
+struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
-	gdev_ctx_t *ctx;
+	struct gdev_ctx *ctx;
 	struct gdev_compute *compute = gdev->compute;
-	struct drm_device *drm = gdev->drm;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *priv = drm->dev_private;
 	uint32_t chipset = priv->chipset;
 	struct pscnv_vspace *vspace = vas->pvas; 
@@ -328,9 +329,9 @@ fail_ctx:
 }
 
 /* destroy the specified GPU context object. */
-void gdev_ctx_free(gdev_ctx_t *ctx)
+void gdev_ctx_free(struct gdev_ctx *ctx)
 {
-	gdev_vas_t *vas = ctx->vas; 
+	struct gdev_vas *vas = ctx->vas; 
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_chan *chan = ctx->pctx;
 	struct pscnv_bo *fence_bo = ctx->fence.bo;
@@ -352,7 +353,7 @@ void gdev_ctx_free(gdev_ctx_t *ctx)
 }
 
 /* allocate a new memory object. */
-gdev_mem_t *gdev_malloc(gdev_vas_t *vas, uint64_t size, int type)
+struct gdev_mem *gdev_malloc(struct gdev_vas *vas, uint64_t size, int type)
 {
 	switch (type) {
 	case GDEV_MEM_DEVICE:
@@ -366,7 +367,7 @@ gdev_mem_t *gdev_malloc(gdev_vas_t *vas, uint64_t size, int type)
 }
 
 /* free the specified memory object. */
-void gdev_free(gdev_mem_t *mem)
+void gdev_free(struct gdev_mem *mem)
 {
 	return __gdev_mem_free(mem);
 }
