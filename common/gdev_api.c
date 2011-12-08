@@ -106,9 +106,6 @@ struct gdev_handle *gopen(int minor)
 	if (!ctx)
 		goto fail_ctx;
 
-	/* initialize the list of memory spaces. */
-	gdev_heap_init(vas);
-	
 	/* allocate static bounce bound buffer objects. */
 	dma_mem = __malloc_dma(h, vas, GDEV_CHUNK_DEFAULT_SIZE);
 	if (!dma_mem)
@@ -119,6 +116,11 @@ struct gdev_handle *gopen(int minor)
 	h->ctx = ctx;
 	h->gdev = gdev;
 	h->dev_id = minor;
+
+	/* insert the created VAS object to the device VAS list. */
+	LOCK(&gdev->vas_lock);
+	gdev_vas_list_add(vas);
+	UNLOCK(&gdev->vas_lock);
 
 	GDEV_PRINT("Opened gdev%d.\n", minor);
 
@@ -162,6 +164,10 @@ int gclose(struct gdev_handle *h)
 	if (!dma_mem)
 		return -ENOENT;
 
+	/* delete the VAS object from the device VAS list. */
+	LOCK(&gdev->vas_lock);
+	gdev_vas_list_del(vas);
+	UNLOCK(&gdev->vas_lock);
 	/* free the bounce buffer. */
 	__free_dma(h, dma_mem);
 	/* free all memory left in heap. */
@@ -198,7 +204,7 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 		return 0;
 	}
 
-	gdev_heap_add(mem, GDEV_MEM_DEVICE);
+	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
 	GDEV_DPRINT("Allocated 0x%x at 0x%x in device.\n", 
 			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
@@ -214,8 +220,8 @@ int gfree(struct gdev_handle *h, uint64_t addr)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if ((mem = gdev_heap_lookup(vas, addr, GDEV_MEM_DEVICE))) {
-		gdev_heap_del(mem);
+	if ((mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE))) {
+		gdev_mem_list_del(mem);
 		gdev_mem_free(mem);
 		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
@@ -244,7 +250,7 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 		return 0;
 	}
 	
-	gdev_heap_add(mem, GDEV_MEM_DMA);
+	gdev_mem_list_add(mem, GDEV_MEM_DMA);
 	GDEV_DPRINT("Allocated 0x%x at 0x%x in host DMA.\n", 
 			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
@@ -260,8 +266,8 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if ((mem = gdev_heap_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
-		gdev_heap_del(mem);
+	if ((mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
+		gdev_mem_list_del(mem);
 		gdev_mem_free(mem);
 		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
@@ -608,7 +614,7 @@ int gmemcpy_to_device
 (struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
 	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
+	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
 
 	if (hmem)
 		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
@@ -628,7 +634,7 @@ int gmemcpy_user_to_device
 (struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
 	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
+	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
 
 	if (hmem)
 		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
@@ -648,7 +654,7 @@ int gmemcpy_from_device
 (struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
 	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
+	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
 
 	if (hmem)
 		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
@@ -668,7 +674,7 @@ int gmemcpy_user_from_device
 (struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
 	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *hmem = gdev_heap_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
+	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
 
 	if (hmem)
 		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);

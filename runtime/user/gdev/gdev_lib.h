@@ -31,6 +31,7 @@
 #include <stdio.h> /* printf, etc. */
 #include <stdlib.h> /* malloc/free, etc. */
 #include <string.h> /* memcpy, etc. */
+#include <sys/sem.h> /* struct sembuf */
 
 #define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
 #define GDEV_DPRINT(fmt, arg...)					\
@@ -47,6 +48,26 @@
 #endif
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
+#define LOCK(ptr) gdev_lock_user(ptr)
+#define UNLOCK(ptr) gdev_unlock_user(ptr)
+
+/* typedefs for user-specific types. */
+typedef struct gdev_sem_struct {
+	int semid;
+	struct sembuf sembuf;
+} gdev_lock_t;
+
+static inline void gdev_init_lock_user(gdev_lock_t *lock)
+{
+}
+
+static inline void gdev_lock_user(gdev_lock_t *lock)
+{
+}
+
+static inline void gdev_unlock_user(gdev_lock_t *lock)
+{
+}
 
 #define DRM_DIR_NAME  "/dev/dri"
 #define DRM_DEV_NAME  "%s/card%d"

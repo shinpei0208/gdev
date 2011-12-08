@@ -172,6 +172,10 @@ struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 	vas->gdev = gdev;
 	vas->pvas = vspace; /* driver private object. */
 
+	gdev_list_init(&vas->list_entry, (void *) vas); /* entry to VAS list. */
+	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
+	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+
 	return vas;
 
 fail_vspace:

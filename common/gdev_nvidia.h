@@ -99,6 +99,7 @@ struct gdev_vas {
 	struct gdev_device *gdev; /* vas is associated with a specific device. */
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
+	struct gdev_list list_entry; /* entry to the vas list. */
 };
 
 /**
