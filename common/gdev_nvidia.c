@@ -277,13 +277,20 @@ void gdev_garbage_collect(struct gdev_vas *vas)
 void gdev_vas_list_add(struct gdev_vas *vas)
 {
 	struct gdev_device *gdev = vas->gdev;
+
+	LOCK(&gdev->vas_lock);
 	gdev_list_add(&vas->list_entry, &gdev->vas_list);
+	UNLOCK(&gdev->vas_lock);
 }
 
 /* delete the VAS object from the device VAS list. */
 void gdev_vas_list_del(struct gdev_vas *vas)
 {
+	struct gdev_device *gdev = vas->gdev;
+
+	LOCK(&gdev->vas_lock);
 	gdev_list_del(&vas->list_entry);
+	UNLOCK(&gdev->vas_lock);
 }
 
 /* add the device memory object to the memory list. */
