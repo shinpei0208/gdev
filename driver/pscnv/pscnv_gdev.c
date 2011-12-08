@@ -36,75 +36,8 @@
 
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
-/* allocate a new memory object. */
-static inline 
-struct gdev_mem *__gdev_mem_alloc
-(struct gdev_vas *vas, uint64_t size, uint32_t flags)
-{
-	struct gdev_mem *mem;
-	struct gdev_device *gdev = vas->gdev;
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo;
-	struct pscnv_mm_node *mm;
-
-	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
-		goto fail_mem;
-
-	if (!(bo = pscnv_mem_alloc(drm, size, flags, 0, 0)))
-		goto fail_bo;
-
-	if (pscnv_vspace_map(vspace, bo, GDEV_VAS_USER_START, 
-						 GDEV_VAS_USER_END, 0, &mm))
-		goto fail_map;
-
-	mem->vas = vas;
-	mem->bo = bo;
-	mem->addr = mm->start;
-	if (flags & PSCNV_GEM_SYSRAM_SNOOP) {
-		if (size > PAGE_SIZE)
-			mem->map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
-		else
-			mem->map = kmap(bo->pages[0]);
-	}
-	else
-		mem->map = NULL;
-
-	gdev_list_init(&mem->list_entry, (void *) mem);
-
-	return mem;
-
-fail_map:
-	GDEV_PRINT("Failed to map VAS.\n");
-	pscnv_mem_free(bo);
-fail_bo:
-	GDEV_PRINT("Failed to allocate buffer object.\n");
-	kfree(mem);
-fail_mem:
-	return NULL;
-}
-
-/* free the specified memory object. */
-static inline 
-void __gdev_mem_free(struct gdev_mem *mem)
-{
-	struct gdev_vas *vas = mem->vas;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
-
-	if (mem->map) {
-		if (bo->size > PAGE_SIZE)
-			vunmap(mem->map);
-		else
-			kunmap(mem->map);
-	}
-	pscnv_vspace_unmap(vspace, mem->addr);
-	pscnv_mem_free(mem->bo);
-	kfree(mem);
-}
-
-/* query a piece of the device-specific information. */
-int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
+/* query device-specific information. */
+int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_pscnv_getparam getparam;
@@ -138,7 +71,7 @@ int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 }
 
 /* open a new Gdev object associated with the specified device. */
-struct gdev_device *gdev_dev_open(int minor)
+struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev = &gdevs[minor];
 
@@ -148,13 +81,13 @@ struct gdev_device *gdev_dev_open(int minor)
 }
 
 /* close the specified Gdev object. */
-void gdev_dev_close(struct gdev_device *gdev)
+void gdev_raw_dev_close(struct gdev_device *gdev)
 {
 	gdev->users--;
 }
 
 /* allocate a new virual address space object. */
-struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
+struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 {
 	struct gdev_vas *vas;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
@@ -166,15 +99,8 @@ struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 	if (!(vspace = pscnv_vspace_new(drm, size, 0, 0)))
 		goto fail_vspace;
 
-	/* we don't need vspace->filp in Gdev.  */
-	vspace->filp = NULL;
-
-	vas->gdev = gdev;
+	vspace->filp = NULL; /* we don't need vspace->filp in Gdev. */
 	vas->pvas = vspace; /* driver private object. */
-
-	gdev_list_init(&vas->list_entry, (void *) vas); /* entry to VAS list. */
-	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
-	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
 
 	return vas;
 
@@ -185,7 +111,7 @@ fail_vas:
 }
 
 /* free the specified virtual address space object. */
-void gdev_vas_free(struct gdev_vas *vas)
+void gdev_raw_vas_free(struct gdev_vas *vas)
 {
 	struct pscnv_vspace *vspace = vas->pvas;
 
@@ -196,10 +122,10 @@ void gdev_vas_free(struct gdev_vas *vas)
 }
 
 /* create a new GPU context object. */
-struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
+struct gdev_ctx *gdev_raw_ctx_new
+(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
-	struct gdev_compute *compute = gdev->compute;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *priv = drm->dev_private;
 	uint32_t chipset = priv->chipset;
@@ -290,11 +216,8 @@ struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 		ctx->fence.sequence[i] = 0;
 	}
 
-	ctx->vas = vas;
-	ctx->pctx = chan;
-
-	/* initialize the channel. */
-	compute->init(ctx);
+	/* private data. */
+	ctx->vas = (void *) vas;
 
 	return ctx;
 	
@@ -322,7 +245,7 @@ fail_ctx:
 }
 
 /* destroy the specified GPU context object. */
-void gdev_ctx_free(struct gdev_ctx *ctx)
+void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 {
 	struct gdev_vas *vas = ctx->vas; 
 	struct pscnv_vspace *vspace = vas->pvas;
@@ -346,35 +269,89 @@ void gdev_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
+static inline struct gdev_mem *__gdev_mem_alloc
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, 
+ uint32_t flags)
 {
-	struct gdev_device *gdev = vas->gdev;
 	struct gdev_mem *mem;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo;
+	struct pscnv_mm_node *mm;
+	uint64_t raw_size = *size;
 
-	switch (type) {
-	case GDEV_MEM_DEVICE:
-		mem = __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
-		if (mem)
-			gdev->mem_used += size;
-	case GDEV_MEM_DMA:
-		mem = __gdev_mem_alloc(vas, size, PSCNV_GEM_SYSRAM_SNOOP);
-	default:
-		GDEV_PRINT("Memory type not supported\n");
-		mem = NULL;
+	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
+		goto fail_mem;
+
+	if (!(bo = pscnv_mem_alloc(drm, raw_size, flags, 0, 0)))
+		goto fail_bo;
+
+	if (pscnv_vspace_map(vspace, bo, GDEV_VAS_USER_START, 
+						 GDEV_VAS_USER_END, 0, &mm))
+		goto fail_map;
+
+	/* address, size, and map. */
+	*addr = mm->start;
+	*size = bo->size;
+	if (flags & PSCNV_GEM_SYSRAM_SNOOP) {
+		if (bo->size > PAGE_SIZE)
+			*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
+		else
+			*map = kmap(bo->pages[0]);
 	}
+	else
+		*map = NULL;
+
+	/* private data. */
+	mem->bo = bo;
 
 	return mem;
+
+fail_map:
+	GDEV_PRINT("Failed to map VAS.\n");
+	pscnv_mem_free(bo);
+fail_bo:
+	GDEV_PRINT("Failed to allocate PSCNV buffer object.\n");
+	kfree(mem);
+fail_mem:
+	return NULL;
 }
 
 /* free the specified memory object. */
-void gdev_mem_free(struct gdev_mem *mem)
+static inline void __gdev_mem_free(struct gdev_mem *mem)
 {
-	gdev_vas_t *vas = mem->vas;
-	struct gdev_device *gdev = vas->gdev;
+	struct gdev_vas *vas = mem->vas;
+	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_bo *bo = mem->bo;
 
-	if (bo->flags & PSCNV_GEM_VRAM_SMALL)
-		gdev->mem_used -= bo->size;
+	if (mem->map) {
+		if (bo->size > PAGE_SIZE)
+			vunmap(mem->map);
+		else
+			kunmap(mem->map);
+	}
+	pscnv_vspace_unmap(vspace, mem->addr);
+	pscnv_mem_free(bo);
+	kfree(mem);
+}
 
-	return __gdev_mem_free(mem);
+/* allocate a new device memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_mem_alloc
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+{
+	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
+}
+
+/* allocate a new host DMA memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_mem_alloc_dma
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+{
+	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_SYSRAM_SNOOP);
+}
+
+/* free the specified memory object. */
+void gdev_raw_mem_free(struct gdev_mem *mem)
+{
+	__gdev_mem_free(mem);
 }

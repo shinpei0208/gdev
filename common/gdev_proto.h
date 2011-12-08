@@ -56,34 +56,45 @@ struct gdev_device {
 };
 
 /**
- * runtime/driver-dependent resource management functions.
+ * architecture-dependent compute functions.
  */
-int gdev_query(struct gdev_device *, uint32_t, uint64_t *);
+int gdev_compute_init(struct gdev_device*, int, void*);
+uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
+uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
+int gdev_poll(gdev_ctx_t*, int, uint32_t, struct gdev_time*);
+int gdev_query(struct gdev_device*, uint32_t, uint64_t*);
+
+/**
+ * architecture-dependent resource management functions.
+ */
 struct gdev_device *gdev_dev_open(int);
-void gdev_dev_close(struct gdev_device *);
-gdev_vas_t *gdev_vas_new(struct gdev_device *, uint64_t);
-void gdev_vas_free(gdev_vas_t *);
-gdev_ctx_t *gdev_ctx_new(struct gdev_device *, gdev_vas_t *);
-void gdev_ctx_free(gdev_ctx_t *);
-gdev_mem_t *gdev_mem_alloc(gdev_vas_t *, uint64_t, int);
-void gdev_mem_free(gdev_mem_t *);
+void gdev_dev_close(struct gdev_device*);
+gdev_vas_t *gdev_vas_new(struct gdev_device*, uint64_t);
+void gdev_vas_free(gdev_vas_t*);
+gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
+void gdev_ctx_free(gdev_ctx_t*);
+gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
+void gdev_mem_free(gdev_mem_t*);
+gdev_mem_t *gdev_mem_borrow(gdev_vas_t*, uint64_t, int);
+void gdev_garbage_collect(gdev_vas_t*);
+void gdev_vas_list_add(gdev_vas_t*);
+void gdev_vas_list_del(gdev_vas_t*);
+void gdev_mem_list_add(gdev_mem_t*, int);
+void gdev_mem_list_del(gdev_mem_t*);
+gdev_mem_t *gdev_mem_lookup(gdev_vas_t*, uint64_t, int);
 
 /**
- * runtime/driver/architecture-independent compute functions.
+ * driver/runtime-dependent functions.
  */
-uint32_t gdev_memcpy(gdev_ctx_t *, uint64_t, uint64_t, uint32_t);
-uint32_t gdev_launch(gdev_ctx_t *, struct gdev_kernel *);
-int gdev_poll(gdev_ctx_t *, int, uint32_t, struct gdev_time *);
-
-/**
- * runtime/driver/architecture-independent operations.
- */
-int gdev_compute_init(struct gdev_device *, int, void *);
-void gdev_vas_list_add(gdev_vas_t *);
-void gdev_vas_list_del(gdev_vas_t *);
-void gdev_mem_list_add(gdev_mem_t *, int);
-void gdev_mem_list_del(gdev_mem_t *);
-gdev_mem_t *gdev_mem_lookup(gdev_vas_t *, uint64_t, int);
-void gdev_garbage_collect(gdev_vas_t *);
+int gdev_raw_query(struct gdev_device*, uint32_t, uint64_t*);
+struct gdev_device *gdev_raw_dev_open(int);
+void gdev_raw_dev_close(struct gdev_device*);
+gdev_vas_t *gdev_raw_vas_new(struct gdev_device*, uint64_t);
+void gdev_raw_vas_free(gdev_vas_t*);
+gdev_ctx_t *gdev_raw_ctx_new(struct gdev_device*, gdev_vas_t*);
+void gdev_raw_ctx_free(gdev_ctx_t*);
+gdev_mem_t *gdev_raw_mem_alloc(gdev_vas_t*, uint64_t*, uint64_t*, void**);
+gdev_mem_t *gdev_raw_mem_alloc_dma(gdev_vas_t*, uint64_t*, uint64_t*, void**);
+void gdev_raw_mem_free(gdev_mem_t*);
 
 #endif
