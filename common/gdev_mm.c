@@ -49,4 +49,3 @@ int gdev_mm_space(struct gdev_device *gdev, uint64_t size, int type)
 	}
 	return -EINVAL;
 }
-

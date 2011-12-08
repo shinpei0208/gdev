@@ -38,53 +38,8 @@ struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
 	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, NULL, NULL}
 };
 
-/* allocate a new memory object. */
-static inline
-struct gdev_mem *__gdev_mem_alloc
-(struct gdev_vas *vas, uint64_t size, uint32_t flags)
-{
-	struct gdev_mem *mem;
-	struct pscnv_ib_chan *chan = vas->pvas;
-	struct pscnv_ib_bo *bo;
-	
-	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
-		goto fail_mem;
-
-	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, flags, 0, size, 0, &bo))
-		goto fail_bo;
-
-	mem->vas = vas;
-	mem->bo = bo;
-	mem->addr = bo->vm_base;
-	if (flags & PSCNV_BO_FLAGS_HOST)
-		mem->map = bo->map;
-	else
-		mem->map = NULL;
-
-	gdev_list_init(&mem->list_entry, (void *)mem);
-
-	return mem;
-
-fail_bo:
-	GDEV_PRINT("Failed to allocate buffer object.\n");
-	free(mem);
-fail_mem:
-	return NULL;
-}
-
-/* free the specified memory object. */
-static inline
-void __gdev_mem_free(struct gdev_mem *mem)
-{
-	struct pscnv_ib_bo *bo = mem->bo;
-
-	if (pscnv_ib_bo_free(bo))
-		GDEV_PRINT("Failed to free buffer object.\n");
-	free(mem);
-}
-
 /* query a piece of the device-specific information. */
-int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
+int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
@@ -113,7 +68,7 @@ int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 }
 
 /* open a new Gdev object associated with the specified device. */
-struct gdev_device *gdev_dev_open(int minor)
+struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	char buf[64];
 	int fd;
@@ -134,7 +89,7 @@ end:
 }
 
 /* close the specified Gdev object. */
-void gdev_dev_close(struct gdev_device *gdev)
+void gdev_raw_dev_close(struct gdev_device *gdev)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
@@ -145,7 +100,7 @@ void gdev_dev_close(struct gdev_device *gdev)
 
 /* allocate a new virual address space object. 
    pscnv_ib_chan_new() will allocate a channel object, too. */
-struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
+struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 	uint32_t chipset = gdev->chipset;
@@ -158,20 +113,19 @@ struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
     if (pscnv_ib_chan_new(fd, 0, &chan, 0, 0, 0, chipset))
         goto fail_chan;
 
-	vas->gdev = gdev;
-	vas->pvas = (void *) chan; /* private object. */
+	/* private data */
+	vas->pvas = (void *) chan;
 
 	return vas;
 
 fail_chan:
 	free(vas);
 fail_vas:
-	GDEV_PRINT("Failed to create virtual address space.\n");
 	return NULL;
 }
 
 /* free the specified virtual address space object. */
-void gdev_vas_free(struct gdev_vas *vas)
+void gdev_raw_vas_free(struct gdev_vas *vas)
 {
 	struct gdev_device *gdev = vas->gdev;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
@@ -189,10 +143,10 @@ void gdev_vas_free(struct gdev_vas *vas)
 /* create a new GPU context object. 
    there are not many to do here, as we have already allocated a channel
    object in gdev_vas_new(), i.e., @vas holds it. */
-struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
+struct gdev_ctx *gdev_raw_ctx_new
+(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
-	struct gdev_compute *compute = gdev->compute;
 	struct pscnv_ib_bo *fence_bo;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
 	uint32_t chipset = gdev->chipset;
@@ -240,11 +194,8 @@ struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 		ctx->fence.sequence[i] = 0;
 	}
 
-	ctx->vas = vas;
-	ctx->pctx = chan;
-
-	/* initialize the channel. */
-	compute->init(ctx);
+	/* private data */
+	ctx->pctx = (void *) chan;
 
 	return ctx;
 	
@@ -252,34 +203,78 @@ fail_fence_alloc:
 fail_fifo_reg:
 	free(ctx);
 fail_ctx:
-	GDEV_PRINT("Failed to create channel.\n");
 	return NULL;
 }
 
 /* destroy the specified GPU context object. */
-void gdev_ctx_free(struct gdev_ctx *ctx)
+void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 {
 	pscnv_ib_bo_free(ctx->fence.bo);
 	free(ctx);
 }
 
 /* allocate a new memory object. */
-struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
+static inline struct gdev_mem *__gdev_mem_alloc
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, 
+ uint32_t flags)
 {
-	switch (type) {
-	case GDEV_MEM_DEVICE:
-		return __gdev_mem_alloc(vas, size, PSCNV_GEM_VRAM_SMALL);
-	case GDEV_MEM_DMA:
-		return __gdev_mem_alloc(vas, size, PSCNV_BO_FLAGS_HOST);
-	default:
-		GDEV_PRINT("Memory type not supported\n");
-	}
+	struct gdev_mem *mem;
+	struct pscnv_ib_chan *chan = vas->pvas;
+	struct pscnv_ib_bo *bo;
+	uint64_t raw_size = *size;
 	
+	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
+		goto fail_mem;
+
+	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, flags, 0, raw_size, 0, &bo))
+		goto fail_bo;
+
+	/* address, size, and map. */
+	*addr = bo->vm_base;
+	*size = bo->size;
+	if (flags & PSCNV_BO_FLAGS_HOST)
+		*map = bo->map;
+	else
+		*map = NULL;
+
+	/* private data. */
+	mem->bo = bo;
+
+	return mem;
+
+fail_bo:
+	GDEV_PRINT("Failed to allocate PSCNV buffer object.\n");
+	free(mem);
+fail_mem:
 	return NULL;
 }
 
 /* free the specified memory object. */
-void gdev_mem_free(struct gdev_mem *mem)
+static inline void __gdev_mem_free(struct gdev_mem *mem)
 {
-	return __gdev_mem_free(mem);
+	struct pscnv_ib_bo *bo = mem->bo;
+
+	if (pscnv_ib_bo_free(bo))
+		GDEV_PRINT("Failed to free PSCNV buffer object.\n");
+	free(mem);
+}
+
+/* allocate a new device memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_mem_alloc
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+{
+	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
+}
+
+/* allocate a new host DMA memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_mem_alloc_dma
+(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+{
+	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_BO_FLAGS_HOST);
+}
+
+/* free the specified memory object. */
+void gdev_raw_mem_free(struct gdev_mem *mem)
+{
+	__gdev_mem_free(mem);
 }

@@ -144,6 +144,8 @@ struct gdev_mem {
 	struct gdev_vas *vas; /* mem is associated with a specific vas object. */
 	struct gdev_list list_entry; /* entry to the memory list. */
 	uint64_t addr; /* virtual memory address. */
+	uint64_t size; /* memory size */
+	int type; /* device or host dma? */
 	void *map; /* memory-mapped buffer (for host only). */
 };
 

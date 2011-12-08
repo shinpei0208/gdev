@@ -61,6 +61,219 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 	return 0;
 }
 
+/* launch the kernel onto the GPU. */
+uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
+
+	compute->membar(ctx);
+	/* it's important to emit a fence *after* launch():
+	   the LAUNCH method of the PGRAPH engine is not associated with
+	   the QUERY method, i.e., we have to submit the QUERY method 
+	   explicitly after the kernel is launched. */
+	compute->launch(ctx, kern);
+	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, seq);
+	
+	return seq;
+}
+
+/* copy data of @size from @src_addr to @dst_addr. */
+uint32_t gdev_memcpy
+(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_DMA];
+
+	compute->membar(ctx);
+	/* it's important to emit a fence *before* memcpy():
+	   the EXEC method of the PCOPY and M2MF engines is associated with
+	   the QUERY method, i.e., if QUERY is set, the sequence will be 
+	   written to the specified address when the data are transfered. */
+	compute->fence_write(ctx, GDEV_FENCE_DMA, sequence);
+	compute->memcpy(ctx, dst_addr, src_addr, size);
+
+	return sequence;
+}
+
+/* poll until the resource becomes available. */
+int gdev_poll
+(struct gdev_ctx *ctx, int type, uint32_t seq, struct gdev_time *timeout)
+{
+	struct gdev_time time_start, time_now, time_elapse, time_relax;
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+	uint32_t val;
+
+	gdev_time_stamp(&time_start);
+	gdev_time_ms(&time_relax, 1); /* relax polling when 1 ms elapsed. */
+
+	compute->fence_read(ctx, type, &val);
+
+	while (val < seq || val > seq + GDEV_FENCE_LIMIT) {
+		gdev_time_stamp(&time_now);
+		gdev_time_sub(&time_elapse, &time_now, &time_start);
+		/* relax polling after some time. */
+		if (gdev_time_ge(&time_elapse, &time_relax)) {
+			SCHED_YIELD();
+		}
+		compute->fence_read(ctx, type, &val);
+		/* check timeout. */
+		if (timeout && gdev_time_ge(&time_elapse, timeout))
+			return -ETIME;
+	}
+
+	/* sequence rolls back to zero, if necessary. */
+	if (ctx->fence.sequence[type] == GDEV_FENCE_LIMIT) {
+		ctx->fence.sequence[type] = 0;
+	}
+
+	return 0;
+}
+
+/* query device-specific information. */
+int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
+{
+	return gdev_raw_query(gdev, type, result);
+}
+
+/* open a new Gdev object associated with the specified device. */
+struct gdev_device *gdev_dev_open(int minor)
+{
+	return gdev_raw_dev_open(minor);
+}
+
+/* close the specified Gdev object. */
+void gdev_dev_close(struct gdev_device *gdev)
+{
+	gdev_raw_dev_close(gdev);
+}
+
+/* allocate a new virual address space (VAS) object. */
+struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
+{
+	struct gdev_vas *vas;
+
+	if (!(vas = gdev_raw_vas_new(gdev, size))) {
+		return NULL;
+	}
+
+	vas->gdev = gdev;
+	gdev_list_init(&vas->list_entry, (void *) vas); /* entry to VAS list. */
+	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
+	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+
+	return vas;
+}
+
+/* free the specified virtual address space object. */
+void gdev_vas_free(struct gdev_vas *vas)
+{
+	gdev_raw_vas_free(vas);
+}
+
+/* create a new GPU context object. */
+struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
+{
+	struct gdev_ctx *ctx;
+	struct gdev_compute *compute = gdev->compute;
+
+	if (!(ctx = gdev_raw_ctx_new(gdev, vas))) {
+		return NULL;
+	}
+
+	ctx->vas = vas;
+
+	/* initialize the channel. */
+	compute->init(ctx);
+
+	return ctx;
+}
+
+/* destroy the specified GPU context object. */
+void gdev_ctx_free(struct gdev_ctx *ctx)
+{
+	gdev_raw_ctx_free(ctx);
+}
+
+/* allocate a new memory object. */
+struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
+{
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+	uint64_t addr;
+	void *map;
+
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map)))
+			goto fail;
+		gdev->mem_used += size;
+		break;
+	case GDEV_MEM_DMA:
+		if (!(mem = gdev_raw_mem_alloc_dma(vas, &addr, &size, &map)))
+			goto fail;
+		break;
+	default:
+		GDEV_PRINT("Memory type not supported\n");
+		goto fail;
+	}
+
+	mem->vas = vas;
+	mem->addr = addr;
+	mem->size = size;
+	mem->map = map;
+	mem->type = type;
+
+	gdev_list_init(&mem->list_entry, (void *) mem);
+
+	return mem;
+
+fail:
+	return NULL;
+}
+
+/* free the specified memory object. */
+void gdev_mem_free(struct gdev_mem *mem)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+
+	if (mem->type == GDEV_MEM_DEVICE)
+		gdev->mem_used -= mem->size;
+
+	gdev_raw_mem_free(mem);
+}
+
+/* borrow memory space from other memory objects. */
+struct gdev_mem *gdev_mem_borrow(struct gdev_vas *vas, uint64_t size, int type)
+{
+	return NULL;
+}
+
+/* free all memory left in heap. */
+void gdev_garbage_collect(struct gdev_vas *vas)
+{
+	struct gdev_mem *mem;
+
+	/* device memory. */
+	gdev_list_for_each (mem, &vas->mem_list) {
+		gdev_mem_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
+	}
+
+	/* host DMA memory. */
+	gdev_list_for_each (mem, &vas->dma_mem_list) {
+		gdev_mem_free(mem);
+		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
+	}
+}
+
 void gdev_vas_list_add(struct gdev_vas *vas)
 {
 	struct gdev_device *gdev = vas->gdev;
@@ -119,97 +332,4 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	}
 
 	return NULL;
-}
-
-/* free all memory left in heap. */
-void gdev_garbage_collect(struct gdev_vas *vas)
-{
-	struct gdev_mem *mem;
-
-	/* device memory. */
-	gdev_list_for_each (mem, &vas->mem_list) {
-		gdev_mem_free(mem);
-		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
-	}
-
-	/* host DMA memory. */
-	gdev_list_for_each (mem, &vas->dma_mem_list) {
-		gdev_mem_free(mem);
-		GDEV_PRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
-	}
-}
-
-/* copy data of @size from @src_addr to @dst_addr. */
-uint32_t gdev_memcpy
-(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
-{
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_DMA];
-
-	compute->membar(ctx);
-	/* it's important to emit a fence *before* memcpy():
-	   the EXEC method of the PCOPY and M2MF engines is associated with
-	   the QUERY method, i.e., if QUERY is set, the sequence will be 
-	   written to the specified address when the data are transfered. */
-	compute->fence_write(ctx, GDEV_FENCE_DMA, sequence);
-	compute->memcpy(ctx, dst_addr, src_addr, size);
-
-	return sequence;
-}
-
-/* launch the kernel onto the GPU. */
-uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
-{
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
-	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
-
-	compute->membar(ctx);
-	/* it's important to emit a fence *after* launch():
-	   the LAUNCH method of the PGRAPH engine is not associated with
-	   the QUERY method, i.e., we have to submit the QUERY method 
-	   explicitly after the kernel is launched. */
-	compute->launch(ctx, kern);
-	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, seq);
-	
-	return seq;
-}
-
-/* poll until the resource becomes available. */
-int gdev_poll
-(struct gdev_ctx *ctx, int type, uint32_t seq, struct gdev_time *timeout)
-{
-	struct gdev_time time_start, time_now, time_elapse, time_relax;
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
-	uint32_t val;
-
-	gdev_time_stamp(&time_start);
-	gdev_time_ms(&time_relax, 1); /* relax polling when 1 ms elapsed. */
-
-	compute->fence_read(ctx, type, &val);
-
-	while (val < seq || val > seq + GDEV_FENCE_LIMIT) {
-		gdev_time_stamp(&time_now);
-		gdev_time_sub(&time_elapse, &time_now, &time_start);
-		/* relax polling after some time. */
-		if (gdev_time_ge(&time_elapse, &time_relax)) {
-			SCHED_YIELD();
-		}
-		compute->fence_read(ctx, type, &val);
-		/* check timeout. */
-		if (timeout && gdev_time_ge(&time_elapse, timeout))
-			return -ETIME;
-	}
-
-	/* sequence rolls back to zero, if necessary. */
-	if (ctx->fence.sequence[type] == GDEV_FENCE_LIMIT) {
-		ctx->fence.sequence[type] = 0;
-	}
-
-	return 0;
 }

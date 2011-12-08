@@ -127,10 +127,13 @@ struct gdev_handle *gopen(int minor)
 	return h;
 
 fail_dma:
+	GDEV_PRINT("Failed to allocate static DMA buffer object.\n");
 	gdev_ctx_free(ctx);
 fail_ctx:
+	GDEV_PRINT("Failed to create a context object.\n");
 	gdev_vas_free(vas);
 fail_vas:
+	GDEV_PRINT("Failed to create a virtual address space object.\n");
 	gdev_dev_close(gdev);
 fail_open:
 	GDEV_PRINT("Failed to open gdev%d.\n", minor);
@@ -200,8 +203,10 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	}
 
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
-		GDEV_PRINT("Failed to allocate device memory.\n");
-		return 0;
+		if (!(mem = gdev_mem_borrow(vas, size, GDEV_MEM_DEVICE))) {
+			GDEV_PRINT("Failed to allocate device memory.\n");
+			return 0;
+		}
 	}
 
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
