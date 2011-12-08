@@ -238,7 +238,7 @@ static inline struct gdev_mem *__gdev_mem_alloc
 		*map = NULL;
 
 	/* private data. */
-	mem->bo = bo;
+	mem->bo = (void *) bo;
 
 	return mem;
 

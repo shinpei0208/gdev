@@ -118,9 +118,7 @@ struct gdev_handle *gopen(int minor)
 	h->dev_id = minor;
 
 	/* insert the created VAS object to the device VAS list. */
-	LOCK(&gdev->vas_lock);
 	gdev_vas_list_add(vas);
-	UNLOCK(&gdev->vas_lock);
 
 	GDEV_PRINT("Opened gdev%d.\n", minor);
 
@@ -168,9 +166,7 @@ int gclose(struct gdev_handle *h)
 		return -ENOENT;
 
 	/* delete the VAS object from the device VAS list. */
-	LOCK(&gdev->vas_lock);
 	gdev_vas_list_del(vas);
-	UNLOCK(&gdev->vas_lock);
 	/* free the bounce buffer. */
 	__free_dma(h, dma_mem);
 	/* free all memory left in heap. */

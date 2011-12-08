@@ -100,7 +100,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 		goto fail_vspace;
 
 	vspace->filp = NULL; /* we don't need vspace->filp in Gdev. */
-	vas->pvas = vspace; /* driver private object. */
+	vas->pvas = (void *) vspace; /* driver private object. */
 
 	return vas;
 
@@ -217,7 +217,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	}
 
 	/* private data. */
-	ctx->vas = (void *) vas;
+	ctx->pctx = (void *) chan;
 
 	return ctx;
 	
@@ -304,7 +304,7 @@ static inline struct gdev_mem *__gdev_mem_alloc
 		*map = NULL;
 
 	/* private data. */
-	mem->bo = bo;
+	mem->bo = (void *) bo;
 
 	return mem;
 
