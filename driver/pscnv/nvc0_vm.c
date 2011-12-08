@@ -134,8 +134,11 @@ void
 nvc0_pgt_del(struct pscnv_vspace *vs, struct nvc0_pgt *pgt)
 {
 	pscnv_vram_free(pgt->bo[1]);
-	if (pgt->bo[0])
+	pscnv_mem_free(pgt->bo[1]);
+	if (pgt->bo[0]) {
 		pscnv_vram_free(pgt->bo[0]);
+		pscnv_mem_free(pgt->bo[0]);
+	}
 	list_del(&pgt->head);
 
 	nv_wv32(nvc0_vs(vs)->pd, pgt->pde * 8 + 0, 0);

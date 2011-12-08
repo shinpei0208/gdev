@@ -40,6 +40,7 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 	gdev->mem_used = 0;
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
+	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
 
     switch (gdev->chipset & 0xf0) {
     case 0xC0:
@@ -60,14 +61,20 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 	return 0;
 }
 
-void gdev_heap_init(struct gdev_vas *vas)
+void gdev_vas_list_add(struct gdev_vas *vas)
 {
-	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
-	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+	struct gdev_device *gdev = vas->gdev;
+	gdev_list_add(&vas->list_entry, &gdev->vas_list);
+}
+
+/* delete the VAS object from the device VAS list. */
+void gdev_vas_list_del(struct gdev_vas *vas)
+{
+	gdev_list_del(&vas->list_entry);
 }
 
 /* add the device memory object to the memory list. */
-void gdev_heap_add(struct gdev_mem *mem, int type)
+void gdev_mem_list_add(struct gdev_mem *mem, int type)
 {
 	struct gdev_vas *vas = mem->vas;
 
@@ -84,13 +91,13 @@ void gdev_heap_add(struct gdev_mem *mem, int type)
 }
 
 /* delete the device memory object from the memory list. */
-void gdev_heap_del(struct gdev_mem *mem)
+void gdev_mem_list_del(struct gdev_mem *mem)
 {
 	gdev_list_del(&mem->list_entry);
 }
 
 /* look up the memory object allocated at the specified address. */
-struct gdev_mem *gdev_heap_lookup(struct gdev_vas *vas, uint64_t addr, int type)
+struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 {
 	struct gdev_mem *mem;
 

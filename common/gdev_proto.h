@@ -51,6 +51,8 @@ struct gdev_device {
 	uint64_t dma_mem_used;
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
+	struct gdev_list vas_list; /* list of VASes allocated to this device. */
+	gdev_lock_t vas_lock;
 };
 
 /**
@@ -74,13 +76,14 @@ uint32_t gdev_launch(gdev_ctx_t *, struct gdev_kernel *);
 int gdev_poll(gdev_ctx_t *, int, uint32_t, struct gdev_time *);
 
 /**
- * runtime/driver/architecture-independent heap operations.
+ * runtime/driver/architecture-independent operations.
  */
 int gdev_compute_init(struct gdev_device *, int, void *);
-void gdev_heap_init(gdev_vas_t *);
-void gdev_heap_add(gdev_mem_t *, int);
-void gdev_heap_del(gdev_mem_t *);
-gdev_mem_t *gdev_heap_lookup(gdev_vas_t *, uint64_t, int);
+void gdev_vas_list_add(gdev_vas_t *);
+void gdev_vas_list_del(gdev_vas_t *);
+void gdev_mem_list_add(gdev_mem_t *, int);
+void gdev_mem_list_del(gdev_mem_t *);
+gdev_mem_t *gdev_mem_lookup(gdev_vas_t *, uint64_t, int);
 void gdev_garbage_collect(gdev_vas_t *);
 
 #endif

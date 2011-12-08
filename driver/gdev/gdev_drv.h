@@ -46,6 +46,22 @@
 	copy_from_user(dst, (void __user *) src, size)
 #define COPY_TO_USER(dst, src, size) \
 	copy_to_user((void __user *) dst, src, size)
+#define LOCK(ptr) gdev_lock_drv(ptr)
+#define UNLOCK(ptr) gdev_unlock_drv(ptr)
+
+/* typedefs for kernel-specific types. */
+typedef spinlock_t gdev_lock_t;
+
+static inline void gdev_lock_drv(gdev_lock_t *lock)
+{
+	spin_lock_irq(lock);
+}
+
+static inline void gdev_unlock_drv(gdev_lock_t *lock)
+{
+	spin_unlock_irq(lock);
+}
+
 
 /**
  * Gdev init/exit functions:
