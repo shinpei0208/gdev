@@ -26,6 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "gdev_api.h"
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
 #include "gdev_proto.h"
@@ -201,6 +202,28 @@ void gdev_ctx_free(struct gdev_ctx *ctx)
 	gdev_raw_ctx_free(ctx);
 }
 
+/* initialize a memory object. */
+static void __gdev_mem_init
+(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, 
+ void *map, int type)
+{
+	mem->vas = vas;
+	mem->addr = addr;
+	mem->size = size;
+	mem->map = map;
+	mem->type = type;
+	mem->evicted = 0;
+	mem->swap.buf = NULL;
+	mem->swap.addr = 0;
+	mem->swap.size = 0;
+	mem->swap.type = 0;
+	mem->evict_info.holder = NULL;
+	mem->evict_info.victim = NULL;
+	mem->evict_info.criminal = NULL;
+
+	gdev_list_init(&mem->list_entry, (void *) mem);
+}
+
 /* allocate a new memory object. */
 struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
@@ -224,13 +247,7 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 		goto fail;
 	}
 
-	mem->vas = vas;
-	mem->addr = addr;
-	mem->size = size;
-	mem->map = map;
-	mem->type = type;
-
-	gdev_list_init(&mem->list_entry, (void *) mem);
+	__gdev_mem_init(mem, vas, addr, size, map, type);
 
 	return mem;
 
@@ -250,14 +267,111 @@ void gdev_mem_free(struct gdev_mem *mem)
 	gdev_raw_mem_free(mem);
 }
 
-/* borrow memory space from other memory objects. */
-struct gdev_mem *gdev_mem_borrow(struct gdev_vas *vas, uint64_t size, int type)
+/* find a memory object that we can borrow some memory space from. */
+static struct gdev_mem *__gdev_mem_select_victim
+(struct gdev_vas *vas, uint64_t size, int type)
 {
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_vas *v;
+	struct gdev_mem *m;
+	struct gdev_list *mem_list_ptr;
+	void *sysmem;
+	uint64_t flags;
+
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		mem_list_ptr = &vas->mem_list;
+		break;
+	case GDEV_MEM_DMA:
+		mem_list_ptr = &vas->dma_mem_list;
+		break;
+	default:
+		GDEV_PRINT("Memory type not supported\n");
+		goto fail;
+	}
+
+	/* select by low priorities. */
+	LOCK(&gdev->vas_lock);
+	gdev_list_for_each(v, &gdev->vas_list) {
+		LOCK_NESTED(&v->mem_lock, &flags);
+		gdev_list_for_each(m, mem_list_ptr) {
+			if (m->size >= size && !m->evicted) {
+				size = m->size; /* FIXME */
+				if (!(sysmem = MALLOC(size))) {
+					UNLOCK_NESTED(&v->mem_lock, &flags);
+					UNLOCK(&gdev->vas_lock);
+					goto fail;
+				}
+				m->swap.buf = sysmem;
+				m->swap.addr = m->addr;
+				m->swap.size = size;
+				m->swap.type = type;
+				m->evicted = 1;
+				UNLOCK_NESTED(&v->mem_lock, &flags);
+				UNLOCK(&gdev->vas_lock);
+				return m;
+			}
+		}
+		UNLOCK_NESTED(&v->mem_lock, &flags);
+	}
+	UNLOCK(&gdev->vas_lock);
+
+fail:
 	return NULL;
 }
 
-/* free all memory left in heap. */
-void gdev_garbage_collect(struct gdev_vas *vas)
+/* evict some memory object and assign that space for the new object. */
+struct gdev_mem *gdev_mem_evict
+(struct gdev_vas *vas, uint64_t size, int type, void *h)
+{
+	struct gdev_mem *mem, *shmem;
+	struct gdev_swap *swap;
+	uint64_t addr;
+	void *map;
+
+	/* select a victim memory object. */
+	if (!(mem = __gdev_mem_select_victim(vas, size, GDEV_MEM_DEVICE)))
+		goto fail_victim;
+
+	/* evict data. we should also zero-clear the buffer for security. */
+	swap = &mem->swap;
+	if (gmemcpy_from_device(h, swap->buf, swap->addr, swap->size))
+		goto fail_gmemcpy;
+
+	/* reuse the same (physical) memory space by sharing. */
+	if (!(shmem = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
+		goto fail_shmem;
+
+	__gdev_mem_init(shmem, vas, addr, size, map, type);
+	shmem->evict_info.victim = mem;
+	mem->evict_info.holder = shmem;
+	mem->evict_info.criminal = shmem;
+	if (mem->evict_info.victim)
+		mem->evict_info.victim->evict_info.holder = shmem;
+
+	return shmem;
+
+fail_shmem:
+	gdev_mem_reload(mem, h);
+fail_gmemcpy:
+	FREE(swap->buf);
+fail_victim:
+	return NULL;
+}
+
+int gdev_mem_reload(struct gdev_mem *mem, void *h)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_swap *swap = &mem->swap;
+
+	LOCK(&vas->mem_lock);
+	mem->evicted = 0;
+	UNLOCK(&vas->mem_lock);
+	return gmemcpy_to_device(h, swap->addr, swap->buf, swap->size);
+}
+
+/* garbage collection: free all memory left in heap. */
+void gdev_mem_gc(struct gdev_vas *vas)
 {
 	struct gdev_mem *mem;
 

@@ -43,7 +43,7 @@ typedef struct gdev_mem gdev_mem_t;
  */
 struct gdev_device {
 	int id;
-	int users; /* the number of threads/processes using the device. */
+	int users; /* the number of threads/processes using the device */
 	uint32_t chipset;
 	uint64_t mem_size;
 	uint64_t mem_used;
@@ -51,7 +51,7 @@ struct gdev_device {
 	uint64_t dma_mem_used;
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
-	struct gdev_list vas_list; /* list of VASes allocated to this device. */
+	struct gdev_list vas_list; /* list of VASes allocated to this device */
 	gdev_lock_t vas_lock;
 };
 
@@ -75,8 +75,9 @@ gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
 void gdev_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
 void gdev_mem_free(gdev_mem_t*);
-gdev_mem_t *gdev_mem_borrow(gdev_vas_t*, uint64_t, int);
-void gdev_garbage_collect(gdev_vas_t*);
+gdev_mem_t *gdev_mem_evict(gdev_vas_t*, uint64_t, int, void*);
+int gdev_mem_reload(gdev_mem_t*, void*);
+void gdev_mem_gc(gdev_vas_t*);
 void gdev_vas_list_add(gdev_vas_t*);
 void gdev_vas_list_del(gdev_vas_t*);
 void gdev_mem_list_add(gdev_mem_t*, int);
@@ -96,5 +97,7 @@ void gdev_raw_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_raw_mem_alloc(gdev_vas_t*, uint64_t*, uint64_t*, void**);
 gdev_mem_t *gdev_raw_mem_alloc_dma(gdev_vas_t*, uint64_t*, uint64_t*, void**);
 void gdev_raw_mem_free(gdev_mem_t*);
+gdev_mem_t *gdev_raw_mem_share
+(gdev_vas_t*, gdev_mem_t*, uint64_t*, uint64_t*, void**);
 
 #endif
