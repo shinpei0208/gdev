@@ -48,6 +48,8 @@
 	copy_to_user((void __user *) dst, src, size)
 #define LOCK(ptr) gdev_lock_drv(ptr)
 #define UNLOCK(ptr) gdev_unlock_drv(ptr)
+#define LOCK_NESTED(ptr, flags) gdev_lock_nested_drv(ptr, flags)
+#define UNLOCK_NESTED(ptr, flags) gdev_unlock_nested_drv(ptr, flags)
 
 /* typedefs for kernel-specific types. */
 typedef spinlock_t gdev_lock_t;
@@ -60,6 +62,19 @@ static inline void gdev_lock_drv(gdev_lock_t *lock)
 static inline void gdev_unlock_drv(gdev_lock_t *lock)
 {
 	spin_unlock_irq(lock);
+}
+
+static inline void gdev_lock_nested_drv(gdev_lock_t *lock, uint64_t *flags)
+{
+	unsigned long tmp;
+	spin_lock_irqsave(lock, tmp);
+	*flags = tmp;
+}
+
+static inline void gdev_unlock_nested_drv(gdev_lock_t *lock, uint64_t *flags)
+{
+	unsigned long tmp = (unsigned long) *flags;
+	spin_unlock_irqrestore(lock, tmp);
 }
 
 

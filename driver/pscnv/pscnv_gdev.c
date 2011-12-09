@@ -269,7 +269,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static inline struct gdev_mem *__gdev_mem_alloc
+static inline struct gdev_mem *__gdev_raw_mem_alloc
 (struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, 
  uint32_t flags)
 {
@@ -319,7 +319,7 @@ fail_mem:
 }
 
 /* free the specified memory object. */
-static inline void __gdev_mem_free(struct gdev_mem *mem)
+static inline void __gdev_raw_mem_free(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
 	struct pscnv_vspace *vspace = vas->pvas;
@@ -340,18 +340,57 @@ static inline void __gdev_mem_free(struct gdev_mem *mem)
 struct gdev_mem *gdev_raw_mem_alloc
 (struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
+	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc_dma
 (struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_SYSRAM_SNOOP);
+	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_SYSRAM_SNOOP);
 }
 
 /* free the specified memory object. */
 void gdev_raw_mem_free(struct gdev_mem *mem)
 {
-	__gdev_mem_free(mem);
+	__gdev_raw_mem_free(mem);
+}
+
+struct gdev_mem *gdev_raw_mem_share
+(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
+ void **map)
+{
+	struct pscnv_vspace *vs = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	struct pscnv_mm_node *mm;
+	struct gdev_mem *shmem;
+
+	if (!(shmem = kzalloc(sizeof(*shmem), GFP_KERNEL)))
+		goto fail_mem;
+
+	if (pscnv_vspace_map(vs, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, 
+						 &mm))
+		goto fail_map;
+
+	/* address, size, and map. */
+	*addr = mm->start;
+	*size = bo->size;
+	if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP) {
+		if (bo->size > PAGE_SIZE)
+			*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
+		else
+			*map = kmap(bo->pages[0]);
+	}
+	else
+		*map = NULL;
+
+	/* private data. */
+	shmem->bo = (void *) bo;
+
+	return shmem;
+
+fail_map:
+	kfree(shmem);
+fail_mem:
+	return NULL;
 }

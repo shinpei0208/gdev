@@ -278,3 +278,11 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 {
 	__gdev_mem_free(mem);
 }
+
+struct gdev_mem *gdev_raw_mem_share
+(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
+ void **map)
+{
+	/* To be implemented. */
+	return NULL;
+}

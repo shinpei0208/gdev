@@ -169,8 +169,8 @@ int gclose(struct gdev_handle *h)
 	gdev_vas_list_del(vas);
 	/* free the bounce buffer. */
 	__free_dma(h, dma_mem);
-	/* free all memory left in heap. */
-	gdev_garbage_collect(vas);
+	/* garbage collection: free all memory left in heap. */
+	gdev_mem_gc(vas);
 	/* free the objects. */
 	gdev_ctx_free(ctx);
 	gdev_vas_free(vas);
@@ -195,13 +195,12 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 
 	if (gdev_mm_space(gdev, size, GDEV_MEM_DEVICE)) {
 		GDEV_PRINT("Device memory size exceeds the limit.\n");
-		return 0;
+		goto fail;
 	}
 
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
-		if (!(mem = gdev_mem_borrow(vas, size, GDEV_MEM_DEVICE))) {
-			GDEV_PRINT("Failed to allocate device memory.\n");
-			return 0;
+		if (!(mem = gdev_mem_evict(vas, size, GDEV_MEM_DEVICE, h))) {
+			goto fail;
 		}
 	}
 
@@ -210,6 +209,10 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
 	return GDEV_MEM_ADDR(mem);
+
+fail:
+	GDEV_PRINT("Failed to allocate device memory.\n");
+	return 0;
 }
 
 /**

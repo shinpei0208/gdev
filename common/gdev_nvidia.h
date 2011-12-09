@@ -72,6 +72,16 @@
 #define GDEV_MEM_DMA 1
 
 /**
+ * Gdev swap memory area struct:
+ */
+struct gdev_swap {
+	void *buf; /* swap buffer in system memory */
+	uint64_t addr; /* original device memory address */
+	uint64_t size; /* evicted size */
+	int type; /* device or host dma? */
+};
+
+/**
  * virtual address space (VAS) object struct:
  *
  * NVIDIA GPUs support virtual memory (VM) with 40 bits addressing.
@@ -100,6 +110,8 @@ struct gdev_vas {
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 	struct gdev_list list_entry; /* entry to the vas list. */
+	gdev_lock_t mem_lock;
+	gdev_lock_t dma_mem_lock;
 };
 
 /**
@@ -140,13 +152,20 @@ struct gdev_ctx {
  * device/host memory object struct:
  */
 struct gdev_mem {
-	void *bo; /* driver private object. */
-	struct gdev_vas *vas; /* mem is associated with a specific vas object. */
-	struct gdev_list list_entry; /* entry to the memory list. */
-	uint64_t addr; /* virtual memory address. */
+	void *bo; /* driver private object */
+	struct gdev_vas *vas; /* mem is associated with a specific vas object */
+	struct gdev_list list_entry; /* entry to the memory list */
+	struct gdev_swap swap; /* swap memory information */
+	struct {
+		struct gdev_mem *holder; /* current memory holder */
+		struct gdev_mem *victim; /* evicted victim */
+		struct gdev_mem *criminal; /* evicting criminal */
+	} evict_info;
+	int evicted; /* 1 if evicted, 0 otherwise */
+	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */
 	int type; /* device or host dma? */
-	void *map; /* memory-mapped buffer (for host only). */
+	void *map; /* memory-mapped buffer (for host only) */
 };
 
 /* private compute functions. */
