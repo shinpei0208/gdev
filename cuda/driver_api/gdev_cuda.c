@@ -588,7 +588,7 @@ CUresult gdev_cuda_construct_kernels
 	mod->code_size = 0;
 	mod->sdata_size = 0;
 
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		f = &func->raw_func;
 
@@ -650,7 +650,7 @@ CUresult gdev_cuda_construct_kernels
 	return CUDA_SUCCESS;
 
 fail_malloc_param:
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		if (k->param_buf)
 			FREE(k->param_buf);
@@ -664,7 +664,7 @@ CUresult gdev_cuda_destruct_kernels(struct CUmod_st *mod)
 	struct CUfunc_st *func;
 	struct gdev_kernel *k;
 
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		if (k->param_buf)
 			FREE(k->param_buf);
@@ -683,7 +683,7 @@ CUresult gdev_cuda_locate_sdata(struct CUmod_st *mod)
 	uint32_t size = mod->sdata_size;
 	uint32_t offset = 0;
 	
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		if (k->lmem_size > 0)
 			k->lmem_addr = addr + offset;
@@ -714,7 +714,7 @@ CUresult gdev_cuda_locate_code(struct CUmod_st *mod)
 		}
 	}
 
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		f = &func->raw_func;
 		if (k->code_size > 0) {
@@ -756,7 +756,7 @@ CUresult gdev_cuda_memcpy_code(struct CUmod_st *mod, void *buf)
 		}
 	}
 
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
 		f = &func->raw_func;
 		if (f->code_buf) {
@@ -779,7 +779,7 @@ CUresult gdev_cuda_search_function
 {
 	struct CUfunc_st *func;
 
-	gdev_list_for_each(func, &mod->func_list) {
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		if (strcmp(func->raw_func.name, name) == 0) {
 			*pptr = func;
 			return CUDA_SUCCESS;

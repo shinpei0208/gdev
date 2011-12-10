@@ -121,7 +121,8 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	/* get the CUDA-specific device information. */
 	cuda_info = &ctx->cuda_info;
-	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &cuda_info->mp_count)) {
+	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, 
+			   (uint64_t*) &cuda_info->mp_count)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_mp_count;
 	}

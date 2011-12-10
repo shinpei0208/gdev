@@ -82,6 +82,18 @@ struct gdev_swap {
 };
 
 /**
+ * Gdev swap memory area struct:
+ */
+struct gdev_shmem {
+	struct gdev_mem *holder; /* current memory holder */
+	struct gdev_list shmem_list; /* list of shared memory users */
+	gdev_lock_t lock;
+	int prio; /* highest prio among users (effective only for master) */
+	int users; /* number of users (effective only for master) */
+	void *bo; /* private buffer object */
+};
+
+/**
  * virtual address space (VAS) object struct:
  *
  * NVIDIA GPUs support virtual memory (VM) with 40 bits addressing.
@@ -110,8 +122,8 @@ struct gdev_vas {
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 	struct gdev_list list_entry; /* entry to the vas list. */
-	gdev_lock_t mem_lock;
-	gdev_lock_t dma_mem_lock;
+	gdev_lock_t lock;
+	int prio;
 };
 
 /**
@@ -154,13 +166,10 @@ struct gdev_ctx {
 struct gdev_mem {
 	void *bo; /* driver private object */
 	struct gdev_vas *vas; /* mem is associated with a specific vas object */
-	struct gdev_list list_entry; /* entry to the memory list */
+	struct gdev_list list_entry_heap; /* entry to heap list */
+	struct gdev_list list_entry_shmem; /* entry to shared memory list */
 	struct gdev_swap swap; /* swap memory information */
-	struct {
-		struct gdev_mem *holder; /* current memory holder */
-		struct gdev_mem *victim; /* evicted victim */
-		struct gdev_mem *criminal; /* evicting criminal */
-	} evict_info;
+	struct gdev_shmem *shmem; /* shared memory information */
 	int evicted; /* 1 if evicted, 0 otherwise */
 	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */

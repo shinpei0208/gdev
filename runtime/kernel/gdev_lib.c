@@ -131,7 +131,7 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 	struct gdev_ioctl_mem mem;
 	int fd = h->fd;
 
-	gdev_list_for_each (bo, &h->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
 		if (bo && (bo->map == buf)) {
 			goto free;
 		}
@@ -152,7 +152,7 @@ int gmemcpy_to_device
 	struct gdev_ioctl_dma dma;
 	int fd = h->fd;
 
-	gdev_list_for_each (bo, &h->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
 		if (bo && (bo->map == src_buf))
 			break;
 	}
@@ -174,7 +174,7 @@ int gmemcpy_from_device
 	struct gdev_ioctl_dma dma;
 	int fd = h->fd;
 
-	gdev_list_for_each (bo, &h->map_bo_list) {
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
 		if (bo && (bo->map == dst_buf))
 			break;
 	}
