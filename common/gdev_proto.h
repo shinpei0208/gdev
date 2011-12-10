@@ -31,6 +31,10 @@
 
 #include "gdev_conf.h"
 
+#define GDEV_PRIO_MAX 40
+#define GDEV_PRIO_MIN 0
+#define GDEV_PRIO_DEFAULT 20
+
 /**
  * Gdev types: they are not exposed to end users.
  */
@@ -52,7 +56,7 @@ struct gdev_device {
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
-	gdev_lock_t vas_lock;
+	gdev_lock_t lock;
 };
 
 /**
@@ -75,7 +79,7 @@ gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
 void gdev_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
 void gdev_mem_free(gdev_mem_t*);
-gdev_mem_t *gdev_mem_evict(gdev_vas_t*, uint64_t, int, void*);
+int gdev_mem_evict(gdev_mem_t*, void*);
 int gdev_mem_reload(gdev_mem_t*, void*);
 void gdev_mem_gc(gdev_vas_t*);
 void gdev_vas_list_add(gdev_vas_t*);
@@ -99,5 +103,6 @@ gdev_mem_t *gdev_raw_mem_alloc_dma(gdev_vas_t*, uint64_t*, uint64_t*, void**);
 void gdev_raw_mem_free(gdev_mem_t*);
 gdev_mem_t *gdev_raw_mem_share
 (gdev_vas_t*, gdev_mem_t*, uint64_t*, uint64_t*, void**);
+void gdev_raw_mem_unshare(gdev_mem_t*);
 
 #endif

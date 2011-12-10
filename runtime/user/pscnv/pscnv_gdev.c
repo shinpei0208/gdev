@@ -249,16 +249,6 @@ fail_mem:
 	return NULL;
 }
 
-/* free the specified memory object. */
-static inline void __gdev_mem_free(struct gdev_mem *mem)
-{
-	struct pscnv_ib_bo *bo = mem->bo;
-
-	if (pscnv_ib_bo_free(bo))
-		GDEV_PRINT("Failed to free PSCNV buffer object.\n");
-	free(mem);
-}
-
 /* allocate a new device memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc
 (struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
@@ -276,13 +266,26 @@ struct gdev_mem *gdev_raw_mem_alloc_dma
 /* free the specified memory object. */
 void gdev_raw_mem_free(struct gdev_mem *mem)
 {
-	__gdev_mem_free(mem);
+	struct pscnv_ib_bo *bo = mem->bo;
+
+	if (pscnv_ib_bo_free(bo))
+		GDEV_PRINT("Failed to free PSCNV buffer object.\n");
+	free(mem);
 }
 
+/* create a new memory object sharing memory space with @mem. */
 struct gdev_mem *gdev_raw_mem_share
 (struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
  void **map)
 {
+	GDEV_PRINT("Shared memory not implemented\n");
 	/* To be implemented. */
 	return NULL;
+}
+
+/* destroy the memory object by just unsharing memory space. */
+void gdev_raw_mem_unshare(struct gdev_mem *mem)
+{
+	GDEV_PRINT("Shared memory not implemented\n");
+	/* To be implemented. */
 }

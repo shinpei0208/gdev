@@ -84,10 +84,10 @@ static inline void *gdev_list_container(struct gdev_list *entry)
 	return entry ? entry->container : NULL;
 }
 
-#define gdev_list_for_each(p, list)							\
+#define gdev_list_for_each(p, list, entry)					\
 	for (p = gdev_list_container(gdev_list_head(list));		\
 		 p != NULL;											\
-		 p = gdev_list_container((p)->list_entry.next))
+		 p = gdev_list_container((p)->entry.next))
 
 #define gdev_list_add_ordered(entry, head, member)	\
 	do {										\

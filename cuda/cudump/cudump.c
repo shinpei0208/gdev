@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 		goto fail_load_cubin;
 
 	/* code dump. */
-	gdev_list_for_each(func, &mod.func_list) {
+	gdev_list_for_each(func, &mod.func_list, list_entry) {
 		f = &func->raw_func;
 		if (f->code_buf) {
 			printf("uint32_t code_%s[] = {\n", f->name);
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* local constant memory dump. */
-	gdev_list_for_each(func, &mod.func_list) {
+	gdev_list_for_each(func, &mod.func_list, list_entry) {
 		f = &func->raw_func;
 		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 			if (f->cmem[i].buf) {
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 
 	/* struct gdev_cudump dump. */
-	gdev_list_for_each(func, &mod.func_list) {
+	gdev_list_for_each(func, &mod.func_list, list_entry) {
 		f = &func->raw_func;
 		printf("struct gdev_cudump %s = {\n", f->name);
 

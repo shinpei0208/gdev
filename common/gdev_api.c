@@ -198,15 +198,10 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 		goto fail;
 	}
 
-	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
-		if (!(mem = gdev_mem_evict(vas, size, GDEV_MEM_DEVICE, h))) {
-			goto fail;
-		}
-	}
+	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
+		goto fail;
 
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
-	GDEV_DPRINT("Allocated 0x%x at 0x%x in device.\n", 
-			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
 	return GDEV_MEM_ADDR(mem);
 
@@ -227,7 +222,6 @@ int gfree(struct gdev_handle *h, uint64_t addr)
 	if ((mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE))) {
 		gdev_mem_list_del(mem);
 		gdev_mem_free(mem);
-		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
 
@@ -255,8 +249,6 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	}
 	
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
-	GDEV_DPRINT("Allocated 0x%x at 0x%x in host DMA.\n", 
-			   (uint32_t) size, (uint32_t) GDEV_MEM_ADDR(mem));
 
 	return GDEV_MEM_BUF(mem);
 }
@@ -273,7 +265,6 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 	if ((mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
 		gdev_mem_list_del(mem);
 		gdev_mem_free(mem);
-		GDEV_DPRINT("Freed at 0x%x.\n", (uint32_t) GDEV_MEM_ADDR(mem));
 		return 0;
 	}
 

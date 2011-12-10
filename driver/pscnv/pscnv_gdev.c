@@ -318,24 +318,6 @@ fail_mem:
 	return NULL;
 }
 
-/* free the specified memory object. */
-static inline void __gdev_raw_mem_free(struct gdev_mem *mem)
-{
-	struct gdev_vas *vas = mem->vas;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
-
-	if (mem->map) {
-		if (bo->size > PAGE_SIZE)
-			vunmap(mem->map);
-		else
-			kunmap(mem->map);
-	}
-	pscnv_vspace_unmap(vspace, mem->addr);
-	pscnv_mem_free(bo);
-	kfree(mem);
-}
-
 /* allocate a new device memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc
 (struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
@@ -353,9 +335,22 @@ struct gdev_mem *gdev_raw_mem_alloc_dma
 /* free the specified memory object. */
 void gdev_raw_mem_free(struct gdev_mem *mem)
 {
-	__gdev_raw_mem_free(mem);
+	struct gdev_vas *vas = mem->vas;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+
+	if (mem->map) {
+		if (bo->size > PAGE_SIZE)
+			vunmap(mem->map);
+		else
+			kunmap(mem->map);
+	}
+	pscnv_vspace_unmap(vspace, mem->addr);
+	pscnv_mem_free(bo);
+	kfree(mem);
 }
 
+/* create a new memory object sharing memory space with @mem. */
 struct gdev_mem *gdev_raw_mem_share
 (struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
  void **map)
@@ -363,9 +358,9 @@ struct gdev_mem *gdev_raw_mem_share
 	struct pscnv_vspace *vs = vas->pvas;
 	struct pscnv_bo *bo = mem->bo;
 	struct pscnv_mm_node *mm;
-	struct gdev_mem *shmem;
+	struct gdev_mem *new;
 
-	if (!(shmem = kzalloc(sizeof(*shmem), GFP_KERNEL)))
+	if (!(new = kzalloc(sizeof(*new), GFP_KERNEL)))
 		goto fail_mem;
 
 	if (pscnv_vspace_map(vs, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, 
@@ -385,12 +380,22 @@ struct gdev_mem *gdev_raw_mem_share
 		*map = NULL;
 
 	/* private data. */
-	shmem->bo = (void *) bo;
+	new->bo = (void *) bo;
 
-	return shmem;
+	return new;
 
 fail_map:
-	kfree(shmem);
+	kfree(new);
 fail_mem:
 	return NULL;
+}
+
+/* destroy the memory object by just unsharing memory space. */
+void gdev_raw_mem_unshare(struct gdev_mem *mem)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct pscnv_vspace *vspace = vas->pvas;
+
+	pscnv_vspace_unmap(vspace, mem->addr);
+	kfree(mem);
 }
