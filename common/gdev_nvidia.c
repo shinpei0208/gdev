@@ -246,6 +246,9 @@ static struct gdev_mem *__gdev_mem_select_victim
 		goto fail;
 	}
 
+	if (!(shmem = MALLOC(sizeof(*shmem))))
+		goto fail;
+
 	/* select the lowest-priority object. */
 	LOCK_SAVE(&gdev->lock, &flags);
 	gdev_list_for_each (v, &gdev->vas_list, list_entry) {
@@ -272,13 +275,14 @@ static struct gdev_mem *__gdev_mem_select_victim
 		UNLOCK_NESTED(&v->lock);
 	}
 
+	if (!victim) {
+		UNLOCK_RESTORE(&gdev->lock, &flags);
+		FREE(shmem);
+		return NULL;
+	}
 	/* if the victim object doesn't have a shared memory object yet, 
 	   allocate a new one here. */
-	if (!victim->shmem) {
-		if (!(shmem = MALLOC(sizeof(*shmem)))) {
-			UNLOCK_RESTORE(&gdev->lock, &flags);
-			goto fail;
-		}
+	else if (!victim->shmem) {
 		gdev_list_init(&shmem->shmem_list, NULL);
 		shmem->prio = GDEV_PRIO_MIN;
 		shmem->users = 0;
@@ -289,9 +293,14 @@ static struct gdev_mem *__gdev_mem_select_victim
 		LOCK_NESTED(&victim->shmem->lock);
 		gdev_list_add(&victim->list_entry_shmem, &victim->shmem->shmem_list);
 		UNLOCK_NESTED(&victim->shmem->lock);
+		victim->shmem->users++;
+		UNLOCK_RESTORE(&gdev->lock, &flags);
 	}
-	victim->shmem->users++;
-	UNLOCK_RESTORE(&gdev->lock, &flags);
+	else {
+		victim->shmem->users++;
+		UNLOCK_RESTORE(&gdev->lock, &flags);
+		FREE(shmem); /* shmem unused. */
+	}
 
 	return victim;
 
@@ -335,8 +344,8 @@ static struct gdev_mem *__gdev_mem_borrow
 	return new;
 
 fail_shmem:
-fail_victim:
 	victim->shmem->users--;
+fail_victim:
 	return NULL;
 }
 
