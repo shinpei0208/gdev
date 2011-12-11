@@ -210,7 +210,7 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	k.warp_size = 32 * (stack_size + k.lmem_size + k.lmem_size_neg); 
 	
 	/* FIXME: the number of active warps may differ from 48. */
-	gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
+	gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, (uint64_t *)&mp_count);
 	k.lmem_size_total = 48 * mp_count * k.warp_size;
 	k.lmem_size_total = __round_up_pow2(k.lmem_size_total);
 	if (!(k.lmem_addr = gmalloc(handle, k.lmem_size_total)))
