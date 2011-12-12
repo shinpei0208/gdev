@@ -41,6 +41,7 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
+	LOCK_INIT(&gdev->lock);
 
     switch (gdev->chipset & 0xf0) {
     case 0xC0:
@@ -168,6 +169,7 @@ struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 	gdev_list_init(&vas->list_entry, (void *) vas); /* entry to VAS list. */
 	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
 	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
+	LOCK_INIT(&vas->lock);
 
 	return vas;
 }
@@ -252,6 +254,12 @@ static struct gdev_mem *__gdev_mem_select_victim
 	/* select the lowest-priority object. */
 	LOCK_SAVE(&gdev->lock, &flags);
 	gdev_list_for_each (v, &gdev->vas_list, list_entry) {
+		if (type == GDEV_MEM_DEVICE)
+			mem_list_ptr = &v->mem_list;
+		else if (type == GDEV_MEM_DMA)
+			mem_list_ptr = &v->dma_mem_list;
+		else
+			break;
 		LOCK_NESTED(&v->lock);
 		gdev_list_for_each (m, mem_list_ptr, list_entry_heap) {
 			if (m->size >= size && m->vas != vas) {
@@ -278,7 +286,6 @@ static struct gdev_mem *__gdev_mem_select_victim
 	if (!victim) {
 		UNLOCK_RESTORE(&gdev->lock, &flags);
 		FREE(shmem);
-		return NULL;
 	}
 	/* if the victim object doesn't have a shared memory object yet, 
 	   allocate a new one here. */
@@ -289,10 +296,11 @@ static struct gdev_mem *__gdev_mem_select_victim
 		shmem->holder = NULL;
 		shmem->bo = victim->bo;
 		victim->shmem = shmem;
+		LOCK_INIT(&shmem->lock);
+		LOCK_NESTED(&shmem->lock);
 		/* the victim object itself must be inserted into the list. */
-		LOCK_NESTED(&victim->shmem->lock);
-		gdev_list_add(&victim->list_entry_shmem, &victim->shmem->shmem_list);
-		UNLOCK_NESTED(&victim->shmem->lock);
+		gdev_list_add(&victim->list_entry_shmem, &shmem->shmem_list);
+		UNLOCK_NESTED(&shmem->lock);
 		victim->shmem->users++;
 		UNLOCK_RESTORE(&gdev->lock, &flags);
 	}
@@ -341,6 +349,7 @@ static struct gdev_mem *__gdev_mem_borrow
 	UNLOCK_NESTED(&new->shmem->lock);
 	UNLOCK_RESTORE(&gdev->lock, &flags);
 
+	GDEV_PRINT("Shared memory at 0x%llx.\n", (long long unsigned int) addr);
 	return new;
 
 fail_shmem:
