@@ -48,6 +48,7 @@
 #endif
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
+#define LOCK_INIT(ptr) gdev_lock_init_user(ptr)
 #define LOCK(ptr) gdev_lock_user(ptr)
 #define UNLOCK(ptr) gdev_unlock_user(ptr)
 #define LOCK_SAVE(ptr, flags) gdev_lock_save_user(ptr, flags)
@@ -60,6 +61,10 @@ typedef struct gdev_sem_struct {
 	int semid;
 	struct sembuf sembuf;
 } gdev_lock_t;
+
+static inline void gdev_lock_init_user(gdev_lock_t *lock)
+{
+}
 
 static inline void gdev_lock_user(gdev_lock_t *lock)
 {
