@@ -27,6 +27,12 @@
 #ifndef __CUDA_H__
 #define __CUDA_H__
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stddef.h>
+#endif
+
 typedef unsigned long long CUdeviceptr;
 typedef int CUdevice;
 typedef struct CUctx_st* CUcontext;
@@ -707,7 +713,7 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev);
 CUresult cuDeviceGetCount(int *count);
 CUresult cuDeviceGetName(char *name, int len, CUdevice dev);
 CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev);
-CUresult cuDeviceTotalMem(unsigned int *bytes, CUdevice dev);
+CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev);
 
 /* Version Management */
 CUresult cuDriverGetVersion (int *driverVersion);
