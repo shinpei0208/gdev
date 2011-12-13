@@ -262,7 +262,7 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
  * CUDA_ERROR_INVALID_DEVICE 
  */
-CUresult cuDeviceTotalMem(unsigned int *bytes, CUdevice dev)
+CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
 {
 	Ghandle handle;
 
@@ -277,7 +277,7 @@ CUresult cuDeviceTotalMem(unsigned int *bytes, CUdevice dev)
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, (uint64_t*) bytes)) {
+	if (gquery(handle, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, (uint64_t*) bytes)) {
 		return CUDA_ERROR_UNKNOWN;
 	}
 

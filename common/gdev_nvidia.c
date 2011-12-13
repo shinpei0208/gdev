@@ -140,7 +140,18 @@ int gdev_poll
 /* query device-specific information. */
 int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
-	return gdev_raw_query(gdev, type, result);
+	int ret;
+
+	if ((ret = gdev_raw_query(gdev, type, result)))
+		return ret;
+
+	switch (type) {
+	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
+		*result -= 0xc010000; /* FIXME: this shouldn't be hardcoded. */
+		break;
+	}
+
+	return 0;
 }
 
 /* open a new Gdev object associated with the specified device. */
