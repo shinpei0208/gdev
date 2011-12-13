@@ -12,6 +12,19 @@
 #include <stdlib.h>
 #endif
 
+/* tvsub: ret = x - y. */
+static inline void tvsub(struct timeval *x, 
+						 struct timeval *y, 
+						 struct timeval *ret)
+{
+	ret->tv_sec = x->tv_sec - y->tv_sec;
+	ret->tv_usec = x->tv_usec - y->tv_usec;
+	if (ret->tv_usec < 0) {
+		ret->tv_sec--;
+		ret->tv_usec += 1000000;
+	}
+}
+
 int cuda_test_matrixmul(unsigned int n, char *path)
 {
 	int i, j, idx;
@@ -25,6 +38,17 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	char fname[256];
+	struct timeval tv;
+	struct timeval tv_total_start, tv_total_end;
+	unsigned long total;
+	struct timeval tv_h2d_start, tv_h2d_end;
+	unsigned long h2d;
+	struct timeval tv_d2h_start, tv_d2h_end;
+	unsigned long d2h;
+	struct timeval tv_exec_start, tv_exec_end;
+	unsigned long exec;
+
+	gettimeofday(&tv_total_start, NULL);
 
 	res = cuInit(0);
 	if (res != CUDA_SUCCESS) {
@@ -85,6 +109,7 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 		return -1;
 	}
 
+	gettimeofday(&tv_h2d_start, NULL);
 	/* upload a[] and b[] */
 	res = cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
@@ -96,6 +121,7 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 		printf("cuMemcpyHtoD (b) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
+	gettimeofday(&tv_h2d_end, NULL);
 
 	/* set kernel parameters */
 	res = cuParamSeti(function, 0, a_dev);	
@@ -139,19 +165,23 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 		return -1;
 	}
 
+	gettimeofday(&tv_exec_start, NULL);
 	/* launch the kernel */
 	res = cuLaunchGrid(function, n, 1);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
+	gettimeofday(&tv_exec_end, NULL);
 
+	gettimeofday(&tv_d2h_start, NULL);
 	/* download c[] */
 	res = cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
+	gettimeofday(&tv_d2h_end, NULL);
 
 	res = cuMemFree(a_dev);
 	if (res != CUDA_SUCCESS) {
@@ -181,6 +211,8 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 		return -1;
 	}
 
+	gettimeofday(&tv_total_end, NULL);
+
 	/* check the results */
 	i = j = idx = 0;
 	while (i < n) {
@@ -197,6 +229,20 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 	free(a);
 	free(b);
 	free(c);
+
+	tvsub(&tv_h2d_end, &tv_h2d_start, &tv);
+	h2d = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	tvsub(&tv_d2h_end, &tv_d2h_start, &tv);
+	d2h = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	tvsub(&tv_exec_end, &tv_exec_start, &tv);
+	exec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	tvsub(&tv_total_end, &tv_total_start, &tv);
+	total = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+	printf("HtoD: %lu\n", h2d);
+	printf("DtoH: %lu\n", d2h);
+	printf("Exec: %lu\n", exec);
+	printf("Total: %lu\n", total);
 
 	return 0;
 }

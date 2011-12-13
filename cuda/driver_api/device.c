@@ -264,7 +264,23 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
  */
 CUresult cuDeviceTotalMem(unsigned int *bytes, CUdevice dev)
 {
-	GDEV_PRINT("cuDeviceTotalMem: Not Implemented Yet\n");
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_device_count)
+		return CUDA_ERROR_INVALID_DEVICE;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!bytes)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, (uint64_t*) bytes)) {
+		return CUDA_ERROR_UNKNOWN;
+	}
+
 	return CUDA_SUCCESS;
 }
 
