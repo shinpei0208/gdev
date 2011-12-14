@@ -48,49 +48,66 @@
 #endif
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
-#define LOCK_INIT(ptr) gdev_lock_init_user(ptr)
-#define LOCK(ptr) gdev_lock_user(ptr)
-#define UNLOCK(ptr) gdev_unlock_user(ptr)
-#define LOCK_SAVE(ptr, flags) gdev_lock_save_user(ptr, flags)
-#define UNLOCK_RESTORE(ptr, flags) gdev_unlock_restore_user(ptr, flags)
-#define LOCK_NESTED(ptr) gdev_lock_nested_user(ptr)
-#define UNLOCK_NESTED(ptr) gdev_unlock_nested_user(ptr)
+#define LOCK_INIT(ptr) gdev_lock_init(ptr)
+#define LOCK(ptr) gdev_lock(ptr)
+#define UNLOCK(ptr) gdev_unlock(ptr)
+#define LOCK_SAVE(ptr, flags) gdev_lock_save(ptr, flags)
+#define UNLOCK_RESTORE(ptr, flags) gdev_unlock_restore(ptr, flags)
+#define LOCK_NESTED(ptr) gdev_lock_nested(ptr)
+#define UNLOCK_NESTED(ptr) gdev_unlock_nested(ptr)
+#define MUTEX_INIT(ptr) gdev_mutex_init(ptr)
+#define MUTEX_LOCK(ptr) gdev_mutex_lock(ptr)
+#define MUTEX_UNLOCK(ptr) gdev_mutex_unlock(ptr)
 
 /* typedefs for user-specific types. */
-typedef struct gdev_sem_struct {
+struct gdev_sem_struct {
 	int semid;
 	struct sembuf sembuf;
-} gdev_lock_t;
+};
 
-static inline void gdev_lock_init_user(gdev_lock_t *lock)
+typedef struct gdev_sem_struct gdev_lock_t;
+typedef struct gdev_sem_struct gdev_mutex_t;
+
+static inline void gdev_lock_init(gdev_lock_t *lock)
 {
 }
 
-static inline void gdev_lock_user(gdev_lock_t *lock)
+static inline void gdev_lock(gdev_lock_t *lock)
 {
 }
 
-static inline void gdev_unlock_user(gdev_lock_t *lock)
+static inline void gdev_unlock(gdev_lock_t *lock)
 {
 }
 
-static inline 
-void gdev_lock_save_user(gdev_lock_t *lock, unsigned long *flags)
+static inline void gdev_lock_save(gdev_lock_t *lock, unsigned long *flags)
 {
 }
 
-static inline void gdev_unlock_restore_user
-(gdev_lock_t *lock, unsigned long *flags)
+static inline void gdev_unlock_restore(gdev_lock_t *lock, unsigned long *flags)
 {
 }
 
-static inline void gdev_lock_nested_user(gdev_lock_t *lock)
+static inline void gdev_lock_nested(gdev_lock_t *lock)
 {
 }
 
-static inline void gdev_unlock_nested_user(gdev_lock_t *lock)
+static inline void gdev_unlock_nested(gdev_lock_t *lock)
 {
 }
+
+static inline void gdev_mutex_init(gdev_mutex_t *mutex)
+{
+}
+
+static inline void gdev_mutex_lock(gdev_mutex_t *mutex)
+{
+}
+
+static inline void gdev_mutex_unlock(gdev_mutex_t *mutex)
+{
+}
+
 
 #define DRM_DIR_NAME  "/dev/dri"
 #define DRM_DEV_NAME  "%s/card%d"
