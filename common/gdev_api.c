@@ -118,7 +118,9 @@ struct gdev_handle *gopen(int minor)
 	h->dev_id = minor;
 
 	/* insert the created VAS object to the device VAS list. */
+	MUTEX_LOCK(&gdev->mutex_vas);
 	gdev_vas_list_add(vas);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 
 	GDEV_PRINT("Opened gdev%d.\n", minor);
 
@@ -166,7 +168,9 @@ int gclose(struct gdev_handle *h)
 		return -ENOENT;
 
 	/* delete the VAS object from the device VAS list. */
+	MUTEX_LOCK(&gdev->mutex_vas);
 	gdev_vas_list_del(vas);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 	/* free the bounce buffer. */
 	__free_dma(h, dma_mem);
 	/* garbage collection: free all memory left in heap. */
@@ -193,20 +197,16 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (gdev_mm_space(gdev, size, GDEV_MEM_DEVICE)) {
-		GDEV_PRINT("Device memory size exceeds the limit.\n");
-		goto fail;
-	}
-
+	MUTEX_LOCK(&gdev->mutex_vas);
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
 		goto fail;
-
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 
 	return GDEV_MEM_ADDR(mem);
 
 fail:
-	GDEV_PRINT("Failed to allocate device memory.\n");
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 	return 0;
 }
 
@@ -216,15 +216,21 @@ fail:
  */
 int gfree(struct gdev_handle *h, uint64_t addr)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if ((mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE))) {
-		gdev_mem_list_del(mem);
-		gdev_mem_free(mem);
-		return 0;
-	}
+	MUTEX_LOCK(&gdev->mutex_vas);
+	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+		goto fail;
+	gdev_mem_list_del(mem);
+	gdev_mem_free(mem);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 
+	return 0;
+
+fail:
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 	return -ENOENT;
 }
 
@@ -238,19 +244,17 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (gdev_mm_space(gdev, size, GDEV_MEM_DMA)) {
-		GDEV_PRINT("Host DMA memory size exceeds the limit.\n");
-		return 0;
-	}
-
-	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA))) {
-		GDEV_PRINT("Failed to allocate host DMA memory.\n");
-		return 0;
-	}
-	
+	MUTEX_LOCK(&gdev->mutex_vas);
+	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
+		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 
 	return GDEV_MEM_BUF(mem);
+
+fail:
+	MUTEX_UNLOCK(&gdev->mutex_vas);
+	return 0;
 }
 
 /**
@@ -259,15 +263,21 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
  */
 int gfree_dma(struct gdev_handle *h, void *buf)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if ((mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA))) {
-		gdev_mem_list_del(mem);
-		gdev_mem_free(mem);
-		return 0;
-	}
+	MUTEX_LOCK(&gdev->mutex_vas);
+	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
+		goto fail;
+	gdev_mem_list_del(mem);
+	gdev_mem_free(mem);
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 
+	return 0;
+
+fail:
+	MUTEX_UNLOCK(&gdev->mutex_vas);
 	return -ENOENT;
 }
 
@@ -613,12 +623,17 @@ int gmemcpy_to_device
 
 	if (hmem)
 		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
-	else if (h->pipeline_count > 1)
-		return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
-											__memcpy_wrapper);
-	else
-		return __gmemcpy_to_device(h, dst_addr, src_buf, size,
-								   __memcpy_wrapper);
+	else {
+		gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
+		/* the function will evict data *only if* necessary. */
+		gdev_mem_evict(mem, h);
+		if (h->pipeline_count > 1)
+			return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
+												__memcpy_wrapper);
+		else
+			return __gmemcpy_to_device(h, dst_addr, src_buf, size,
+									   __memcpy_wrapper);
+	}
 }
 
 /**
@@ -633,12 +648,17 @@ int gmemcpy_user_to_device
 
 	if (hmem)
 		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
-	else if (h->pipeline_count > 1)
-		return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
-											__copy_from_user_wrapper);
-	else
-		return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
-								   __copy_from_user_wrapper);
+	else {
+		gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
+		/* the function will evict data *only if* necessary. */
+		gdev_mem_evict(mem, h);
+		if (h->pipeline_count > 1)
+			return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
+												__copy_from_user_wrapper);
+		else
+			return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
+									   __copy_from_user_wrapper);
+	}
 }
 
 /**
