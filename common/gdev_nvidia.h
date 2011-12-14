@@ -72,24 +72,14 @@
 #define GDEV_MEM_DMA 1
 
 /**
- * Gdev swap memory area struct:
- */
-struct gdev_swap {
-	void *buf; /* swap buffer in system memory */
-	uint64_t addr; /* original device memory address */
-	uint64_t size; /* evicted size */
-	int type; /* device or host dma? */
-};
-
-/**
- * Gdev swap memory area struct:
+ * Gdev shared memory information:
  */
 struct gdev_shmem {
 	struct gdev_mem *holder; /* current memory holder */
 	struct gdev_list shmem_list; /* list of shared memory users */
-	gdev_lock_t lock;
 	int prio; /* highest prio among users (effective only for master) */
 	int users; /* number of users (effective only for master) */
+	uint64_t size;
 	void *bo; /* private buffer object */
 };
 
@@ -122,7 +112,6 @@ struct gdev_vas {
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 	struct gdev_list list_entry; /* entry to the vas list. */
-	gdev_lock_t lock;
 	int prio;
 };
 
@@ -168,9 +157,10 @@ struct gdev_mem {
 	struct gdev_vas *vas; /* mem is associated with a specific vas object */
 	struct gdev_list list_entry_heap; /* entry to heap list */
 	struct gdev_list list_entry_shmem; /* entry to shared memory list */
-	struct gdev_swap swap; /* swap memory information */
 	struct gdev_shmem *shmem; /* shared memory information */
+	void *swap_buf; /* buffer for swapping memory */
 	int evicted; /* 1 if evicted, 0 otherwise */
+	int ready; /* 1 if loaded for use, 0 otherwise */
 	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */
 	int type; /* device or host dma? */

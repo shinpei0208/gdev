@@ -46,57 +46,69 @@
 	copy_from_user(dst, (void __user *) src, size)
 #define COPY_TO_USER(dst, src, size) \
 	copy_to_user((void __user *) dst, src, size)
-#define LOCK_INIT(ptr) gdev_lock_init_drv(ptr)
-#define LOCK(ptr) gdev_lock_drv(ptr)
-#define UNLOCK(ptr) gdev_unlock_drv(ptr)
-#define LOCK_SAVE(ptr, flags) gdev_lock_save_drv(ptr, flags)
-#define UNLOCK_RESTORE(ptr, flags) gdev_unlock_restore_drv(ptr, flags)
-#define LOCK_NESTED(ptr) gdev_lock_nested_drv(ptr)
-#define UNLOCK_NESTED(ptr) gdev_unlock_nested_drv(ptr)
+#define LOCK_INIT(ptr) gdev_lock_init(ptr)
+#define LOCK(ptr) gdev_lock(ptr)
+#define UNLOCK(ptr) gdev_unlock(ptr)
+#define LOCK_SAVE(ptr, flags) gdev_lock_save(ptr, flags)
+#define UNLOCK_RESTORE(ptr, flags) gdev_unlock_restore(ptr, flags)
+#define LOCK_NESTED(ptr) gdev_lock_nested(ptr)
+#define UNLOCK_NESTED(ptr) gdev_unlock_nested(ptr)
+#define MUTEX_INIT(ptr) gdev_mutex_init(ptr)
+#define MUTEX_LOCK(ptr) gdev_mutex_lock(ptr)
+#define MUTEX_UNLOCK(ptr) gdev_mutex_unlock(ptr)
 
 /* typedefs for kernel-specific types. */
 typedef spinlock_t gdev_lock_t;
+typedef struct mutex gdev_mutex_t;
 
-static inline
-void gdev_lock_init_drv(gdev_lock_t *lock)
+static inline void gdev_lock_init(gdev_lock_t *lock)
 {
 	spin_lock_init(lock);
 }
 
-static inline
-void gdev_lock_drv(gdev_lock_t *lock)
+static inline void gdev_lock(gdev_lock_t *lock)
 {
 	spin_lock_irq(lock);
 }
 
-static inline 
-void gdev_unlock_drv(gdev_lock_t *lock)
+static inline void gdev_unlock(gdev_lock_t *lock)
 {
 	spin_unlock_irq(lock);
 }
 
-static inline 
-void gdev_lock_save_drv(gdev_lock_t *lock, unsigned long *flags)
+static inline void gdev_lock_save(gdev_lock_t *lock, unsigned long *flags)
 {
 	spin_lock_irqsave(lock, *flags);
 }
 
-static inline 
-void gdev_unlock_restore_drv(gdev_lock_t *lock, unsigned long *flags)
+static inline void gdev_unlock_restore(gdev_lock_t *lock, unsigned long *flags)
 {
 	spin_unlock_irqrestore(lock, *flags);
 }
 
-static inline
-void gdev_lock_nested_drv(gdev_lock_t *lock)
+static inline void gdev_lock_nested(gdev_lock_t *lock)
 {
 	spin_lock(lock);
 }
 
-static inline 
-void gdev_unlock_nested_drv(gdev_lock_t *lock)
+static inline void gdev_unlock_nested(gdev_lock_t *lock)
 {
 	spin_unlock(lock);
+}
+
+static inline void gdev_mutex_init(gdev_mutex_t *mutex)
+{
+	mutex_init(mutex);
+}
+
+static inline void gdev_mutex_lock(gdev_mutex_t *mutex)
+{
+	mutex_lock(mutex);
+}
+
+static inline void gdev_mutex_unlock(gdev_mutex_t *mutex)
+{
+	mutex_unlock(mutex);
 }
 
 

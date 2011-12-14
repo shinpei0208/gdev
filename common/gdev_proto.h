@@ -56,7 +56,7 @@ struct gdev_device {
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
-	gdev_lock_t lock;
+	gdev_mutex_t mutex_vas;
 };
 
 /**
