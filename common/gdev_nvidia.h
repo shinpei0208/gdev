@@ -77,9 +77,10 @@
 struct gdev_shmem {
 	struct gdev_mem *holder; /* current memory holder */
 	struct gdev_list shmem_list; /* list of shared memory users */
+	gdev_lock_t lock;
+	uint64_t size;
 	int prio; /* highest prio among users (effective only for master) */
 	int users; /* number of users (effective only for master) */
-	uint64_t size;
 	void *bo; /* private buffer object */
 };
 
@@ -112,6 +113,7 @@ struct gdev_vas {
 	struct gdev_list mem_list; /* list of device memory spaces. */
 	struct gdev_list dma_mem_list; /* list of host dma memory spaces. */
 	struct gdev_list list_entry; /* entry to the vas list. */
+	gdev_lock_t lock;
 	int prio;
 };
 

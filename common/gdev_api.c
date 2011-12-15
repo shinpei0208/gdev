@@ -118,9 +118,7 @@ struct gdev_handle *gopen(int minor)
 	h->dev_id = minor;
 
 	/* insert the created VAS object to the device VAS list. */
-	MUTEX_LOCK(&gdev->mutex_vas);
 	gdev_vas_list_add(vas);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
 
 	GDEV_PRINT("Opened gdev%d.\n", minor);
 
@@ -168,9 +166,7 @@ int gclose(struct gdev_handle *h)
 		return -ENOENT;
 
 	/* delete the VAS object from the device VAS list. */
-	MUTEX_LOCK(&gdev->mutex_vas);
 	gdev_vas_list_del(vas);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
 	/* free the bounce buffer. */
 	__free_dma(h, dma_mem);
 	/* garbage collection: free all memory left in heap. */
@@ -197,16 +193,16 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex_vas);
+	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
 		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 
 	return GDEV_MEM_ADDR(mem);
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 	return 0;
 }
 
@@ -220,17 +216,17 @@ int gfree(struct gdev_handle *h, uint64_t addr)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex_vas);
+	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 
 	return 0;
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 	return -ENOENT;
 }
 
@@ -244,16 +240,16 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex_vas);
+	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 
 	return GDEV_MEM_BUF(mem);
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 	return 0;
 }
 
@@ -267,17 +263,17 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex_vas);
+	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 
 	return 0;
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex_vas);
+	MUTEX_UNLOCK(&gdev->mutex);
 	return -ENOENT;
 }
 
