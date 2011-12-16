@@ -1,0 +1,1 @@
+cuda/lud_cuda -i ../../data/lud/256.dat 

@@ -1,0 +1,2 @@
+The dimension of input matrix should be multiple size of block size. The block
+size can be obtained from lud_kernel.cu

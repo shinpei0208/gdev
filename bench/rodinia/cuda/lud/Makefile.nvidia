@@ -1,0 +1,7 @@
+all: lud_cuda 
+
+lud_cuda:
+	cd cuda; make -f Makefile.nvidia
+
+clean:
+	cd cuda; make -f Makefile.nvidia clean

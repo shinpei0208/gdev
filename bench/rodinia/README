@@ -1,0 +1,13 @@
+This benchmark suite is based on Rodinia 2.0.1, which was originally 
+developed by the researchers from the Laboratiry for Computer Architecture
+at Virginia (LAVA).
+The original Rodinia project is found at:
+https://www.cs.virginia.edu/~skadron/wiki/rodinia/index.php
+
+In our Gdev project, we have modified the CUDA programs in the Rodinia
+benchmark so that they use the CUDA Driver API instead of the CUDA Runtime
+API. 
+We redistribute our modified Rodinia benchmark under the original Rodinia 
+license (http://www.cs.virginia.edu/~sc5nf/license.htm).
+If you find that our redistribution of source code violates any of the
+original Rodinia license terms, please let us know.
