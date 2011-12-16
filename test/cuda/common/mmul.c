@@ -49,7 +49,8 @@ int cuda_test_mmul(unsigned int n, char *path)
 	struct timeval tv_exec_start, tv_exec_end;
 	unsigned long exec;
 
-	/* block_x * block_y should not exceed 512. */
+	/* block_x * block_y should not exceed 512 (16 warps). 
+	   fermi allows 1024 threads (32 warps). */
 	block_x = n < 16 ? n : 16;
 	block_y = n < 16 ? n : 16;
 	grid_x = n / block_x;

@@ -126,10 +126,26 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_mp_count;
 	}
-	/* FIXME: per-thread warp size and the number of active warps may not be
-	   stack numbers. */
-	cuda_info->warp_count = 48;
-	cuda_info->warp_size = 32;
+	if (gquery(handle, GDEV_NVIDIA_QUERY_CHIPSET, 
+			   (uint64_t*) &cuda_info->chipset)) {
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_query_chipset;
+	}
+
+	/* FIXME: per-thread warp size and active warps */
+	switch (cuda_info->chipset) {
+	case 0xc0:
+		cuda_info->warp_count = 48;
+		cuda_info->warp_size = 32;
+		break;
+	case 0x50:
+		cuda_info->warp_count = 48;
+		cuda_info->warp_size = 16;
+		break;
+	default:
+		cuda_info->warp_count = 48;
+		cuda_info->warp_size = 32;
+	}
 
 	/* save the current context to the stack, if necessary. */
 	gdev_list_init(&ctx->list_entry, ctx);
@@ -142,6 +158,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	return CUDA_SUCCESS;
 
+fail_query_chipset:
 fail_query_mp_count:
 	gclose(handle);
 fail_open_gdev:
@@ -279,7 +296,17 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
 
 CUresult cuCtxSynchronize(void)
 {
-	GDEV_PRINT("cuCtxSynchronize: Not Implemented Yet\n");
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	/* synchronize with all kernels. */
+
 	return CUDA_SUCCESS;
 }
 

@@ -56,12 +56,13 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-
+	int nr_max_threads = ctx->cuda_info.warp_size * 32;
+	
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-	if (!func || x <= 0 || y <= 0 || z <= 0)
+	if (!func || x <= 0 || y <= 0 || z <= 0 || x * y * z > nr_max_threads)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
@@ -167,7 +168,8 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	if (glaunch(handle, k, &id))
 		return CUDA_ERROR_LAUNCH_FAILED;
 
-	/* if timeout is required, specify gdev_time value instead of NULL. */
+	/* if timeout is required, specify gdev_time value instead of NULL. 
+	   this sync should be moved to cuCtxSynchronize(). */
 	if (gsync(handle, id, NULL))
 		return CUDA_ERROR_LAUNCH_TIMEOUT;
 
@@ -283,7 +285,7 @@ CUresult cuParamSetv
 
 	k = &func->kernel;
 	f = &func->raw_func;
-	memcpy(k->param_buf + (f->param_base + offset), ptr, numbytes);
+	memcpy(&k->param_buf[(f->param_base + offset) / 4], ptr, numbytes);
 	
 	return CUDA_SUCCESS;
 }
