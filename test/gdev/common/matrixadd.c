@@ -233,8 +233,8 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	k.call_limit = 0xf;
 	k.grid_id = 1;
 	
-	k.block_x = n < 32 ? n : 32;
-	k.block_y = n < 32 ? n : 32;
+	k.block_x = n < 16 ? n : 16;
+	k.block_y = n < 16 ? n : 16;
 	k.block_z = 1;
 	k.grid_x = n / k.block_x;
 	if (n % k.block_x != 0)
@@ -242,7 +242,6 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	k.grid_y = n / k.block_y;
 	if (n % k.block_y != 0)
 		k.grid_y++;
-	printf("y = %d\n", k.grid_y);
 	k.grid_z = 1;
 	
 	gmemcpy_to_device(handle, k.code_addr, kcode, k.code_size);
