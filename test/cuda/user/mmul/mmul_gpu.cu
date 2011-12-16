@@ -1,1 +1,1 @@
-../../common/matrixmul_gpu.cu
+../../common/mmul_gpu.cu

@@ -382,6 +382,8 @@ struct gdev_mem *gdev_raw_mem_share
 	/* private data. */
 	new->bo = (void *) bo;
 
+	GDEV_PRINT("Shared memory at 0x%llx.\n", *addr);
+
 	return new;
 
 fail_map:

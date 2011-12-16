@@ -1,1 +1,1 @@
-../../common/matrixmul.c
+../../common/mmul.c
