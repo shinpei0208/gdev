@@ -56,8 +56,8 @@ struct gdev_device {
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
-	gdev_mutex_t mutex;
-	gdev_lock_t lock;
+	gdev_lock_t vas_lock;
+	gdev_mutex_t shmem_mutex;
 };
 
 /**
@@ -80,9 +80,14 @@ gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
 void gdev_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
 void gdev_mem_free(gdev_mem_t*);
-int gdev_mem_evict(gdev_mem_t*, void*);
-int gdev_mem_reload(gdev_mem_t*, void*);
 void gdev_mem_gc(gdev_vas_t*);
+int gdev_mem_reload(gdev_mem_t*, void*);
+int gdev_shmem_evict(gdev_mem_t*, void*);
+gdev_mem_t *gdev_shmem_request(gdev_vas_t*, gdev_mem_t*, uint64_t);
+void gdev_shmem_lock(gdev_mem_t*);
+void gdev_shmem_unlock(gdev_mem_t*);
+void gdev_shmem_lock_all(gdev_vas_t*);
+void gdev_shmem_unlock_all(gdev_vas_t*);
 void gdev_vas_list_add(gdev_vas_t*);
 void gdev_vas_list_del(gdev_vas_t*);
 void gdev_mem_list_add(gdev_mem_t*, int);

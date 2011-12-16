@@ -25,7 +25,7 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-int cuda_test_matrixmul(unsigned int n, char *path)
+int cuda_test_mmul(unsigned int n, char *path)
 {
 	int i, j, idx;
 	CUresult res;
@@ -68,7 +68,7 @@ int cuda_test_matrixmul(unsigned int n, char *path)
 		return -1;
 	}
 
-	sprintf(fname, "%s/matrixmul_gpu.cubin", path);
+	sprintf(fname, "%s/mmul_gpu.cubin", path);
 	res = cuModuleLoad(&module, fname);
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleLoad() failed\n");

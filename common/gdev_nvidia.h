@@ -77,7 +77,7 @@
 struct gdev_shmem {
 	struct gdev_mem *holder; /* current memory holder */
 	struct gdev_list shmem_list; /* list of shared memory users */
-	gdev_lock_t lock;
+	gdev_mutex_t mutex;
 	uint64_t size;
 	int prio; /* highest prio among users (effective only for master) */
 	int users; /* number of users (effective only for master) */
@@ -162,7 +162,6 @@ struct gdev_mem {
 	struct gdev_shmem *shmem; /* shared memory information */
 	void *swap_buf; /* buffer for swapping memory */
 	int evicted; /* 1 if evicted, 0 otherwise */
-	int ready; /* 1 if loaded for use, 0 otherwise */
 	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */
 	int type; /* device or host dma? */

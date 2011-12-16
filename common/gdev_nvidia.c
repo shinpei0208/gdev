@@ -41,8 +41,8 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	MUTEX_INIT(&gdev->mutex);
-	LOCK_INIT(&gdev->lock);
+	LOCK_INIT(&gdev->vas_lock);
+	MUTEX_INIT(&gdev->shmem_mutex);
 
     switch (gdev->chipset & 0xf0) {
     case 0xC0:
@@ -227,141 +227,11 @@ static void __gdev_mem_init
 	mem->map = map;
 	mem->type = type;
 	mem->evicted = 0;
-	mem->ready = 0;
 	mem->swap_buf = NULL;
 	mem->shmem = NULL;
 
 	gdev_list_init(&mem->list_entry_heap, (void *) mem);
 	gdev_list_init(&mem->list_entry_shmem, (void *) mem);
-}
-
-/* find a memory object that we can borrow some memory space from. */
-static struct gdev_mem *__gdev_mem_select_victim
-(struct gdev_vas *vas, uint64_t size, int type)
-{
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_vas *v;
-	struct gdev_mem *m, *victim = NULL;
-	struct gdev_shmem *shmem;
-	struct gdev_list *mem_list_ptr;
-	unsigned long flags;
-
-	switch (type) {
-	case GDEV_MEM_DEVICE:
-		mem_list_ptr = &vas->mem_list;
-		break;
-	case GDEV_MEM_DMA:
-		mem_list_ptr = &vas->dma_mem_list;
-		break;
-	default:
-		GDEV_PRINT("Memory type not supported\n");
-		goto fail;
-	}
-
-	if (!(shmem = MALLOC(sizeof(*shmem))))
-		goto fail;
-
-	/* select the lowest-priority object. */
-	LOCK_SAVE(&gdev->lock, &flags);
-	gdev_list_for_each (v, &gdev->vas_list, list_entry) {
-		if (type == GDEV_MEM_DEVICE)
-			mem_list_ptr = &v->mem_list;
-		else if (type == GDEV_MEM_DMA)
-			mem_list_ptr = &v->dma_mem_list;
-		else
-			break;
-		LOCK_NESTED(&v->lock);
-		gdev_list_for_each (m, mem_list_ptr, list_entry_heap) {
-			if (m->size >= size && m->vas != vas) {
-				if (!victim)
-					victim = m;
-				else {
-					int victim_prio, m_prio;
-					if (victim->shmem)
-						victim_prio = victim->shmem->prio;
-					else
-						victim_prio = victim->vas->prio;
-					if (m->shmem)
-						m_prio = m->shmem->prio;
-					else
-						m_prio = m->vas->prio;
-					if (victim_prio > m_prio)
-						victim = m;
-				}
-			}
-		}
-		UNLOCK_NESTED(&v->lock);
-	}
-	UNLOCK_RESTORE(&gdev->lock, &flags);
-
-	if (!victim) {
-		FREE(shmem);
-	}
-	/* if the victim object doesn't have a shared memory object yet, 
-	   allocate a new one here. */
-	else if (!victim->shmem) {
-		gdev_list_init(&shmem->shmem_list, NULL);
-		LOCK_INIT(&shmem->lock);
-		shmem->prio = GDEV_PRIO_MIN;
-		shmem->users = 0;
-		shmem->holder = NULL;
-		shmem->bo = victim->bo;
-		shmem->size = victim->size;
-		victim->shmem = shmem;
-		/* the victim object itself must be inserted into the list. */
-		LOCK_SAVE(&shmem->lock, &flags);
-		gdev_list_add(&victim->list_entry_shmem, &shmem->shmem_list);
-		UNLOCK_RESTORE(&shmem->lock, &flags);
-		victim->shmem->users++;
-	}
-	else {
-		victim->shmem->users++;
-		FREE(shmem); /* shmem unused. */
-	}
-
-	return victim;
-
-fail:
-	return NULL;
-}
-
-/* borrow memory space from some low-priority object. */
-static struct gdev_mem *__gdev_mem_borrow
-(struct gdev_vas *vas, uint64_t size, int type)
-{
-	struct gdev_mem *victim, *new;
-	unsigned long flags;
-	uint64_t addr;
-	void *map;
-
-	/* select a victim memory object. victim->shmem will be newly allocated 
-	   if NULL. shmem->users will also be incremented in advance. */
-	if (!(victim = __gdev_mem_select_victim(vas, size, GDEV_MEM_DEVICE)))
-		goto fail_victim;
-
-	/* borrow the same (physical) memory space by sharing. */
-	if (!(new = gdev_raw_mem_share(vas, victim, &addr, &size, &map)))
-		goto fail_shmem;
-
-	__gdev_mem_init(new, vas, addr, size, map, type);
-
-	/* update only the master's share information. */
-	new->shmem = victim->shmem;
-	if (new->shmem->prio < vas->prio)
-		new->shmem->prio = vas->prio;
-	/* insert the new memory object into the shared memory list. */
-	LOCK_SAVE(&new->shmem->lock, &flags);
-	gdev_list_add(&new->list_entry_shmem, &new->shmem->shmem_list);
-	UNLOCK_RESTORE(&new->shmem->lock, &flags);
-
-	GDEV_PRINT("Shared memory at 0x%llx.\n", (long long unsigned int) addr);
-
-	return new;
-
-fail_shmem:
-	victim->shmem->users--;
-fail_victim:
-	return NULL;
 }
 
 /* allocate a new memory object. */
@@ -374,13 +244,11 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 	switch (type) {
 	case GDEV_MEM_DEVICE:
 		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map)))
-			goto fail_alloc;
+			goto fail;
 		break;
 	case GDEV_MEM_DMA:
 		if (!(mem = gdev_raw_mem_alloc_dma(vas, &addr, &size, &map)))
-			goto fail_alloc;
-		/* host DMA memory is now ready for use without HtoD. */
-		mem->ready = 1; 
+			goto fail;
 		break;
 	default:
 		GDEV_PRINT("Memory type not supported\n");
@@ -388,12 +256,6 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 	}
 
 	__gdev_mem_init(mem, vas, addr, size, map, type);
-	return mem;
-
-fail_alloc:
-	/* second chance by borrowing memory space. */
-	if (!(mem = __gdev_mem_borrow(vas, size, type)))
-		goto fail;
 	return mem;
 
 fail:
@@ -404,42 +266,88 @@ fail:
 void gdev_mem_free(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_shmem *shmem = mem->shmem;
 	struct gdev_mem *m;
-	unsigned long flags;
+
+	/* be careful of dead lock. */
+	MUTEX_LOCK(&gdev->shmem_mutex);
 
 	/* if the memory object is not shared, free it. */
-	if (!mem->shmem) {
+	if (!shmem) {
 		gdev_raw_mem_free(mem);
 	}
-	/* if the memory object is shared but no users, free it. */
-	else if (mem->shmem->users == 0) {
-		FREE(mem->shmem);
+	/* if the memory object is shared but no users, free it. 
+	   since users == 0, no one else will use mem->shmem. */
+	else if (shmem->users == 0) {
+		MUTEX_LOCK(&shmem->mutex);
+		shmem->users--;
+		mem->shmem = NULL;
 		gdev_raw_mem_free(mem);
+		MUTEX_UNLOCK(&shmem->mutex);
+		FREE(shmem);
 	}
 	/* otherwise, just unshare the memory object. */
 	else {
-		LOCK_SAVE(&mem->shmem->lock, &flags);
+		MUTEX_LOCK(&shmem->mutex);
 		gdev_list_del(&mem->list_entry_shmem);
 		/* if a freeing memory object has the highest priority among the 
 		   shared memory objects, find the next highest priority one. */
-		if (mem->shmem->prio == vas->prio) {
+		if (shmem->prio == vas->prio) {
 			int prio = GDEV_PRIO_MIN;
-			gdev_list_for_each (m, &mem->shmem->shmem_list, list_entry_shmem) {
+			gdev_list_for_each (m, &shmem->shmem_list, list_entry_shmem) {
 				if (m->vas->prio < prio)
 					prio = m->vas->prio;
 			}
-			mem->shmem->prio = prio;
+			shmem->prio = prio;
 		}
-		UNLOCK_RESTORE(&mem->shmem->lock, &flags);
-		if (mem->shmem->holder == mem)
-			mem->shmem->holder = NULL;
-		mem->shmem->users--;
+		if (shmem->holder == mem)
+			shmem->holder = NULL;
+		shmem->users--;
 		gdev_raw_mem_unshare(mem);
+		MUTEX_UNLOCK(&shmem->mutex);
+	}
+
+	MUTEX_UNLOCK(&gdev->shmem_mutex);
+}
+
+/* garbage collection: free all memory left in heap. */
+void gdev_mem_gc(struct gdev_vas *vas)
+{
+	struct gdev_mem *mem;
+
+	/* device memory. */
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_mem_free(mem);
+	}
+
+	/* host DMA memory. */
+	gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
+		gdev_mem_free(mem);
 	}
 }
 
-/* evict the memory object data. */
-int gdev_mem_evict(struct gdev_mem *mem, void *h)
+/* reload the evicted memory object data. */
+int gdev_mem_reload(struct gdev_mem *mem, void *h)
+{
+	int ret;
+
+	if (mem->evicted) {
+		if ((ret = gmemcpy_to_device(h, mem->addr, mem->swap_buf, mem->size)))
+			goto fail_gmemcpy;
+		mem->evicted = 0;
+		mem->shmem->holder = mem;
+		FREE(mem->swap_buf);
+	}
+
+	return 0;
+
+fail_gmemcpy:
+	return ret;
+}
+
+/* evict the shared memory object data. */
+int gdev_shmem_evict(struct gdev_mem *mem, void *h)
 {
 	struct gdev_mem *holder;
 	uint64_t size;
@@ -471,38 +379,147 @@ fail_malloc:
 	return ret;
 }
 
-int gdev_mem_reload(struct gdev_mem *mem, void *h)
+/* find a memory object that we can borrow some memory space from. */
+static struct gdev_mem *__gdev_shmem_find_victim
+(struct gdev_vas *vas, uint64_t size)
 {
-	int ret;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_vas *v;
+	struct gdev_mem *m, *victim = NULL;
+	struct gdev_shmem *shmem;
+	unsigned long flags;
 
-	if (mem->evicted) {
-		if ((ret = gmemcpy_to_device(h, mem->addr, mem->swap_buf, mem->size)))
-			goto fail_gmemcpy;
-		mem->evicted = 0;
-		mem->shmem->holder = mem;
-		FREE(mem->swap_buf);
+	if (!(shmem = MALLOC(sizeof(*shmem))))
+		goto fail;
+
+	/* be careful of dead lock. this lock is valid only for shared memory. */
+	MUTEX_LOCK(&gdev->shmem_mutex);
+
+	/* select the lowest-priority object. */
+	LOCK_SAVE(&gdev->vas_lock, &flags);
+	gdev_list_for_each (v, &gdev->vas_list, list_entry) {
+		LOCK_NESTED(&v->lock);
+		gdev_list_for_each (m, &v->mem_list, list_entry_heap) {
+			/* don't select from the save VAS object! */
+			if (m->size >= size && m->vas != vas) {
+				if (!victim)
+					victim = m;
+				else {
+					int victim_prio, m_prio;
+					if (victim->shmem)
+						victim_prio = victim->shmem->prio;
+					else
+						victim_prio = victim->vas->prio;
+					if (m->shmem)
+						m_prio = m->shmem->prio;
+					else
+						m_prio = m->vas->prio;
+					if (victim_prio > m_prio)
+						victim = m;
+				}
+			}
+		}
+		UNLOCK_NESTED(&v->lock);
+	}
+	UNLOCK_RESTORE(&gdev->vas_lock, &flags);
+
+	if (!victim) {
+		FREE(shmem);
+	}
+	/* if the victim object doesn't have a shared memory object yet, 
+	   allocate a new one here. */
+	else if (!victim->shmem) {
+		gdev_list_init(&shmem->shmem_list, NULL);
+		MUTEX_INIT(&shmem->mutex);
+		shmem->prio = GDEV_PRIO_MIN;
+		shmem->users = 0;
+		shmem->holder = NULL;
+		shmem->bo = victim->bo;
+		shmem->size = victim->size;
+		MUTEX_LOCK(&shmem->mutex);
+		/* the victim object itself must be inserted into the list. */
+		gdev_list_add(&victim->list_entry_shmem, &shmem->shmem_list);
+		/* someone will be using this shared memory, that's why this 
+		   function was called. */
+		shmem->users++;
+		victim->shmem = shmem;
+		MUTEX_UNLOCK(&shmem->mutex);
+	}
+	else {
+		MUTEX_LOCK(&victim->shmem->mutex);
+		victim->shmem->users++;
+		MUTEX_UNLOCK(&victim->shmem->mutex);
+		FREE(shmem); /* shmem was unused. */
 	}
 
-	return 0;
+	MUTEX_UNLOCK(&gdev->shmem_mutex);
 
-fail_gmemcpy:
-	return ret;
+	return victim;
+
+fail:
+	return NULL;
 }
 
-/* garbage collection: free all memory left in heap. */
-void gdev_mem_gc(struct gdev_vas *vas)
+/* share memory space with @mem. if @mem is null, find a victim instead. */
+struct gdev_mem *gdev_shmem_request
+(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t size)
 {
-	struct gdev_mem *mem;
+	struct gdev_mem *new;
+	uint64_t addr;
+	void *map;
 
-	/* device memory. */
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_mem_free(mem);
+	if (!mem) {
+		/* select a victim memory object. victim->shmem will be newly 
+		   allocated if NULL, with shmem->users being incremented. */
+		if (!(mem = __gdev_shmem_find_victim(vas, size)))
+			goto fail_victim;
 	}
 
-	/* host DMA memory. */
-	gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
-		gdev_mem_free(mem);
+	/* borrow the same (physical) memory space by sharing. */
+	if (!(new = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
+		goto fail_shmem;
+
+	__gdev_mem_init(new, vas, addr, size, map, GDEV_MEM_DEVICE);
+
+	MUTEX_LOCK(&new->shmem->mutex);
+	new->shmem = mem->shmem;
+	/* set the highest prio among users to the shared memory's priority. */
+	if (new->shmem->prio < vas->prio)
+		new->shmem->prio = vas->prio;
+	/* insert the new memory object into the shared memory list. */
+	gdev_list_add(&new->list_entry_shmem, &new->shmem->shmem_list);
+	MUTEX_UNLOCK(&new->shmem->mutex);
+
+	return new;
+
+fail_shmem:
+	mem->shmem->users--; /* not really needed? */
+fail_victim:
+	return NULL;
+}
+
+/* lock the shared memory associated with @mem, if any. */
+void gdev_shmem_lock(struct gdev_mem *mem)
+{
+	if (mem->shmem) {
+		MUTEX_LOCK(&mem->shmem->mutex);
 	}
+}
+
+/* unlock the shared memory associated with @mem, if any. */
+void gdev_shmem_unlock(struct gdev_mem *mem)
+{
+	if (mem->shmem) {
+		MUTEX_UNLOCK(&mem->shmem->mutex);
+	}
+}
+
+void gdev_shmem_lock_all(struct gdev_vas *vas)
+{
+}
+
+void gdev_shmem_unlock_all(struct gdev_vas *vas)
+{
 }
 
 /* add a new VAS object into the device VAS list. */
@@ -511,9 +528,9 @@ void gdev_vas_list_add(struct gdev_vas *vas)
 	struct gdev_device *gdev = vas->gdev;
 	unsigned long flags;
 	
-	LOCK_SAVE(&gdev->lock, &flags);
+	LOCK_SAVE(&gdev->vas_lock, &flags);
 	gdev_list_add(&vas->list_entry, &gdev->vas_list);
-	UNLOCK_RESTORE(&gdev->lock, &flags);
+	UNLOCK_RESTORE(&gdev->vas_lock, &flags);
 }
 
 /* delete the VAS object from the device VAS list. */
@@ -522,28 +539,27 @@ void gdev_vas_list_del(struct gdev_vas *vas)
 	struct gdev_device *gdev = vas->gdev;
 	unsigned long flags;
 	
-	LOCK_SAVE(&gdev->lock, &flags);
+	LOCK_SAVE(&gdev->vas_lock, &flags);
 	gdev_list_del(&vas->list_entry);
-	UNLOCK_RESTORE(&gdev->lock, &flags);
+	UNLOCK_RESTORE(&gdev->vas_lock, &flags);
 }
 
 /* add a new memory object to the memory list. */
 void gdev_mem_list_add(struct gdev_mem *mem, int type)
 {
 	struct gdev_vas *vas = mem->vas;
-	struct gdev_device *gdev = vas->gdev;
 	unsigned long flags;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_add(&mem->list_entry_heap, &vas->mem_list);
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	case GDEV_MEM_DMA:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_add(&mem->list_entry_heap, &vas->dma_mem_list);
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	default:
 		GDEV_PRINT("Memory type not supported\n");
@@ -554,20 +570,19 @@ void gdev_mem_list_add(struct gdev_mem *mem, int type)
 void gdev_mem_list_del(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
-	struct gdev_device *gdev = vas->gdev;
 	unsigned long flags;
 	int type = mem->type;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_del(&mem->list_entry_heap);
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	case GDEV_MEM_DMA:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_del(&mem->list_entry_heap);
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	default:
 		GDEV_PRINT("Memory type not supported\n");
@@ -578,25 +593,24 @@ void gdev_mem_list_del(struct gdev_mem *mem)
 struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 {
 	struct gdev_mem *mem = NULL;
-	struct gdev_device *gdev = vas->gdev;
 	unsigned long flags;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
 			if (mem && (mem->addr == addr))
 				break;
 		}
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	case GDEV_MEM_DMA:
-		LOCK_SAVE(&gdev->lock, &flags);
+		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
 			if (mem && (mem->map == (void *)addr))
 				break;
 		}
-		UNLOCK_RESTORE(&gdev->lock, &flags);
+		UNLOCK_RESTORE(&vas->lock, &flags);
 		break;
 	default:
 		GDEV_PRINT("Memory type not supported\n");

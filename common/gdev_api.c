@@ -189,20 +189,19 @@ int gclose(struct gdev_handle *h)
  */
 uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex);
-	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
-		goto fail;
+	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
+		/* a second chance with shared memory only for device memory. */
+		if (!(mem = gdev_shmem_request(vas, NULL, size)))
+			goto fail;
+	}
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
-	MUTEX_UNLOCK(&gdev->mutex);
 
 	return GDEV_MEM_ADDR(mem);
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex);
 	return 0;
 }
 
@@ -212,21 +211,17 @@ fail:
  */
 int gfree(struct gdev_handle *h, uint64_t addr)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
-	MUTEX_UNLOCK(&gdev->mutex);
 
 	return 0;
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex);
 	return -ENOENT;
 }
 
@@ -236,20 +231,16 @@ fail:
  */
 void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
-	MUTEX_UNLOCK(&gdev->mutex);
 
 	return GDEV_MEM_BUF(mem);
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex);
 	return 0;
 }
 
@@ -259,21 +250,17 @@ fail:
  */
 int gfree_dma(struct gdev_handle *h, void *buf)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	MUTEX_LOCK(&gdev->mutex);
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
-	MUTEX_UNLOCK(&gdev->mutex);
 
 	return 0;
 
 fail:
-	MUTEX_UNLOCK(&gdev->mutex);
 	return -ENOENT;
 }
 
@@ -616,20 +603,25 @@ int gmemcpy_to_device
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
+	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
+	int ret;
 
+	gdev_shmem_lock(mem);
 	if (hmem)
-		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
 	else {
-		gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 		/* the function will evict data *only if* necessary. */
-		gdev_mem_evict(mem, h);
+		gdev_shmem_evict(mem, h);
 		if (h->pipeline_count > 1)
-			return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
+			ret =  __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
 												__memcpy_wrapper);
 		else
-			return __gmemcpy_to_device(h, dst_addr, src_buf, size,
-									   __memcpy_wrapper);
+			ret = __gmemcpy_to_device(h, dst_addr, src_buf, size,
+									  __memcpy_wrapper);
 	}
+	gdev_shmem_unlock(mem);
+	
+	return ret;
 }
 
 /**
@@ -641,20 +633,25 @@ int gmemcpy_user_to_device
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA);
+	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
+	int ret;
 
+	gdev_shmem_lock(mem);
 	if (hmem)
-		return __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
 	else {
-		gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 		/* the function will evict data *only if* necessary. */
-		gdev_mem_evict(mem, h);
+		gdev_shmem_evict(mem, h);
 		if (h->pipeline_count > 1)
-			return __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
+			ret = __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
 												__copy_from_user_wrapper);
 		else
-			return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
+			ret = __gmemcpy_to_device(h, dst_addr, src_buf, size, 
 									   __copy_from_user_wrapper);
 	}
+	gdev_shmem_unlock(mem);
+
+	return ret;
 }
 
 /**
@@ -666,15 +663,25 @@ int gmemcpy_from_device
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
+	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
+	int ret;
 
+	gdev_shmem_lock(mem);
 	if (hmem)
-		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
-	if (h->pipeline_count > 1)
-		return __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
-											  __memcpy_wrapper);
-	else
-		return __gmemcpy_from_device(h, dst_buf, src_addr, size, 
-									 __memcpy_wrapper);
+		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	else {
+		/* the function will reload data *only if* necessary. */
+		gdev_mem_reload(mem, h);
+		if (h->pipeline_count > 1)
+			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
+												  __memcpy_wrapper);
+		else
+			ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
+										 __memcpy_wrapper);
+	}
+	gdev_shmem_unlock(mem);
+
+	return ret;
 }
 
 /**
@@ -686,15 +693,25 @@ int gmemcpy_user_from_device
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA);
+	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
+	int ret;
 
+	gdev_shmem_lock(mem);
 	if (hmem)
-		return __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
-	if (h->pipeline_count > 1)
-		return __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
-											  __copy_to_user_wrapper);
-	else
-		return __gmemcpy_from_device(h, dst_buf, src_addr, size, 
-									 __copy_to_user_wrapper);
+		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	else {
+		/* the function will reload data *only if* necessary. */
+		gdev_mem_reload(mem, h);
+		if (h->pipeline_count > 1)
+			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
+												  __copy_to_user_wrapper);
+		else
+			ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
+										 __copy_to_user_wrapper);
+	}
+	gdev_shmem_unlock(mem);
+
+	return ret;
 }
 
 /**
@@ -714,7 +731,13 @@ int gmemcpy_in_device
  */
 int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
-	*id = gdev_launch(h->ctx, kernel);
+	gdev_vas_t *vas = h->vas;
+	gdev_ctx_t *ctx = h->ctx;
+
+	gdev_shmem_lock_all(vas);
+	*id = gdev_launch(ctx, kernel);
+	gdev_shmem_unlock_all(vas);
+
 	return 0;
 }
 
