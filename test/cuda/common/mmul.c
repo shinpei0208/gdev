@@ -37,6 +37,7 @@ int cuda_test_mmul(unsigned int n, char *path)
 	unsigned int *a = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
+	int block_x, block_y, grid_x, grid_y;
 	char fname[256];
 	struct timeval tv;
 	struct timeval tv_total_start, tv_total_end;
@@ -47,6 +48,18 @@ int cuda_test_mmul(unsigned int n, char *path)
 	unsigned long d2h;
 	struct timeval tv_exec_start, tv_exec_end;
 	unsigned long exec;
+
+	/* block_x * block_y should not exceed 512. */
+	block_x = n < 16 ? n : 16;
+	block_y = n < 16 ? n : 16;
+	grid_x = n / block_x;
+	if (n % block_x != 0)
+		grid_x++;
+	grid_y = n / block_y;
+	if (n % block_y != 0)
+		grid_y++;
+	printf("block = (%d, %d)\n", block_x, block_y);
+	printf("grid = (%d, %d)\n", grid_x, grid_y);
 
 	gettimeofday(&tv_total_start, NULL);
 
@@ -84,7 +97,7 @@ int cuda_test_mmul(unsigned int n, char *path)
 		printf("cuFuncSetSharedSize() failed\n");
 		return -1;
 	}
-	res = cuFuncSetBlockShape(function, n, 1, 1);
+	res = cuFuncSetBlockShape(function, block_x, block_y, 1);
 	if (res != CUDA_SUCCESS) {
 		printf("cuFuncSetBlockShape() failed\n");
 		return -1;
@@ -167,11 +180,12 @@ int cuda_test_mmul(unsigned int n, char *path)
 
 	gettimeofday(&tv_exec_start, NULL);
 	/* launch the kernel */
-	res = cuLaunchGrid(function, n, 1);
+	res = cuLaunchGrid(function, grid_x, grid_y);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
+	cuCtxSynchronize();
 	gettimeofday(&tv_exec_end, NULL);
 
 	gettimeofday(&tv_d2h_start, NULL);
