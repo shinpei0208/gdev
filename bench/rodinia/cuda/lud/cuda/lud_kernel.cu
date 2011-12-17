@@ -1,7 +1,6 @@
 #include <cuda.h>
 #include <stdio.h>
-
-#define BLOCK_SIZE 16
+#include "lud.h"
 
 __global__ void 
 lud_diagonal(float *m, int matrix_dim, int offset)
@@ -179,20 +178,3 @@ lud_internal(float *m, int matrix_dim, int offset)
 
 
 }
-
-
-void lud_cuda(float *m, int matrix_dim)
-{
-  int i=0;
-  dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-  float *m_debug = (float*)malloc(matrix_dim*matrix_dim*sizeof(float));
-
-  for (i=0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
-      lud_diagonal<<<1, BLOCK_SIZE>>>(m, matrix_dim, i);
-      lud_perimeter<<<(matrix_dim-i)/BLOCK_SIZE-1, BLOCK_SIZE*2>>>(m, matrix_dim, i);
-      dim3 dimGrid((matrix_dim-i)/BLOCK_SIZE-1, (matrix_dim-i)/BLOCK_SIZE-1);
-      lud_internal<<<dimGrid, dimBlock>>>(m, matrix_dim, i); 
-  }
-  lud_diagonal<<<1,BLOCK_SIZE>>>(m, matrix_dim, i);
-}
-

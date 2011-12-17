@@ -87,6 +87,8 @@ create_matrix_from_random(float **mp, int size){
       return RET_FAILURE;
   }
 
+  m = *mp;
+
   for (i = 0; i < size; i++) {
       for (j=0; j < size; j++) {
           if (i>j) {
@@ -183,6 +185,8 @@ lud_verify(float *m, float *lu, int matrix_dim){
       }
   }
   free(tmp);
+
+  return RET_SUCCESS;
 }
 
 void

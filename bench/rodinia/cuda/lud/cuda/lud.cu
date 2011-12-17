@@ -24,6 +24,7 @@
 #include <assert.h>
 
 #include "common.h"
+#include "lud.h"
 
 static int do_verify = 0;
 

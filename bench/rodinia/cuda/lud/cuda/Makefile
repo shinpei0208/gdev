@@ -2,43 +2,36 @@ CC = gcc
 NVCC = nvcc
 
 DEFS += \
-		-DGPU_TIMER \
-		$(SPACE)
+	-DGPU_TIMER \
+	$(SPACE)
 
 NVCCFLAGS += -I../common \
-			 -O3 \
-			 -use_fast_math \
-			 -arch=sm_20 \
-			 -lm \
-			 $(SPACE)
+	-O3 \
+	-use_fast_math \
+	-arch sm_20 \
+	-cubin \
+	-lm \
+	$(SPACE)
 
 CFLAGS += -I../common \
-					-I/usr/include/cuda \
-		  -O3 \
-		  -Wall \
-		  $(SPACE)
+	-I/usr/local/gdev/include \
+	-L/usr/local/gdev/lib64 \
+	-lgdev -lcuda \
+	-O3 \
+	-Wall \
+	$(SPACE)
 
 # Add source files here
 EXECUTABLE  := lud_cuda
 # Cuda source files (compiled with cudacc)
 CUFILES     := lud_kernel.cu
 # C/C++ source files (compiled with gcc / c++)
-CCFILES     := lud.c lud_cuda.c ../common/common.c
-
-OBJS = ../common/common.o lud.o lud_kernel.o
+CCFILES     := lud.c ../common/common.c
 
 .PHONY: all clean 
-all : $(EXECUTABLE)
-
-.c.o : 
-	$(NVCC) $(NVCCFLAGS) $(DEFS) -o $@ -c $<
-
-%.o:	%.cu 
-	$(NVCC) $(NVCCFLAGS) $(DEFS) -o $@ -c $<
-
-
-$(EXECUTABLE) : $(OBJS)
-	$(NVCC) $(NVCCFLAGS) -o $@  $?
+all:
+	$(NVCC) -o $(EXECUTABLE).cubin $(NVCCFLAGS) $(DEFS) $(CUFILES)
+	$(CC) -o $(EXECUTABLE) $(CFLAGS) $(DEFS) $(CCFILES)
 
 clean:
-	rm -f $(EXECUTABLE) $(OBJS) *.linkinfo
+	rm -f $(EXECUTABLE) $(EXECUTABLE).cubin *~
