@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 		n = atoi(argv[1]);
 
 	if (cuda_test_madd(n, ".") < 0)
-		printf("Test failed");
+		printf("Test failed\n");
 	else
 		printf("Test passed\n");
 	
