@@ -25,7 +25,7 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-int cuda_test_madd(unsigned int n, char *path)
+int cuda_test_fmadd(unsigned int n, char *path)
 {
 	int i, j, idx;
 	CUresult res;
