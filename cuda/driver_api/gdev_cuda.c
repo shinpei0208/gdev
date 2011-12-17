@@ -616,14 +616,15 @@ CUresult gdev_cuda_construct_kernels
 		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);
 		k->smem_base = 0x0;
 	
-		/* stack depth must be >= 16? */
-		stack_depth = f->stack_depth > 16 ? f->stack_depth : 0;
-		/* stack level is round_up(stack_depth/48) */
-		k->stack_level = stack_depth / 48;
-		if (stack_depth % 48 != 0)
+		/* stack depth must be greater than warp size? */
+		stack_depth = f->stack_depth > warp_size ? f->stack_depth : warp_size;
+		/* stack level is round_up */
+		k->stack_level = stack_depth / warp_count;
+		if (stack_depth % warp_count != 0)
 			k->stack_level++;
+		k->stack_level = k->stack_level > 8 ? k->stack_level : 8;
 		/* this is the stack size */
-		stack_size = k->stack_level * 16;
+		stack_size = k->stack_level * warp_size;
 	
 		k->warp_size = warp_size * 
 			(stack_size + k->lmem_size + k->lmem_size_neg); 
