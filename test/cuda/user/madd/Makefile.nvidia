@@ -6,8 +6,8 @@ LIBS	= -lcuda
 CFLAGS	= -I /usr/local/cuda/include
 
 all:
-	$(NVCC) -o mmul_gpu.cubin mmul_gpu.cu
-	gcc -o $(TARGET) $(CFLAGS) $(LIBS) main.c mmul.c
+	$(NVCC) -o madd_gpu.cubin madd_gpu.cu
+	gcc -o $(TARGET) $(CFLAGS) $(LIBS) main.c madd.c
 
 clean:
 	rm -f $(TARGET) *.cubin ./*~
