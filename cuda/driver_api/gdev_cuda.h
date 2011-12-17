@@ -168,4 +168,12 @@ static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 	return size;
 }
 
+/* warp alignement. */
+static inline uint32_t gdev_cuda_align_warp_size(uint32_t size)
+{
+	if (size & 0x7ff)
+		size = (size + 0x800) & (~0xbff);
+	return size;
+}
+
 #endif
