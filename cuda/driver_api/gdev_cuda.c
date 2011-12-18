@@ -110,6 +110,7 @@ static void unload_bin(char *bin, file_t *fp)
 
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 {
+#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
 	int i;
