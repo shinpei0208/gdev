@@ -83,13 +83,15 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	return mem.addr;
 }
 
-int gfree(struct gdev_handle *h, uint64_t addr)
+uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 {
 	struct gdev_ioctl_mem mem;
 	int fd = h->fd;
 
 	mem.addr = addr;
-	return ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+	ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+
+	return mem.size;
 }
 
 void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
@@ -125,7 +127,7 @@ fail_gmalloc_dma:
 	return NULL;
 }
 
-int gfree_dma(struct gdev_handle *h, void *buf)
+uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 {
 	struct gdev_map_bo *bo;
 	struct gdev_ioctl_mem mem;
@@ -136,13 +138,15 @@ int gfree_dma(struct gdev_handle *h, void *buf)
 			goto free;
 		}
 	}
-	return -ENOENT;
+	return 0;
 
 free:
 	munmap(bo->map, bo->size);
 	mem.addr = bo->addr;
 	free(bo);
-	return ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
+	ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
+
+	return mem.size;
 }
 
 int gmemcpy_to_device

@@ -77,7 +77,6 @@ struct gdev_kernel {
 	uint32_t warp_size; /* warp size */
 	uint32_t reg_count; /* register count */
 	uint32_t bar_count; /* barrier count */
-	uint32_t call_limit; /* call limit log */
 	uint32_t grid_id; /* grid ID */
     uint32_t grid_x; /* grid dimension X */
     uint32_t grid_y; /* grid dimension Y */

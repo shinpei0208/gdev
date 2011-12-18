@@ -209,20 +209,22 @@ fail:
  * gfree():
  * free the memory space allocated at the specified address.
  */
-int gfree(struct gdev_handle *h, uint64_t addr)
+uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
+	uint64_t size;
 
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
+	size = GDEV_MEM_SIZE(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
-	return 0;
+	return size;
 
 fail:
-	return -ENOENT;
+	return 0;
 }
 
 /**
@@ -248,20 +250,22 @@ fail:
  * gfree_dma():
  * free the host dma memory space allocated at the specified buffer.
  */
-int gfree_dma(struct gdev_handle *h, void *buf)
+uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
+	uint64_t size;
 
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
+	size = GDEV_MEM_SIZE(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
-	return 0;
+	return size;
 
 fail:
-	return -ENOENT;
+	return 0;
 }
 
 static

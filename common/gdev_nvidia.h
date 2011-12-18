@@ -168,7 +168,9 @@ struct gdev_mem {
 	void *map; /* memory-mapped buffer (for host only) */
 };
 
-/* private compute functions. */
+/**
+ * a set ofprivate compute functions. 
+ */
 struct gdev_compute {
 	void (*launch)(struct gdev_ctx *, struct gdev_kernel *);
 	void (*fence_write)(struct gdev_ctx *, int, uint32_t);
@@ -180,9 +182,10 @@ struct gdev_compute {
 };
 
 /**
- * utility macros
+ * utility macros for memory object that must be supported.
  */
 #define GDEV_MEM_ADDR(mem) (mem)->addr
+#define GDEV_MEM_SIZE(mem) (mem)->size
 #define GDEV_MEM_BUF(mem) (mem)->map
 
 /**
