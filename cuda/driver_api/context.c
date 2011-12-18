@@ -121,13 +121,11 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	/* get the CUDA-specific device information. */
 	cuda_info = &ctx->cuda_info;
-	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, 
-			   (uint64_t*) &cuda_info->mp_count)) {
+	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &cuda_info->mp_count)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_mp_count;
 	}
-	if (gquery(handle, GDEV_NVIDIA_QUERY_CHIPSET, 
-			   (uint64_t*) &cuda_info->chipset)) {
+	if (gquery(handle, GDEV_NVIDIA_QUERY_CHIPSET, &cuda_info->chipset)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_chipset;
 	}
@@ -139,8 +137,8 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		cuda_info->warp_size = 32;
 		break;
 	case 0x50:
-		cuda_info->warp_count = 48;
-		cuda_info->warp_size = 16;
+		cuda_info->warp_count = 32;
+		cuda_info->warp_size = 32;
 		break;
 	default:
 		cuda_info->warp_count = 48;

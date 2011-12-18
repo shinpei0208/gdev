@@ -45,10 +45,10 @@
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
 
 struct gdev_cuda_info {
-	uint32_t chipset;
-	uint32_t mp_count;
-	uint32_t warp_count;
-	uint32_t warp_size;
+	uint64_t chipset;
+	uint64_t mp_count;
+	uint64_t warp_count;
+	uint64_t warp_size;
 };
 
 struct gdev_cuda_raw_func {
