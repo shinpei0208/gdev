@@ -230,7 +230,6 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 
 	k.reg_count = REG_COUNT;
 	k.bar_count = BARRIER_COUNT;
-	k.call_limit = 0xf;
 	k.grid_id = 1;
 	
 	k.block_x = n < 16 ? n : 16;

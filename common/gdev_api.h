@@ -41,9 +41,9 @@ typedef struct gdev_handle* Ghandle;
 Ghandle gopen(int minor);
 int gclose(Ghandle h);
 uint64_t gmalloc(Ghandle h, uint64_t size);
-int gfree(Ghandle h, uint64_t addr);
+uint64_t gfree(Ghandle h, uint64_t addr);
 void *gmalloc_dma(Ghandle h, uint64_t size);
-int gfree_dma(Ghandle h, void *buf);
+uint64_t gfree_dma(Ghandle h, void *buf);
 int gmemcpy_to_device
 (Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
 int gmemcpy_user_to_device

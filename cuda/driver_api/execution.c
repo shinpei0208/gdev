@@ -160,8 +160,10 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	k->grid_x = grid_width;
 	k->grid_y = grid_height;
 	k->grid_z = 1;
-	k->call_limit = 0xf;
 	k->grid_id = 1;
+
+	k->smem_base = gdev_cuda_align_base(ctx->data_size);
+	k->lmem_base = gdev_cuda_align_base(k->smem_base + k->smem_size);
 
 	handle = gdev_ctx_current->gdev_handle;
 

@@ -78,6 +78,7 @@ struct CUctx_st {
 	Ghandle gdev_handle;
 	struct gdev_list list_entry;
 	struct gdev_cuda_info cuda_info;
+	uint64_t data_size;
 };
 
 struct CUmod_st {
@@ -160,6 +161,14 @@ static inline uint32_t gdev_cuda_align_lmem_size(uint32_t size)
 	return size;
 }
 
+/* total local memory alignement. */
+static inline uint32_t gdev_cuda_align_lmem_size_total(uint32_t size)
+{
+	if (size & 0x1ffff)
+		size = (size + 0x20000) & ~0x1ffff;
+	return size;
+}
+
 /* shared memory alignement. */
 static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 {
@@ -171,8 +180,16 @@ static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 /* warp alignement. */
 static inline uint32_t gdev_cuda_align_warp_size(uint32_t size)
 {
-	if (size & 0x7ff)
-		size = (size + 0x800) & (~0xbff);
+	if (size & 0xff)
+		size = (size + 0x100) & (~0xff);
+	return size;
+}
+
+/* memory base alignement. */
+static inline uint32_t gdev_cuda_align_base(uint32_t size)
+{
+	if (size & 0xffffff)
+		size = (size + 0x1000000) & (~0xffffff);
 	return size;
 }
 
