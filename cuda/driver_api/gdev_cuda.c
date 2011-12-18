@@ -110,7 +110,6 @@ static void unload_bin(char *bin, file_t *fp)
 
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 {
-#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
 	int i;
@@ -578,8 +577,9 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 	return CUDA_SUCCESS;
 }
 
-static unsigned __round_up_pow2(unsigned x)
+static uint64_t __round_up_pow2(uint64_t x)
 {
+	return x;
 	if (x == 0)
 		return 0;
 	x--;
@@ -588,6 +588,7 @@ static unsigned __round_up_pow2(unsigned x)
 	x |= x >> 4;
 	x |= x >> 8;
 	x |= x >> 16;
+	x |= x >> 32;
 
 	return ++x;
 }
@@ -629,7 +630,8 @@ CUresult gdev_cuda_construct_kernels
 		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
 		k->cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
 
-		/* FIXME: what is the right local memory size? */
+		/* FIXME: what is the right local memory size?
+		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. */
 		k->lmem_size = gdev_cuda_align_lmem_size(f->local_size);
 		k->lmem_size = k->lmem_size > 0xf0 ? k->lmem_size : 0xf0; 
 		k->lmem_size_neg = gdev_cuda_align_lmem_size(f->local_size_neg);
@@ -640,19 +642,18 @@ CUresult gdev_cuda_construct_kernels
 		k->smem_base = 0x0;
 	
 		/* stack depth must be greater than warp size? */
-		stack_depth = f->stack_depth > warp_size ? f->stack_depth : warp_size;
+		stack_depth = f->stack_depth > 0x10 ? f->stack_depth : 0x10;
 		/* stack level is round_up */
 		k->stack_level = stack_depth / warp_count;
 		if (stack_depth % warp_count != 0)
 			k->stack_level++;
 		k->stack_level = k->stack_level > 8 ? k->stack_level : 8;
-		/* this is the stack size */
-		stack_size = stack_depth;//k->stack_level * warp_size;
+		/* FIXME: what is the right stack size? */
+		stack_size = k->stack_level * 0x10 + 0x10;
 	
 		k->warp_size = warp_size * 
 			(stack_size + k->lmem_size + k->lmem_size_neg); 
 		k->warp_size = gdev_cuda_align_warp_size(k->warp_size);
-		printf("warp_size = 0x%x\n", k->warp_size);
 	
 		k->lmem_size_total = 
 			__round_up_pow2(warp_count * mp_count * k->warp_size);
@@ -665,7 +666,6 @@ CUresult gdev_cuda_construct_kernels
 		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++)
 			mod->code_size += k->cmem[i].size;
 		mod->sdata_size += k->lmem_size_total;
-		printf("sdata_size = 0x%x\n", mod->sdata_size);
 	}
 
 	/* code size also includes global constnat memory size. */
