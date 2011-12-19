@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <cuda.h>
 __global__
-void add(float *a, float *b, float *c, float n)
+void add(float *a, float *b, float *c, int n)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;

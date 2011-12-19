@@ -54,8 +54,8 @@ int cuda_test_fmadd(unsigned int n, char *path)
 	for (i = 0; i < n; i++) {
 		for(j = 0; j < n; j++) {
 			idx = i * n + j;
-			a[idx] = i;
-			b[idx] = i;
+			a[idx] = i + 0.1;
+			b[idx] = i + 0.1;
 		}
 	}
 
@@ -97,7 +97,7 @@ int cuda_test_fmadd(unsigned int n, char *path)
 		printf("cuModuleLoad() failed\n");
 		return -1;
 	}
-	res = cuModuleGetFunction(&function, module, "_Z3addPfS_S_f");
+	res = cuModuleGetFunction(&function, module, "_Z3addPfS_S_i");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction() failed\n");
 		return -1;
@@ -233,8 +233,8 @@ int cuda_test_fmadd(unsigned int n, char *path)
 		while (j < n) {
 			idx = i * n + j;
 			if (c[idx] != a[idx] + b[idx]) {
-				printf("c[%d] = %d\n", idx, c[idx]);
-				printf("a[%d]+b[%d] = %d\n", idx, idx, a[idx]+b[idx]);
+				printf("c[%d] = %f\n", idx, c[idx]);
+				printf("a[%d]+b[%d] = %f\n", idx, idx, a[idx]+b[idx]);
 				return -1;
 			}
 			j++;
