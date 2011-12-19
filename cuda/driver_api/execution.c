@@ -56,13 +56,12 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-	int nr_max_threads = ctx->cuda_info.warp_size * 32;
 	
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-	if (!func || x <= 0 || y <= 0 || z <= 0 || x * y * z > nr_max_threads)
+	if (!func || x <= 0 || y <= 0 || z <= 0)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
@@ -101,7 +100,7 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	k->smem_size += gdev_cuda_align_smem_size(bytes);
+	k->smem_size = gdev_cuda_align_smem_size(k->smem_size + bytes);
 
 	return CUDA_SUCCESS;
 }
@@ -160,7 +159,7 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	k->grid_x = grid_width;
 	k->grid_y = grid_height;
 	k->grid_z = 1;
-	k->grid_id = 1;
+	k->grid_id = ++ctx->launch_id;
 
 	k->smem_base = gdev_cuda_align_base(ctx->data_size);
 	k->lmem_base = gdev_cuda_align_base(k->smem_base + k->smem_size);

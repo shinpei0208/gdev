@@ -222,7 +222,6 @@ static void init_kernel(struct gdev_kernel *k)
 		k->cmem[i].offset = 0;
 	}
 	k->cmem_count = 0;
-	k->cmem_param_segment = 0;
 	k->param_buf = NULL;
 	k->param_size = 0;
 	k->lmem_addr = 0;
@@ -620,6 +619,9 @@ CUresult gdev_cuda_construct_kernels
 		if (!(k->param_buf = MALLOC(k->param_size)))
 			goto fail_malloc_param;
 
+		/* the following c[] setup is NVIDIA's nvcc-specific. */
+		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
+		/* c0[] is a parameter list. */
 		memcpy(k->param_buf, f->cmem[0].buf, f->param_base);
 		k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size);
 		k->cmem[0].offset = 0;
@@ -627,8 +629,15 @@ CUresult gdev_cuda_construct_kernels
 			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);
 			k->cmem[i].offset = 0; /* no usage. */
 		}
-		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
-		k->cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
+		/* c{1,15,16,17}[] are something unknown... */
+		k->cmem[1].size = 0x10000;
+		k->cmem[1].offset = 0;
+		k->cmem[15].size = 0x10000;
+		k->cmem[15].offset = 0;
+		k->cmem[16].size = k->cmem[0].size;
+		k->cmem[16].offset = 0;
+		k->cmem[17].size = k->cmem[0].size;
+		k->cmem[17].offset = 0;
 
 		/* FIXME: what is the right local memory size?
 		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. 
@@ -646,7 +655,6 @@ CUresult gdev_cuda_construct_kernels
 		/* stack level needs rounded up? */
 		if (stack_depth % warp_count != 0)
 			k->stack_level++;
-		k->stack_level = 8;
 		/* FIXME: what is the right stack size? */
 		stack_size = k->stack_level * 0x10;
 	
