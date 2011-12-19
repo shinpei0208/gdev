@@ -646,6 +646,7 @@ CUresult gdev_cuda_construct_kernels
 		/* stack level needs rounded up? */
 		if (stack_depth % warp_count != 0)
 			k->stack_level++;
+		k->stack_level = 8;
 		/* FIXME: what is the right stack size? */
 		stack_size = k->stack_level * 0x10;
 	

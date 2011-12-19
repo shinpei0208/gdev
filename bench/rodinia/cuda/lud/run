@@ -1,1 +1,1 @@
-cuda/lud_cuda -i ../../data/lud/256.dat 
+cuda/lud_cuda -v -i ../../data/lud/256.dat 
