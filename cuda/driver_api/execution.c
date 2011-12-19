@@ -56,12 +56,13 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
+	int nr_max_threads = ctx->cuda_info.warp_size * ctx->cuda_info.warp_count;
 	
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx || ctx != gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
-	if (!func || x <= 0 || y <= 0 || z <= 0)
+	if (!func || x <= 0 || y <= 0 || z <= 0 || x * y * z > nr_max_threads)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
