@@ -34,7 +34,7 @@
 /**
  * static numbers for nvidia GPUs. 
  */
-#define GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT 16 /* by definition? */
+#define GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT 32 /* by definition? */
 
 /**
  * query values for the device-specific information.
@@ -63,7 +63,6 @@ struct gdev_kernel {
 		uint32_t offset; /* offset in constant memory */
 	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT];
 	uint32_t cmem_count; /* constant memory count */
-	uint32_t cmem_param_segment; /* constant memory segment for parameters */
 	uint32_t param_size; /* kernel parameter size */
 	uint32_t *param_buf; /* kernel parameter buffer */
 	uint64_t lmem_addr; /* local memory address in VAS */

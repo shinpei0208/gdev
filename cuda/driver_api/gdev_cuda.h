@@ -29,7 +29,6 @@
 
 #define GDEV_CUDA_VERSION 4000
 #define GDEV_CUDA_USER_PARAM_BASE 0x20
-#define GDEV_CUDA_CMEM_SEGMENT_COUNT 16 /* by definition? */
 
 #ifndef NULL
 #define NULL 0
@@ -79,6 +78,7 @@ struct CUctx_st {
 	struct gdev_list list_entry;
 	struct gdev_cuda_info cuda_info;
 	uint64_t data_size;
+	int launch_id;
 };
 
 struct CUmod_st {

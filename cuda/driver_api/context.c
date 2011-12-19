@@ -151,8 +151,9 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
 	}
 
-	/* we will trace size of memory allocated by users. */
+	/* we will trace size of memory allocated by users and # of kernels. */
 	ctx->data_size = 0;
+	ctx->launch_id = 0;
 
 	gdev_ctx_current = ctx;	/* set to the current context. */
 	*pctx = ctx;
