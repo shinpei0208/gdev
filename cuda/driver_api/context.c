@@ -151,6 +151,9 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
 	}
 
+	/* initialize context synchronization list. */
+	gdev_list_init(&ctx->sync_list, NULL);
+
 	/* we will trace size of memory allocated by users and # of kernels. */
 	ctx->data_size = 0;
 	ctx->launch_id = 0;
@@ -190,6 +193,10 @@ CUresult cuCtxDestroy(CUcontext ctx)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx)
 		return CUDA_ERROR_INVALID_VALUE;
+
+	/* wait for all on-the-fly kernels. */
+	cuCtxSynchronize();
+
 	if (gclose(ctx->gdev_handle))
 		return CUDA_ERROR_INVALID_CONTEXT;
 
@@ -296,18 +303,43 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Blocks until the device has completed all preceding requested tasks. 
+ * cuCtxSynchronize() returns an error if one of the preceding tasks failed.
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ * CUDA_ERROR_INVALID_CONTEXT 
+ */
 CUresult cuCtxSynchronize(void)
 {
 	Ghandle handle;
+	struct gdev_cuda_launch *l;
+	struct gdev_list *p;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
+	if (gdev_list_empty(&gdev_ctx_current->sync_list))
+		return CUDA_SUCCESS;
+
 	handle = gdev_ctx_current->gdev_handle;
 
 	/* synchronize with all kernels. */
+	gdev_list_for_each(l, &gdev_ctx_current->sync_list, list_entry) {
+		/* if timeout is required, specify gdev_time value instead of NULL. */
+		if (gsync(handle, l->id, NULL))
+			return CUDA_ERROR_UNKNOWN;
+	}
+
+	/* remove all lists. */
+	while ((p = gdev_list_head(&gdev_ctx_current->sync_list))) {
+		gdev_list_del(p);
+		l = gdev_list_container(p);
+		FREE(l);
+	}
 
 	return CUDA_SUCCESS;
 }
