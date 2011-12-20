@@ -25,6 +25,7 @@
 #ifndef __GDEV_NVIDIA_DEF_H__
 #define __GDEV_NVIDIA_DEF_H__
 
+#include "gdev_list.h"
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else

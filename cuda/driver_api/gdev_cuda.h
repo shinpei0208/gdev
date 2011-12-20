@@ -73,9 +73,15 @@ struct gdev_cuda_raw_func {
 	uint32_t local_size_neg;
 };
 
+struct gdev_cuda_launch {
+	uint32_t id; /* kernel ID returned by the launch function. */
+	struct gdev_list list_entry; /* entry to synchronization list. */
+};
+
 struct CUctx_st {
 	Ghandle gdev_handle;
-	struct gdev_list list_entry;
+	struct gdev_list list_entry; /* entry to ctx_list. */
+	struct gdev_list sync_list;
 	struct gdev_cuda_info cuda_info;
 	uint64_t data_size;
 	int launch_id;
