@@ -611,7 +611,7 @@ int gmemcpy_to_device
 	int ret;
 
 	gdev_shmem_lock(mem);
-	if (hmem)
+	if (hmem) 
 		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
 	else {
 		/* the function will evict data *only if* necessary. */

@@ -72,7 +72,7 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	uint32_t sequence;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
-		ctx->fence.seq = 0;
+		ctx->fence.seq = 1;
 	sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
@@ -97,7 +97,7 @@ uint32_t gdev_memcpy
 	uint32_t sequence;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
-		ctx->fence.seq = 0;
+		ctx->fence.seq = 1;
 	sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
@@ -600,7 +600,7 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	case GDEV_MEM_DEVICE:
 		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-			if (mem && (mem->addr == addr))
+			if (mem && (addr >= mem->addr && addr < mem->addr + mem->size))
 				break;
 		}
 		UNLOCK_RESTORE(&vas->lock, &flags);
@@ -608,7 +608,8 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	case GDEV_MEM_DMA:
 		LOCK_SAVE(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
-			if (mem && (mem->map == (void *)addr))
+			if (mem && (addr >= (uint64_t) mem->map && 
+						addr < (uint64_t) mem->map + mem->size))
 				break;
 		}
 		UNLOCK_RESTORE(&vas->lock, &flags);

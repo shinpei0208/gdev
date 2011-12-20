@@ -629,15 +629,12 @@ CUresult gdev_cuda_construct_kernels
 			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);
 			k->cmem[i].offset = 0; /* no usage. */
 		}
-		/* c{1,15,16,17}[] are something unknown... */
+		/* c{1,15,17}[] are something unknown... */
 		if (k->cmem[1].size == 0) {
 			k->cmem[1].size = 0x10000;
 		}
 		if (k->cmem[15].size == 0) {
 			k->cmem[15].size = 0x10000;
-		}
-		if (k->cmem[16].size == 0) {
-			k->cmem[16].size = k->cmem[0].size;
 		}
 		if (k->cmem[17].size == 0) {
 			k->cmem[17].size = k->cmem[0].size;
