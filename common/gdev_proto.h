@@ -66,7 +66,7 @@ struct gdev_device {
 int gdev_compute_init(struct gdev_device*, int, void*);
 uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
 uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
-int gdev_poll(gdev_ctx_t*, int, uint32_t, struct gdev_time*);
+int gdev_poll(gdev_ctx_t*, uint32_t, struct gdev_time*);
 int gdev_query(struct gdev_device*, uint32_t, uint64_t*);
 
 /**

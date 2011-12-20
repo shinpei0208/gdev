@@ -38,25 +38,14 @@
 #include "gdev_list.h"
 #include "gdev_time.h"
 
-//#define GDEV_DMA_PCOPY
-
 #define GDEV_SUBCH_COMPUTE 1
 #define GDEV_SUBCH_M2MF 2
 #define GDEV_SUBCH_PCOPY0 3
 #define GDEV_SUBCH_PCOPY1 4
 
-#define GDEV_FENCE_COUNT 4 /* the number of fence types. */
-#define GDEV_FENCE_COMPUTE 0
-#define GDEV_FENCE_M2MF 1
-#define GDEV_FENCE_PCOPY0 2
-#define GDEV_FENCE_PCOPY1 3
-#ifdef GDEV_DMA_PCOPY
-#define GDEV_FENCE_DMA GDEV_FENCE_PCOPY0
-#else
-#define GDEV_FENCE_DMA GDEV_FENCE_M2MF
-#endif
-
-#define GDEV_FENCE_LIMIT 0x80000000
+#define GDEV_FENCE_BUF_SIZE 0x1000
+#define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */
+#define GDEV_FENCE_COUNT (GDEV_FENCE_BUF_SIZE / GDEV_FENCE_QUERY_SIZE)
 
 /**
  * virutal address space available for user buffers.
@@ -146,7 +135,7 @@ struct gdev_ctx {
 		void *bo; /* driver private object. */
 		uint32_t *map;
 		uint64_t addr;
-		uint32_t sequence[GDEV_FENCE_COUNT];
+		uint32_t seq;
 	} fence;
 	uint32_t dummy;
 };
@@ -172,11 +161,12 @@ struct gdev_mem {
  * a set ofprivate compute functions. 
  */
 struct gdev_compute {
-	void (*launch)(struct gdev_ctx *, struct gdev_kernel *);
+	int (*launch)(struct gdev_ctx *, struct gdev_kernel *);
+	uint32_t (*fence_read)(struct gdev_ctx *, uint32_t);
 	void (*fence_write)(struct gdev_ctx *, int, uint32_t);
-	void (*fence_read)(struct gdev_ctx *, int, uint32_t *);
+	void (*fence_reset)(struct gdev_ctx *, uint32_t);
 	void (*memcpy)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
-	void (*memcpy_evict)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
+	void (*memcpy_async)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
 	void (*membar)(struct gdev_ctx *);
 	void (*init)(struct gdev_ctx *);
 };

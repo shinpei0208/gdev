@@ -69,17 +69,22 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t seq = ++ctx->fence.sequence[GDEV_FENCE_COMPUTE];
+	uint32_t sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *after* launch():
 	   the LAUNCH method of the PGRAPH engine is not associated with
 	   the QUERY method, i.e., we have to submit the QUERY method 
 	   explicitly after the kernel is launched. */
+	compute->fence_reset(ctx, sequence);
 	compute->launch(ctx, kern);
-	compute->fence_write(ctx, GDEV_FENCE_COMPUTE, seq);
+	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, sequence);
 	
-	return seq;
+	ctx->fence.seq++;
+	if (ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 0;
+
+	return sequence;
 }
 
 /* copy data of @size from @src_addr to @dst_addr. */
@@ -89,50 +94,44 @@ uint32_t gdev_memcpy
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence = ++ctx->fence.sequence[GDEV_FENCE_DMA];
+	uint32_t sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *before* memcpy():
 	   the EXEC method of the PCOPY and M2MF engines is associated with
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
-	compute->fence_write(ctx, GDEV_FENCE_DMA, sequence);
+	compute->fence_reset(ctx, sequence);
+	compute->fence_write(ctx, GDEV_SUBCH_M2MF, sequence);
 	compute->memcpy(ctx, dst_addr, src_addr, size);
+
+	ctx->fence.seq++;
+	if (ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 0;
 
 	return sequence;
 }
 
 /* poll until the resource becomes available. */
-int gdev_poll
-(struct gdev_ctx *ctx, int type, uint32_t seq, struct gdev_time *timeout)
+int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 {
 	struct gdev_time time_start, time_now, time_elapse, time_relax;
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t val;
 
 	gdev_time_stamp(&time_start);
 	gdev_time_ms(&time_relax, 1); /* relax polling when 1 ms elapsed. */
 
-	compute->fence_read(ctx, type, &val);
-
-	while (val < seq || val > seq + GDEV_FENCE_LIMIT) {
+	while (seq != compute->fence_read(ctx, seq)) {
 		gdev_time_stamp(&time_now);
 		gdev_time_sub(&time_elapse, &time_now, &time_start);
 		/* relax polling after some time. */
-		if (gdev_time_ge(&time_elapse, &time_relax)) {
+		if (gdev_time_ge(&time_elapse, &time_relax))
 			SCHED_YIELD();
-		}
-		compute->fence_read(ctx, type, &val);
 		/* check timeout. */
 		if (timeout && gdev_time_ge(&time_elapse, timeout))
 			return -ETIME;
-	}
-
-	/* sequence rolls back to zero, if necessary. */
-	if (ctx->fence.sequence[type] == GDEV_FENCE_LIMIT) {
-		ctx->fence.sequence[type] = 0;
 	}
 
 	return 0;

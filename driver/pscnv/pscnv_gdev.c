@@ -133,7 +133,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	struct pscnv_chan *chan;
 	struct pscnv_bo *ib_bo, *pb_bo, *fence_bo;
 	struct pscnv_mm_node *ib_mm, *pb_mm, *fence_mm;
-	int i, ret;
+	int ret;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -202,7 +202,8 @@ struct gdev_ctx *gdev_raw_ctx_new
 	}
 
 	/* fences init. */
-	fence_bo = pscnv_mem_alloc(drm, PAGE_SIZE, PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
+	fence_bo = pscnv_mem_alloc(drm, GDEV_FENCE_BUF_SIZE, 
+							   PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
 	if (!fence_bo)
 		goto fail_fence_alloc;
 	ret = pscnv_vspace_map(vspace, fence_bo, GDEV_VAS_USER_START, 
@@ -212,9 +213,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.bo = fence_bo;
 	ctx->fence.map = kmap(fence_bo->pages[0]); /* assume < PAGE_SIZE */
 	ctx->fence.addr = fence_mm->start;
-	for (i = 0; i < GDEV_FENCE_COUNT; i++) {
-		ctx->fence.sequence[i] = 0;
-	}
+	ctx->fence.seq = 0;
 
 	/* private data. */
 	ctx->pctx = (void *) chan;
