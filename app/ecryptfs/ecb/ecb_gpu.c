@@ -293,7 +293,7 @@ static int ecb_gpu_crypt
 		cuMemFreeHost(buf);
 	else
 		vfree(buf);
-	
+
 	return err;
 
 fail_memcpy_d2h:
