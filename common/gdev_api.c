@@ -333,7 +333,7 @@ int __gmemcpy_to_device_pipeline
 			rest_size -= dma_size;
 			/* HtoH */
 			if (fence[i])
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
+				gdev_poll(ctx, fence[i], NULL);
 			ret = memcpy_host(dma_buf[i], src_buf + offset, dma_size);
 			if (ret)
 				goto end;
@@ -343,7 +343,7 @@ int __gmemcpy_to_device_pipeline
 
 			if (rest_size == 0) {
 				/* wait for the last fence, and go out! */
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
+				gdev_poll(ctx, fence[i], NULL);
 				goto end;
 			}
 			offset += dma_size;
@@ -396,7 +396,7 @@ int __gmemcpy_to_device
 		if (ret)
 			goto end;
 		fence = gdev_memcpy(ctx, dst_addr + offset, dma_addr[0], dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
+		gdev_poll(ctx, fence, NULL);
 		rest_size -= dma_size;
 		offset += dma_size;
 	}
@@ -429,7 +429,7 @@ int __gmemcpy_dma_to_device
 		dma_size = __min(rest_size, chunk_size);
 		fence = gdev_memcpy(ctx, dst_addr + offset, src_addr + offset, 
 							dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
+		gdev_poll(ctx, fence, NULL);
 		rest_size -= dma_size;
 		offset += dma_size;
 	}
@@ -482,7 +482,7 @@ int __gmemcpy_from_device_pipeline
 		for (i = 0; i < h->pipeline_count; i++) {
 			if (rest_size == 0) {
 				/* HtoH */
-				gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
+				gdev_poll(ctx, fence[i], NULL);
 				memcpy_host(dst_buf + offset, dma_buf[i], dma_size);
 				goto end;
 			}
@@ -502,7 +502,7 @@ int __gmemcpy_from_device_pipeline
 			}
 
 			/* HtoH */
-			gdev_poll(ctx, GDEV_FENCE_DMA, fence[i], NULL);
+			gdev_poll(ctx, fence[i], NULL);
 			ret = memcpy_host(dst_buf + offset - chunk_size, dma_buf[i], 
 							  chunk_size);
 			if (ret)
@@ -554,7 +554,7 @@ int __gmemcpy_from_device
 	while (rest_size) {
 		dma_size = __min(rest_size, chunk_size);
 		fence = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
+		gdev_poll(ctx, fence, NULL);
 		ret = memcpy_host(dst_buf + offset, dma_buf[0], dma_size);
 		if (ret)
 			goto end;
@@ -590,7 +590,7 @@ int __gmemcpy_dma_from_device
 		dma_size = __min(rest_size, chunk_size);
 		fence = gdev_memcpy(ctx, dst_addr + offset, src_addr + offset, 
 							dma_size);
-		gdev_poll(ctx, GDEV_FENCE_DMA, fence, NULL);
+		gdev_poll(ctx, fence, NULL);
 		rest_size -= dma_size;
 		offset += dma_size;
 	}
@@ -752,7 +752,7 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
  */
 int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 {
-	return gdev_poll(h->ctx, GDEV_FENCE_COMPUTE, id, timeout);
+	return gdev_poll(h->ctx, id, timeout);
 }
 
 /**

@@ -150,7 +150,6 @@ struct gdev_ctx *gdev_raw_ctx_new
 	struct pscnv_ib_bo *fence_bo;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
 	uint32_t chipset = gdev->chipset;
-	int i;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
@@ -175,8 +174,8 @@ struct gdev_ctx *gdev_raw_ctx_new
 	/* FIFO init: it has already been done in gdev_vas_new(). */
 
 	/* FIFO command queue registers. */
-	switch (chipset & 0xF0) {
-	case 0xC0:
+	switch (chipset & 0xf0) {
+	case 0xc0:
 		ctx->fifo.regs = chan->chmap;
 		break;
 	default:
@@ -185,14 +184,12 @@ struct gdev_ctx *gdev_raw_ctx_new
 
 	/* fences init. */
 	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_BO_FLAGS_HOST, 0, 
-						  0x1000, 0, &fence_bo))
+						  GDEV_FENCE_BUF_SIZE, 0, &fence_bo))
 		goto fail_fence_alloc;
 	ctx->fence.bo = fence_bo;
 	ctx->fence.map = fence_bo->map;
 	ctx->fence.addr = fence_bo->vm_base;
-	for (i = 0; i < GDEV_FENCE_COUNT; i++) {
-		ctx->fence.sequence[i] = 0;
-	}
+	ctx->fence.seq = 0;
 
 	/* private data */
 	ctx->pctx = (void *) chan;
