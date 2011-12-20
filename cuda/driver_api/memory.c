@@ -93,6 +93,9 @@ CUresult cuMemFree(CUdeviceptr dptr)
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
+	/* wait for all kernels to complete - some may be using the memory. */
+	cuCtxSynchronize();
+
 	handle = gdev_ctx_current->gdev_handle;
 
 	if (!(size = gfree(handle, addr)))
@@ -175,6 +178,9 @@ CUresult cuMemFreeHost(void *p)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
+
+	/* wait for all kernels to complete - some may be using the memory. */
+	cuCtxSynchronize();
 
 	handle = gdev_ctx_current->gdev_handle;
 
