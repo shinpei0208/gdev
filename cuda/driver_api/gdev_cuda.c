@@ -630,14 +630,18 @@ CUresult gdev_cuda_construct_kernels
 			k->cmem[i].offset = 0; /* no usage. */
 		}
 		/* c{1,15,16,17}[] are something unknown... */
-		k->cmem[1].size = 0x10000;
-		k->cmem[1].offset = 0;
-		k->cmem[15].size = 0x10000;
-		k->cmem[15].offset = 0;
-		k->cmem[16].size = k->cmem[0].size;
-		k->cmem[16].offset = 0;
-		k->cmem[17].size = k->cmem[0].size;
-		k->cmem[17].offset = 0;
+		if (k->cmem[1].size == 0) {
+			k->cmem[1].size = 0x10000;
+		}
+		if (k->cmem[15].size == 0) {
+			k->cmem[15].size = 0x10000;
+		}
+		if (k->cmem[16].size == 0) {
+			k->cmem[16].size = k->cmem[0].size;
+		}
+		if (k->cmem[17].size == 0) {
+			k->cmem[17].size = k->cmem[0].size;
+		}
 
 		/* FIXME: what is the right local memory size?
 		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. 
