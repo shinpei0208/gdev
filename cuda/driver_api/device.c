@@ -265,6 +265,7 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
 CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
 {
 	Ghandle handle;
+	uint64_t total_mem;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -277,9 +278,11 @@ CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (gquery(handle, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, bytes)) {
+	if (gquery(handle, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &total_mem)) {
 		return CUDA_ERROR_UNKNOWN;
 	}
+
+	*bytes = total_mem;
 
 	return CUDA_SUCCESS;
 }

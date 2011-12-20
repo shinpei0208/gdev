@@ -69,7 +69,11 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence = ctx->fence.seq;
+	uint32_t sequence;
+
+	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 0;
+	sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *after* launch():
@@ -80,10 +84,6 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	compute->launch(ctx, kern);
 	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, sequence);
 	
-	ctx->fence.seq++;
-	if (ctx->fence.seq == GDEV_FENCE_COUNT)
-		ctx->fence.seq = 0;
-
 	return sequence;
 }
 
@@ -94,7 +94,11 @@ uint32_t gdev_memcpy
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence = ctx->fence.seq;
+	uint32_t sequence;
+
+	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 0;
+	sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *before* memcpy():
@@ -104,10 +108,6 @@ uint32_t gdev_memcpy
 	compute->fence_reset(ctx, sequence);
 	compute->fence_write(ctx, GDEV_SUBCH_M2MF, sequence);
 	compute->memcpy(ctx, dst_addr, src_addr, size);
-
-	ctx->fence.seq++;
-	if (ctx->fence.seq == GDEV_FENCE_COUNT)
-		ctx->fence.seq = 0;
 
 	return sequence;
 }
@@ -133,6 +133,8 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 		if (timeout && gdev_time_ge(&time_elapse, timeout))
 			return -ETIME;
 	}
+
+	compute->fence_reset(ctx, seq);
 
 	return 0;
 }
