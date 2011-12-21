@@ -1,6 +1,6 @@
 obj-m += kgpu.o
 
-all:	kgpu helper
+all: kgpu helper
 
 kgpu-objs := main.o kgpu_kutils.o kgpu_log.o
 

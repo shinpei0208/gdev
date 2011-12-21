@@ -12,6 +12,12 @@
 #include "../../../kgpu/gputils.h"
 #include "../gaesu.h"
 
+#define BYTES_PER_BLOCK  1024
+#define BYTES_PER_THREAD 4
+#define BYTES_PER_GROUP  16
+#define THREAD_PER_BLOCK (BYTES_PER_BLOCK/BYTES_PER_THREAD)
+#define WORDS_PER_BLOCK (BYTES_PER_BLOCK/4)
+
 __constant__ u32 Te0[256] =
 {
   0xc66363a5U, 0xf87c7c84U, 0xee777799U, 0xf67b7b8dU,

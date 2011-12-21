@@ -12,12 +12,6 @@
 #include "../../../kgpu/gputils.h"
 #include "../gaesu.h"
 
-#define BYTES_PER_BLOCK  1024
-#define BYTES_PER_THREAD 4
-#define BYTES_PER_GROUP  16
-#define THREAD_PER_BLOCK (BYTES_PER_BLOCK/BYTES_PER_THREAD)
-#define WORDS_PER_BLOCK (BYTES_PER_BLOCK/4)
-
 #define BPT_BYTES_PER_BLOCK 4096
 
 struct kgpu_service gaes_ecb_enc_srv;
@@ -50,12 +44,16 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
 {
     struct crypto_aes_ctx *hctx = (struct crypto_aes_ctx*)sr->hdata;
     struct crypto_aes_ctx *dctx = (struct crypto_aes_ctx*)sr->ddata;
-    CUresult res;
+	int offset;
+	unsigned long nrounds; /* is "int" in device code 64-bit? */
+	CUdeviceptr rkptr, textptr;
     CUfunction func;
+    CUresult res;
     
     if (sr->s == &gaes_ecb_dec_srv) {
-        int nrounds = hctx->key_length/4+6;
-        unsigned long addr = (unsigned long)dctx->key_dec;
+        nrounds = hctx->key_length/4+6;
+        rkptr = (CUdeviceptr) dctx->key_dec;
+		textptr = (CUdeviceptr) sr->dout;
 
         res = cuModuleGetFunction(&func, module, "_Z15aes_decrypt_bptPjiPh");
         if (res != CUDA_SUCCESS) {
@@ -69,13 +67,14 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
             return 0;
         }
 
-        cuParamSeti(func, 0, (unsigned long long)addr);
-        cuParamSeti(func, 4, (unsigned long long)addr >> 32);
-        cuParamSeti(func, 8, (unsigned long long)nrounds);
-        cuParamSeti(func, 12, (unsigned long long)nrounds >> 32);
-        cuParamSeti(func, 16, (unsigned long long)sr->dout);
-        cuParamSeti(func, 20, (unsigned long long)sr->dout >> 32);
-        cuParamSetSize(func, 24);
+		offset = 0;
+		cuParamSetv(func, offset, &rkptr, sizeof(rkptr));
+		offset += sizeof(rkptr);
+		cuParamSetv(func, offset, &nrounds, sizeof(nrounds));
+		offset += sizeof(nrounds);
+		cuParamSetv(func, offset, &textptr, sizeof(textptr));
+		offset += sizeof(textptr);
+        cuParamSetSize(func, offset);
 
         res = cuLaunchGrid(func, sr->grid_x, sr->grid_y);
         if (res != CUDA_SUCCESS) {
@@ -84,8 +83,9 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
         }
     }
     else {
-        int nrounds = hctx->key_length/4+6;
-        unsigned long addr = (unsigned long)dctx->key_enc;
+        nrounds = hctx->key_length/4+6;
+        rkptr = (CUdeviceptr) dctx->key_enc;
+		textptr = (CUdeviceptr) sr->dout;
 
         res = cuModuleGetFunction(&func, module, "_Z15aes_encrypt_bptPjiPh");
         if (res != CUDA_SUCCESS) {
@@ -99,13 +99,14 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
             return 0;
         }
 
-        cuParamSeti(func, 0, (unsigned long long)addr);
-        cuParamSeti(func, 4, (unsigned long long)addr >> 32);
-        cuParamSeti(func, 8, (unsigned long long)nrounds);
-        cuParamSeti(func, 12, (unsigned long long)nrounds >> 32);
-        cuParamSeti(func, 16, (unsigned long long)sr->dout);
-        cuParamSeti(func, 20, (unsigned long long)sr->dout >> 32);
-        cuParamSetSize(func, 24);
+		offset = 0;
+		cuParamSetv(func, offset, &rkptr, sizeof(rkptr));
+		offset += sizeof(rkptr);
+		cuParamSetv(func, offset, &nrounds, sizeof(nrounds));
+		offset += sizeof(nrounds);
+		cuParamSetv(func, offset, &textptr, sizeof(textptr));
+		offset += sizeof(textptr);
+        cuParamSetSize(func, offset);
 
         res = cuLaunchGrid(func, sr->grid_x, sr->grid_y);
         if (res != CUDA_SUCCESS) {

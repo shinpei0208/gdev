@@ -707,52 +707,6 @@ __constant__  u32 rcon[] =
  * Device code file for AES
  */
 
-__device__ int block_id()
-{
-    return blockIdx.y*gridDim.x + blockIdx.x;
-}
-
-__device__ int thread_id()
-{
-    return block_id()*(blockDim.x*blockDim.y) + threadIdx.y*blockDim.x + threadIdx.x;
-}
-
-
-/*
- * Not used yet, just in case.
- * Code borrowed from:
- *   http://stackoverflow.com/questions/6162140/128-bit-integer-on-cuda/6220499#6220499
- */
-__device__ uint4 add_uint128 (uint4 addend, uint4 augend)
-{
-    uint4 res;
-    asm ("add.cc.u32      %0, %4, %8;\n\t"
-	 "addc.cc.u32     %1, %5, %9;\n\t"
-	 "addc.cc.u32     %2, %6, %10;\n\t"
-	 "addc.u32        %3, %7, %11;\n\t"
-	 : "=r"(res.x), "=r"(res.y), "=r"(res.z), "=r"(res.w)
-	 : "r"(addend.x), "r"(addend.y), "r"(addend.z), "r"(addend.w),
-	   "r"(augend.x), "r"(augend.y), "r"(augend.z), "r"(augend.w));
-    return res;
-}
-
-
-/*
- * deal with lower 64bit only
- */
-__device__ void big_u128_add(u8 *ctr, u64 offset, u8 *res)
-{
-    u64 c;
-    
-    c = GETU32(ctr+12);
-    *((u32*)(&c)+1) = GETU32(ctr+8);
-    c+=offset;
-    *(u64*)(res) = 0; //*(u64*)(ctr);
-    *(u32*)(res+8) = GETU32((u32*)(&c)+1);
-    *(u32*)(res+12) = GETU32((u32*)(&c));
-}
-
-
 __global__ void aes_encrypt_bpt(u32 *rk, int nrounds, u8* text)
 {
     u32 s0, s1, s2, s3, t0, t1, t2, t3;
