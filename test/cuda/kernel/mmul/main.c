@@ -7,7 +7,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("CUDA Test");
 MODULE_AUTHOR("Shinpei Kato");
 
-int cuda_test_matrixmul(unsigned int n, char *path);
+int cuda_test_mmul(unsigned int n, char *path);
 
 struct task_struct *test_thread = NULL;
 static int n = 3;
@@ -16,7 +16,7 @@ MODULE_PARM_DESC(size, "matrix size");
 
 static void test_thread_func(void *__data)
 {
-	if (cuda_test_matrixmul(n, DIRPATH) < 0)
+	if (cuda_test_mmul(n, DIRPATH) < 0)
 		printk("Test failed\n");
 	else
 		printk("Test passed\n");

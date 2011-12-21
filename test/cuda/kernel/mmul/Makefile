@@ -1,5 +1,5 @@
 TARGET = kernel_test
-$(TARGET)-y := main.o matrixmul.o
+$(TARGET)-y := main.o mmul.o
 GDEVDIR = /usr/local/gdev
 GDEVINC = $(GDEVDIR)/include
 GDEVETC = $(GDEVDIR)/etc
@@ -15,7 +15,7 @@ KBUILD_EXTRA_SYMBOLS = $(GDEVETC)/Module.symvers.kcuda
 
 all:
 	@echo '#define DIRPATH "$(PWD)"' > dirpath.h
-	$(NVCC) -o matrixmul_gpu.cubin matrixmul_gpu.cu
+	$(NVCC) -o mmul_gpu.cubin mmul_gpu.cu
 	+make -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
