@@ -1,37 +1,16 @@
-CC = gcc
-NVCC = nvcc
+#
+# The following must be provided:
+#
 
-DEFS += \
-	-DGPU_TIMER \
-	$(SPACE)
-
-NVCCFLAGS += -I../common \
-	-O3 \
-	-use_fast_math \
-	-arch sm_20 \
-	-cubin \
-	-lm \
-	$(SPACE)
-
-CFLAGS += -I../common \
-	-I/usr/local/gdev/include \
-	-L/usr/local/gdev/lib64 \
-	-lgdev -lcuda \
-	-O3 \
-	-Wall \
-	$(SPACE)
-
-# Add source files here
-EXECUTABLE  := lud_cuda
+# A path to CUDA top directory
+CUDA_TOP_DIR	:= ../..
+# An executable name
+EXECUTABLE	:= lud
 # Cuda source files (compiled with cudacc)
-CUFILES     := lud_kernel.cu
+CUFILES		:= lud_kernel.cu
 # C/C++ source files (compiled with gcc / c++)
-CCFILES     := lud.c ../common/common.c
+CCFILES		:= lud.c ../common/common.c
+# C flags
+CFLAGS		:= -I../common
 
-.PHONY: all clean 
-all:
-	$(NVCC) -o $(EXECUTABLE).cubin $(NVCCFLAGS) $(DEFS) $(CUFILES)
-	$(CC) -o $(EXECUTABLE) $(CFLAGS) $(DEFS) $(CCFILES)
-
-clean:
-	rm -f $(EXECUTABLE) $(EXECUTABLE).cubin *~
+include $(CUDA_TOP_DIR)/util/gdev.mk

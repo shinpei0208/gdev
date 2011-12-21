@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "util.h"
 #include "common.h"
 #include "lud.h"
 
@@ -12,34 +13,35 @@ static int do_verify = 0;
 
 static struct option long_options[] = {
 	/* name, has_arg, flag, val */
+	{"cubin", 1, NULL, 'c'},
 	{"input", 1, NULL, 'i'},
 	{"size", 1, NULL, 's'},
 	{"verify", 0, NULL, 'v'},
 	{0,0,0,0}
 };
 
-int lud_cuda(CUmodule *mod, CUdeviceptr m, int matrix_dim)
+int lud_launch(CUmodule mod, CUdeviceptr m, int matrix_dim)
 {
 	int i = 0;
 	int bdx, bdy, gdx, gdy;
 	int offset;
 	int shared_size;
-	float *m_debug = (float*)malloc(matrix_dim*matrix_dim*sizeof(float));
+	float *m_debug = (float*)malloc(matrix_dim * matrix_dim * sizeof(float));
 	CUfunction f_diagonal, f_perimeter, f_internal;
 	CUresult res;
 
 	/* get functions. */
-	res = cuModuleGetFunction(&f_diagonal, *mod, "_Z12lud_diagonalPfii");
+	res = cuModuleGetFunction(&f_diagonal, mod, "_Z12lud_diagonalPfii");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction(f_diagonal) failed\n");
 		return 0;
 	}
-	res = cuModuleGetFunction(&f_perimeter, *mod, "_Z13lud_perimeterPfii");
+	res = cuModuleGetFunction(&f_perimeter, mod, "_Z13lud_perimeterPfii");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction(f_perimeter) failed\n");
 		return 0;
 	}
-	res = cuModuleGetFunction(&f_internal, *mod, "_Z12lud_internalPfii");
+	res = cuModuleGetFunction(&f_internal, mod, "_Z12lud_internalPfii");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction(f_internal) failed\n");
 		return 0;
@@ -163,25 +165,26 @@ int lud_cuda(CUmodule *mod, CUdeviceptr m, int matrix_dim)
 	return 0;
 }
 
-int
-main ( int argc, char *argv[] )
+int main (int argc, char *argv[])
 {
 	int matrix_dim = 32; /* default matrix_dim */
 	int opt, option_index = 0;
 	func_ret_t ret;
 	const char *input_file = NULL;
+	const char *cubin_file = NULL;
 	float *m, *mm;
-	stopwatch sw;
-	char fname[256];
-	CUresult res;
-	CUdevice dev;
-	CUcontext ctx;
-	CUmodule module;
+	struct timeval tv;
 	CUdeviceptr d_m;
+	CUcontext ctx;
+	CUmodule mod;
+	CUresult res;
 	
-	while ((opt = getopt_long(argc, argv, "::vs:i:", 
+	while ((opt = getopt_long(argc, argv, "::vs:i:c:", 
 							  long_options, &option_index)) != -1 ) {
-		switch(opt){
+		switch(opt) {
+		case 'c':
+			cubin_file = optarg;
+			break;
         case 'i':
 			input_file = optarg;
 			break;
@@ -191,7 +194,9 @@ main ( int argc, char *argv[] )
         case 's':
 			matrix_dim = atoi(optarg);
 			fprintf(stderr, "Currently not supported, use -i instead\n");
-			fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
+			fprintf(stderr, 
+					"Usage: %s [-v] [-s matrix_size|-i input_file|-c cubin]\n",
+					argv[0]);
 			exit(EXIT_FAILURE);
         case '?':
 			fprintf(stderr, "invalid option\n");
@@ -200,17 +205,25 @@ main ( int argc, char *argv[] )
 			fprintf(stderr, "missing argument\n");
 			break;
         default:
-			fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n",
+			fprintf(stderr, 
+					"Usage: %s [-v] [-s matrix_size|-i input_file|-c cubin]\n",
 					argv[0]);
 			exit(EXIT_FAILURE);
 		}
 	}
 	
 	if ( (optind < argc) || (optind == 1)) {
-		fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
+		fprintf(stderr, 
+				"Usage: %s [-v] [-s matrix_size|-i input_file|-c cubin]\n",
+				argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	
+	if (!cubin_file) {
+		printf("No cubin file specified!\n");
+		exit(EXIT_FAILURE);
+	}
+
 	if (input_file) {
 		printf("Reading matrix from file %s\n", input_file);
 		ret = create_matrix_from_file(&m, input_file, &matrix_dim);
@@ -230,75 +243,57 @@ main ( int argc, char *argv[] )
 		matrix_duplicate(m, &mm, matrix_dim);
 	}
 
-	res = cuInit(0);
+	/*
+	 * call our common CUDA initialization utility function.
+	 */
+	res = cuda_driver_api_init(&ctx, &mod, cubin_file);
 	if (res != CUDA_SUCCESS) {
-		printf("cuInit failed: res = %lu\n", (unsigned long)res);
+		printf("cuda_driver_api_init failed: res = %u\n", res);
 		return -1;
 	}
 
-	res = cuDeviceGet(&dev, 0);
-	if (res != CUDA_SUCCESS) {
-		printf("cuDeviceGet failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-
-	res = cuCtxCreate(&ctx, 0, dev);
-	if (res != CUDA_SUCCESS) {
-		printf("cuCtxCreate failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	
-	sprintf(fname, "./cuda/lud_cuda.cubin");
-	res = cuModuleLoad(&module, fname);
-	if (res != CUDA_SUCCESS) {
-		printf("cuModuleLoad() failed\n");
-		return -1;
-	}
-
-	res = cuMemAlloc(&d_m, matrix_dim*matrix_dim*sizeof(float));
+	res = cuMemAlloc(&d_m, matrix_dim * matrix_dim * sizeof(float));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc failed\n");
 		return -1;
 	}
 
-	/* beginning of timing point */
-	stopwatch_start(&sw);
-	res = cuMemcpyHtoD(d_m, m, matrix_dim*matrix_dim*sizeof(float));
+	/*
+	 * measurement start!
+	 */
+	time_measure_start(&tv);
+
+	res = cuMemcpyHtoD(d_m, m, matrix_dim * matrix_dim * sizeof(float));
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (a) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemcpyHtoD (a) failed: res = %u\n", res);
 		return -1;
 	}
 	
-	lud_cuda(&module, d_m, matrix_dim);
+	lud_launch(mod, d_m, matrix_dim);
 	
-	res = cuMemcpyDtoH(m, d_m, matrix_dim*matrix_dim*sizeof(float));
+	res = cuMemcpyDtoH(m, d_m, matrix_dim * matrix_dim * sizeof(float));
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyDtoH failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemcpyDtoH failed: res = %u\n", res);
 		return -1;
 	}
 	
-	/* end of timing point */
-	stopwatch_stop(&sw);
-	printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
-	
+	/*
+	 * measurement end! will print out the time.
+	 */
+	time_measure_end(&tv);
+
 	res = cuMemFree(d_m);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	
-	res = cuModuleUnload(module);
-	if (res != CUDA_SUCCESS) {
-		printf("cuModuleUnload failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFree failed: res = %u\n", res);
 		return -1;
 	}
 
-	res = cuCtxDestroy(ctx);
+	res = cuda_driver_api_exit(ctx, mod);
 	if (res != CUDA_SUCCESS) {
-		printf("cuCtxDestroy failed: res = %lu\n", (unsigned long)res);
+		printf("cuda_driver_api_exit faild: res = %u\n", res);
 		return -1;
 	}
-	
+
 	if (do_verify){
 		print_matrix(m, matrix_dim);
 		printf(">>>Verify<<<<\n");
