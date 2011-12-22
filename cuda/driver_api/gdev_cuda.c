@@ -111,7 +111,7 @@ static void unload_bin(char *bin, file_t *fp)
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
-#define GDEV_DEBUG
+/* #define GDEV_DEBUG */
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
 	int i;
@@ -151,8 +151,6 @@ static void cubin_func_0a04
 	ce = (const_entry_t *) *pos;
 	raw_func->param_base = ce->base;
 	raw_func->param_size = ce->size;
-	printf("base = 0x%x\n", ce->base);
-	printf("size = 0x%x\n", ce->size);
 	*pos += e->size;
 }
 
@@ -369,13 +367,15 @@ static CUresult cubin_func
 			/* skip if not nv.info.XXX (could be just "nv.info"). */
 			if (strlen(sh_name) == strlen(SH_INFO))
 				continue;
+			/* skip if this is a different function's nv.info.XXX */
+			if (strcmp(raw_func->name, sh_name + strlen(SH_INFO) + 1))
+				continue;
 
 			/* look into the nv.info.@raw_func->name information. */
 			while (sh_pos < sh + sheads[i].sh_size) {
 				section_entry_t *sh_e = (section_entry_t*)sh_pos;
 				switch (sh_e->type) {
 				case 0x0c04: /* 4-byte align data relevant to params. */
-					printf("%s\n", raw_func->name);
 					cubin_func_skip(&sh_pos, sh_e);
 					raw_func->param_count = sh_e->size / 4;
 					raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
@@ -766,7 +766,6 @@ CUresult gdev_cuda_locate_code(struct CUmod_st *mod)
 {
 	struct CUfunc_st *func;
 	struct gdev_kernel *k;
-	struct gdev_cuda_raw_func *f;
 	uint64_t addr = mod->code_addr;
 	uint32_t size = mod->code_size;
 	uint32_t offset = 0;
@@ -783,7 +782,6 @@ CUresult gdev_cuda_locate_code(struct CUmod_st *mod)
 
 	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
-		f = &func->raw_func;
 		if (k->code_size > 0) {
 			k->code_addr = addr + offset;
 			offset += k->code_size;
