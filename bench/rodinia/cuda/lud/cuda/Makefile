@@ -6,11 +6,12 @@
 CUDA_TOP_DIR	:= ../..
 # An executable name
 EXECUTABLE	:= lud
-# Cuda source files (compiled with cudacc)
-CUFILES		:= lud_kernel.cu
+# Cuda source files (compiled with nvcc)
+CUFILES		:= lud_cuda_kernel.cu
 # C/C++ source files (compiled with gcc / c++)
-CCFILES		:= lud.c ../common/common.c
-# C flags
-CFLAGS		:= -I../common
+CCFILES		:= lud_cuda.c ../common/common.c
+
+# init C flags (more options will be added)
+CFLAGS		:= -I../common -lm
 
 include $(CUDA_TOP_DIR)/util/gdev.mk
