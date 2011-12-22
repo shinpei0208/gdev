@@ -1,13 +1,20 @@
+#
 # The following must be provided:
+#
+
 # A path to CUDA top directory
-CUDA_TOP_DIR := ..
+CUDA_TOP_DIR	:= ..
 # An executable name
-EXECUTABLE  := nn
-# Cuda source files (compiled with cudacc)
-CUFILES     := nn_kernel.cu
+EXECUTABLE	:= nn
+# Cuda source files (compiled with nvcc)
+CUFILES		:= nn_cuda_kernel.cu
 # C/C++ source files (compiled with gcc / c++)
-CCFILES     := nn_cuda.c
-CC	:= g++ 
+CCFILES		:= nn_cuda.c
+
+# init C flags (more options will be added)
+CFLAGS		:= -lm
+# use g++ instead of gcc
+CC		:= g++ 
 
 include ../util/gdev.mk
 
