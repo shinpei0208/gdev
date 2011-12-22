@@ -2,13 +2,13 @@
 #include <stdio.h>
 
 __global__ void
-srad_cuda_1(
+srad(
 		  float *E_C, 
 		  float *W_C, 
 		  float *N_C, 
 		  float *S_C,
-		  float * J_cuda, 
-		  float * C_cuda, 
+		  float *J_cuda, 
+		  float *C_cuda, 
 		  int cols, 
 		  int rows, 
 		  float q0sqr
@@ -157,13 +157,13 @@ srad_cuda_1(
 }
 
 __global__ void
-srad_cuda_2(
+srad2(
 		  float *E_C, 
 		  float *W_C, 
 		  float *N_C, 
 		  float *S_C,	
-		  float * J_cuda, 
-		  float * C_cuda, 
+		  float *J_cuda, 
+		  float *C_cuda, 
 		  int cols, 
 		  int rows, 
 		  float lambda,
