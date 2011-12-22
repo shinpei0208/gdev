@@ -1,4 +1,6 @@
-CC = gcc
+ifeq ($(CC),)
+	CC = gcc
+endif
 NVCC = nvcc
 
 NVCCFLAGS += -O3 \
