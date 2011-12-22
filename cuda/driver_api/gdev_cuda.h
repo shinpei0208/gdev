@@ -28,7 +28,6 @@
 #define __GDEV_CUDA_H__
 
 #define GDEV_CUDA_VERSION 4000
-#define GDEV_CUDA_USER_PARAM_BASE 0x20
 
 #ifndef NULL
 #define NULL 0

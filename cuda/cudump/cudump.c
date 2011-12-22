@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	printf("\t\tuint32_t offset;\n");
 	printf("\t\tuint32_t size;\n");
 	printf("\t\tuint32_t flags;\n");
-	printf("\t} *param_info];\n");
+	printf("\t} *param_info;\n");
 	printf("\tuint32_t *param_buf;\n");
 	printf("\tuint32_t local_size;\n");
 	printf("\tuint32_t local_size_neg;\n");
