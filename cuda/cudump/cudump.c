@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 		printf("\t.cmem = {\n");
 		for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 			if (mod.cmem[i].buf) {
-				printf("\t\t{c%d, 0x%x},\n", i, mod.cmem[i].size);
+				printf("\t\t{c%d, 0x%x},\n", i, mod.cmem[i].raw_size);
 			}
 			else if (f->cmem[i].buf) {
 				printf("\t\t{c%d_%s, 0x%x},\n", i, f->name, f->cmem[i].size);

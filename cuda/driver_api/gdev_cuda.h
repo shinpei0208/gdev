@@ -78,6 +78,14 @@ struct gdev_cuda_launch {
 	struct gdev_list list_entry; /* entry to synchronization list. */
 };
 
+struct gdev_cuda_const_symbol {
+	int idx; /* cX[] index. */
+	char *name;
+	uint32_t offset; /* offset in cX[]. */
+	uint32_t size; /* size of const value. */
+	struct gdev_list list_entry; /* entry to symbol list. */
+};
+
 struct CUctx_st {
 	Ghandle gdev_handle;
 	struct gdev_list list_entry; /* entry to ctx_list. */
@@ -101,7 +109,9 @@ struct CUmod_st {
 		void *buf;
 	} cmem[GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT]; /* global to functions. */
 	uint32_t func_count;
+	uint32_t symbol_count;
 	struct gdev_list func_list;
+	struct gdev_list symbol_list;
 	struct CUctx_st *ctx;
 };
 
@@ -142,6 +152,8 @@ CUresult gdev_cuda_locate_code(struct CUmod_st *mod);
 CUresult gdev_cuda_memcpy_code(struct CUmod_st *mod, void *buf);
 CUresult gdev_cuda_search_function
 (struct CUfunc_st **pptr, struct CUmod_st *mod, const char *name);
+CUresult gdev_cuda_search_symbol
+(uint64_t *addr, uint32_t *size, struct CUmod_st *mod, const char *name);
 
 /* code alignement. */
 static inline uint32_t gdev_cuda_align_code_size(uint32_t size)

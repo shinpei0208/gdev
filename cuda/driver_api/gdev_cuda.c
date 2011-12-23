@@ -111,7 +111,7 @@ static void unload_bin(char *bin, file_t *fp)
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
-/* #define GDEV_DEBUG */
+//#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
 	int i;
@@ -220,6 +220,7 @@ static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
 	mod->bin = bin;
 	mod->fp = fp;
 	mod->func_count = 0;
+	mod->symbol_count = 0;
 	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 		mod->cmem[i].addr = 0;
 		mod->cmem[i].size = 0;
@@ -227,6 +228,7 @@ static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
 		mod->cmem[i].buf = NULL;
 	}
 	gdev_list_init(&mod->func_list, NULL);
+	gdev_list_init(&mod->symbol_list, NULL);
 }
 
 static void init_kernel(struct gdev_kernel *k)
@@ -348,6 +350,7 @@ static CUresult cubin_func
 		else if (strncmp(sh_name, SH_CONST, strlen(SH_CONST)) == 0) {
 			int x;
 			char fname[256] = {0};
+
 			sscanf(sh_name, SH_CONST"%d.%s", &x, fname);
 			/* is there any local constant other than c0[]? */
 			if (x >= 0 && x < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT) {
@@ -539,12 +542,39 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 		*/
 	}
 
+	/* symbols: __constant__ variable and built-in function names. */
 	for (sym = &symbols[0]; 
 		 (void *)sym < (void *)symbols + sheads[symbols_idx].sh_size; sym++) {
-		/*
 		 char *sym_name = strings + sym->st_name;
-		 uint32_t size = sym->st_size;
-		*/
+         char *sh_name = shstrings + sheads[sym->st_shndx].sh_name;
+		 switch (sym->st_info) {
+		 case 0x0: /* ??? */
+			 break;
+		 case 0x3: /* ??? */
+			 break;
+		 case 0x11: /* __device__/__constant__ symbols */
+			 if (sym->st_shndx == nvglobal_idx) { /* __device__ */
+			 }
+			 else { /* __constant__ */
+				 int x;
+				 struct gdev_cuda_const_symbol *cs = MALLOC(sizeof(*cs));
+				 if (!cs)
+					 return CUDA_ERROR_OUT_OF_MEMORY;
+				 sscanf(sh_name, SH_CONST"%d", &x);
+				 cs->idx = x;
+				 cs->name = sym_name;
+				 cs->offset = sym->st_value;
+				 cs->size = sym->st_size;
+				 gdev_list_init(&cs->list_entry, cs);
+				 gdev_list_add(&cs->list_entry, &mod->symbol_list);
+				 mod->symbol_count++;
+			 }
+			 break;
+		 case 0x12: /* function symbols */
+			 break;
+		 default: /* ??? */
+			 GDEV_PRINT("/* unknown symbols: 0x%x\n */", sym->st_info);
+		 }
 	}
 
 	/* parse nv.info sections. */
@@ -559,7 +589,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			res = cubin_func(&pos, e, symbols, ehead, sheads, strings, 
 							 shstrings, bin, mod);
 			break;
-		case 0x1204: /* what is this? */
+		case 0x1204: /* some counters but what is this? */
 			res = cubin_func_skip(&pos, e);
 			break;
 		default:
@@ -581,19 +611,26 @@ CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 {
 	struct CUfunc_st *func;
 	struct gdev_cuda_raw_func *raw_func;
-	struct gdev_list *entry = gdev_list_head(&mod->func_list);
+	struct gdev_cuda_const_symbol *cs;
+	struct gdev_list *p;
 
 	if (!mod->bin || !mod->fp)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	/* use while() instead of gdev_list_for_each(). 
-	   free(func) will delte the entry itself in gdev_list_for_each(). */
-	while (entry) {
-		func = gdev_list_container(entry);
-		entry = entry->next;
+	/* destroy functions and constant symbols:
+	   use while() instead of gdev_list_for_each(), as FREE(func) will 
+	   delte the entry itself in gdev_list_for_each(). */
+	while ((p = gdev_list_head(&mod->func_list))) {
+		gdev_list_del(p);
+		func = gdev_list_container(p);
 		raw_func = &func->raw_func;
 		FREE(raw_func->param_info);
 		FREE(func);
+	}
+	while ((p = gdev_list_head(&mod->symbol_list))) {
+		gdev_list_del(p);
+		cs = gdev_list_container(p);
+		FREE(cs);
 	}
 
 	unload_bin(mod->bin, mod->fp);
@@ -708,7 +745,7 @@ CUresult gdev_cuda_construct_kernels
 		mod->sdata_size += k->lmem_size_total;
 	}
 
-	/* code size also includes global constnat memory size. */
+	/* code size also includes global constant memory size. */
 	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 		mod->cmem[i].size = gdev_cuda_align_cmem_size(mod->cmem[i].raw_size);
 		mod->code_size += mod->cmem[i].size;
@@ -847,6 +884,22 @@ CUresult gdev_cuda_search_function
 	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		if (strcmp(func->raw_func.name, name) == 0) {
 			*pptr = func;
+			return CUDA_SUCCESS;
+		}
+	}
+
+	return CUDA_ERROR_NOT_FOUND;
+}
+
+CUresult gdev_cuda_search_symbol
+(uint64_t *addr, uint32_t *size, struct CUmod_st *mod, const char *name)
+{
+	struct gdev_cuda_const_symbol *cs;
+
+	gdev_list_for_each(cs, &mod->symbol_list, list_entry) {
+		if (strcmp(cs->name, name) == 0) {
+			*addr = mod->cmem[cs->idx].addr + cs->offset;
+			*size = cs->size;
 			return CUDA_SUCCESS;
 		}
 	}
