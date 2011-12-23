@@ -68,5 +68,5 @@ void time_measure_end(struct timeval *tv)
 	tvsub(&tv_now, tv, &tv_diff);
 
 	d = (double) tv_diff.tv_sec * 1000.0 + (double) tv_diff.tv_usec / 1000.0;
-	printf("Time = %f (ms)\n", d);
+	printf("Time (Memory Copy and Launch) = %f (ms)\n", d);
 }

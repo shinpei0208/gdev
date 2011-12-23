@@ -22,7 +22,7 @@ CUresult euclid_launch
 {
 	int nr_records = numRecords; /* integer shouldn't be 64-bit? */
 	int bdx, bdy, gdx, gdy;
-	int offset;
+	void* param[] = {&d_locations, &d_distances, &nr_records, &lat, &lng};
 	CUfunction f;
 	CUresult res;
 
@@ -31,35 +31,15 @@ CUresult euclid_launch
 	gdx = (nr_records / bdx) + (!(nr_records % bdx) ? 0 : 1);
 	gdy = 1;
 
-	/* get functions. */
 	res = cuModuleGetFunction(&f, mod, "_Z6euclidP7latLongPfiff");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction failed: res = %u\n", res);
 		return res;
 	}
 
-	/* set block sizes. */
-	res = cuFuncSetBlockShape(f, bdx, bdy, 1);
+	res = cuLaunchKernel(f, gdx, gdy, 1, bdx, bdy, 1, 0, 0, (void**)param, 0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape failed: res = %u\n", res);
-		return res;
-	}
-
-	offset = 0;
-	cuParamSetv(f, offset, &d_locations, sizeof(d_locations));
-	offset += sizeof(d_locations);
-	cuParamSetv(f, offset, &d_distances, sizeof(d_distances));
-	offset += sizeof(d_distances);
-	cuParamSetv(f, offset, &nr_records, sizeof(nr_records));
-	offset += sizeof(nr_records);
-	cuParamSetv(f, offset, &lat, sizeof(lat));
-	offset += sizeof(lat);
-	cuParamSetv(f, offset, &lng, sizeof(lng));
-	offset += sizeof(lng);
-	cuParamSetSize(f, offset);
-	res = cuLaunchGrid(f, gdx, gdy);
-	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid failed: res = %u\n", res);
+		printf("cuLaunchKernel(euclid) failed: res = %u\n", res);
 		return res;
 	}
 

@@ -24,7 +24,6 @@ int lud_launch(CUmodule mod, CUdeviceptr m, int matrix_dim)
 {
 	int i = 0;
 	int bdx, bdy, gdx, gdy;
-	int offset;
 	int shared_size;
 	float *m_debug = (float*)malloc(matrix_dim * matrix_dim * sizeof(float));
 	CUfunction f_diagonal, f_perimeter, f_internal;
@@ -46,120 +45,60 @@ int lud_launch(CUmodule mod, CUdeviceptr m, int matrix_dim)
 		printf("cuModuleGetFunction(f_internal) failed\n");
 		return 0;
 	}
-
-	/* set shared memory sizes. */
-	shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float);
-	res = cuFuncSetSharedSize(f_diagonal, shared_size);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetSharedSize(f_diagonal) failed\n");
-		return 0;
-	}
-	shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float) * 3;
-	res = cuFuncSetSharedSize(f_perimeter, shared_size);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f_perimeter) failed\n");
-		return 0;
-	}
-	shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float) * 2;
-	res = cuFuncSetSharedSize(f_internal, shared_size);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f_internal) failed\n");
-		return 0;
-	}
-
-	/* set block sizes. */
-	bdx = BLOCK_SIZE;
-	bdy = 1;
-	res = cuFuncSetBlockShape(f_diagonal, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f_diagonal) failed\n");
-		return 0;
-	}
-	bdx = BLOCK_SIZE * 2;
-	bdy = 1;
-	res = cuFuncSetBlockShape(f_perimeter, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f_diagonal) failed\n");
-		return 0;
-	}
-	bdx = BLOCK_SIZE;
-	bdy = BLOCK_SIZE;
-	res = cuFuncSetBlockShape(f_internal, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f_internal) failed\n");
-		return 0;
-	}
 	
-	for (i = 0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
+	for (i = 0; i < matrix_dim - BLOCK_SIZE; i += BLOCK_SIZE) {
+		void* param[] = {(void*) &m, (void*) &matrix_dim, (void*) &i};
 		/* diagonal */
-		offset = 0;
-		cuParamSetv(f_diagonal, offset, &m, sizeof(m));
-		offset += sizeof(m);
-		cuParamSetv(f_diagonal, offset, &matrix_dim, sizeof(matrix_dim));
-		offset += sizeof(matrix_dim);
-		cuParamSetv(f_diagonal, offset, &i, sizeof(i));
-		offset += sizeof(i);
-        cuParamSetSize(f_diagonal, offset);
 		gdx = 1;
 		gdy = 1;
-        res = cuLaunchGrid(f_diagonal, gdx, gdy);
+		bdx = BLOCK_SIZE;
+		bdy = 1;
+		shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float);
+		res = cuLaunchKernel(f_diagonal, gdx, gdy, 1, bdx, bdy, 1, shared_size,
+							 0, (void**) param, NULL);
         if (res != CUDA_SUCCESS) {
-            printf("cuLaunchGrid(f_diagonal) failed: res = %u\n", res);
+            printf("cuLaunchKernel(f_diagonal) failed: res = %u\n", res);
             return 0;
         }
 
 		/* perimeter */
-		offset = 0;
-		cuParamSetv(f_perimeter, offset, &m, sizeof(m));
-		offset += sizeof(m);
-		cuParamSetv(f_perimeter, offset, &matrix_dim, sizeof(matrix_dim));
-		offset += sizeof(matrix_dim);
-		cuParamSetv(f_perimeter, offset, &i, sizeof(i));
-		offset += sizeof(i);
-        cuParamSetSize(f_perimeter, offset);
 		gdx = (matrix_dim - i) / BLOCK_SIZE - 1;
 		gdy = 1;
-        res = cuLaunchGrid(f_perimeter, gdx, gdy);
+		bdx = BLOCK_SIZE * 2;
+		bdy = 1;
+		shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float) * 3;
+		res = cuLaunchKernel(f_perimeter, gdx, gdy, 1, bdx, bdy, 1, shared_size,
+							 0, (void**) param, NULL);
         if (res != CUDA_SUCCESS) {
-            printf("cuLaunchGrid(f_perimeter) failed: res = %u\n", res);
+            printf("cuLaunchKernel(f_perimeter) failed: res = %u\n", res);
             return 0;
         }
 
 		/* internal */
-		offset = 0;
-		cuParamSetv(f_internal, offset, &m, sizeof(m));
-		offset += sizeof(m);
-		cuParamSetv(f_internal, offset, &matrix_dim, sizeof(matrix_dim));
-		offset += sizeof(matrix_dim);
-		cuParamSetv(f_internal, offset, &i, sizeof(i));
-		offset += sizeof(i);
-        cuParamSetSize(f_internal, offset);
 		gdx = (matrix_dim - i) / BLOCK_SIZE - 1;
 		gdy = (matrix_dim - i) / BLOCK_SIZE - 1;
-        res = cuLaunchGrid(f_internal, gdx, gdy);
+		bdx = BLOCK_SIZE;
+		bdy = BLOCK_SIZE;
+		shared_size = BLOCK_SIZE * BLOCK_SIZE * sizeof(float) * 2;
+		res = cuLaunchKernel(f_internal, gdx, gdy, 1, bdx, bdy, 1, shared_size,
+							 0, (void**) param, NULL);
         if (res != CUDA_SUCCESS) {
-            printf("cuLaunchGrid(internal) failed: res = %u\n", res);
+            printf("cuLaunchKernel(internal) failed: res = %u\n", res);
             return 0;
         }
 	}
 
+	void* param[] = {(void*) &m, (void*) &matrix_dim, (void*) &i};
 	/* diagonal */
-	offset = 0;
-	cuParamSetv(f_diagonal, offset, &m, sizeof(m));
-	offset += sizeof(m);
-	cuParamSetv(f_diagonal, offset, &matrix_dim, sizeof(matrix_dim));
-	offset += sizeof(matrix_dim);
-	cuParamSetv(f_diagonal, offset, &i, sizeof(i));
-	offset += sizeof(i);
-	cuParamSetSize(f_diagonal, offset);
 	gdx = 1;
 	gdy = 1;
-	res = cuLaunchGrid(f_diagonal, gdx, gdy);
+	res = cuLaunchKernel(f_diagonal, gdx, gdy, 1, bdx, bdy, 1, shared_size,
+						 0, (void**) param, NULL);
 	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid(f_diagonal) failed: res = %u\n", res);
+		printf("cuLaunchKernel(f_diagonal) failed: res = %u\n", res);
 		return 0;
 	}
-
+	
 	free(m_debug);
 
 	return 0;

@@ -41,7 +41,8 @@ CUresult bpnn_layerforward_launch
  int in, int hid) 
 {
 	int bdx, bdy, gdx, gdy;
-	int offset;
+	void* param[] = {&input_cuda, &output_hidden_cuda, &input_hidden_cuda,
+					 &hidden_partial_sum, &in, &hid};
 	CUfunction f;
 	CUresult res;
 
@@ -57,30 +58,9 @@ CUresult bpnn_layerforward_launch
 		return res;
 	}
 
-	/* set block sizes. */
-	res = cuFuncSetBlockShape(f, bdx, bdy, 1);
+	res = cuLaunchKernel(f, gdx, gdy, 1, bdx, bdy, 1, 0, 0, (void**) param, 0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(layerforward) failed: res = %u\n", res);
-		return res;
-	}
-
-	offset = 0;
-	cuParamSetv(f, offset, &input_cuda, sizeof(input_cuda));
-	offset += sizeof(input_cuda);
-	cuParamSetv(f, offset, &output_hidden_cuda, sizeof(output_hidden_cuda));
-	offset += sizeof(output_hidden_cuda);
-	cuParamSetv(f, offset, &input_hidden_cuda, sizeof(input_hidden_cuda));
-	offset += sizeof(input_hidden_cuda);
-	cuParamSetv(f, offset, &hidden_partial_sum, sizeof(hidden_partial_sum));
-	offset += sizeof(hidden_partial_sum);
-	cuParamSetv(f, offset, &in, sizeof(in));
-	offset += sizeof(in);
-	cuParamSetv(f, offset, &hid, sizeof(hid));
-	offset += sizeof(hid);
-	cuParamSetSize(f, offset);
-	res = cuLaunchGrid(f, gdx, gdy);
-	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid(layerforward) failed: res = %u\n", res);
+		printf("cuLaunchKernel(layerforward) failed: res = %u\n", res);
 		return res;
 	}
 
@@ -93,7 +73,7 @@ CUresult bpnn_adjust_weights_launch
  CUdeviceptr w, CUdeviceptr oldw) 
 {
 	int bdx, bdy, gdx, gdy;
-	int offset;
+	void* param[] = {&delta, &hid, &ly, &in, &w, &oldw};
 	CUfunction f;
 	CUresult res;
 
@@ -109,30 +89,9 @@ CUresult bpnn_adjust_weights_launch
 		return res;
 	}
 
-	/* set block sizes. */
-	res = cuFuncSetBlockShape(f, bdx, bdy, 1);
+	res = cuLaunchKernel(f, gdx, gdy, 1, bdx, bdy, 1, 0, 0, (void**) param, 0);
 	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(adjust_weights) failed: res = %u\n", res);
-		return res;
-	}
-
-	offset = 0;
-	cuParamSetv(f, offset, &delta, sizeof(delta));
-	offset += sizeof(delta);
-	cuParamSetv(f, offset, &hid, sizeof(hid));
-	offset += sizeof(hid);
-	cuParamSetv(f, offset, &ly, sizeof(ly));
-	offset += sizeof(ly);
-	cuParamSetv(f, offset, &in, sizeof(in));
-	offset += sizeof(in);
-	cuParamSetv(f, offset, &w, sizeof(w));
-	offset += sizeof(w);
-	cuParamSetv(f, offset, &oldw, sizeof(oldw));
-	offset += sizeof(oldw);
-	cuParamSetSize(f, offset);
-	res = cuLaunchGrid(f, gdx, gdy);
-	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid(adjust_weights) failed: res = %u\n", res);
+		printf("cuLaunchKernel(adjust_weights) failed: res = %u\n", res);
 		return res;
 	}
 

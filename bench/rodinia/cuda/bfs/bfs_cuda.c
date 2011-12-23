@@ -38,7 +38,6 @@ int bfs_launch
  CUdeviceptr d_graph_visited, CUdeviceptr d_cost)
 {
 	int bdx, bdy, gdx, gdy;
-	int offset;
 	int k = 0;
 	int stop;
 	CUfunction f1, f2;
@@ -61,18 +60,6 @@ int bfs_launch
 		return -1;
 	}
 
-	/* set block sizes. */
-	res = cuFuncSetBlockShape(f1, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f1) failed: res = %u\n", res);
-		return -1;
-	}
-	res = cuFuncSetBlockShape(f2, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape(f2) failed: res = %u\n", res);
-		return -1;
-	}
-
 	/* Call the Kernel untill all the elements of Frontier are not false */
 	do {
 		/* if no thread changes this value then the loop stops */
@@ -84,45 +71,24 @@ int bfs_launch
 		}
 
 		/* f1 */
-		offset = 0;
-		cuParamSetv(f1, offset, &d_graph_nodes, sizeof(d_graph_nodes));
-		offset += sizeof(d_graph_nodes);
-		cuParamSetv(f1, offset, &d_graph_edges, sizeof(d_graph_edges));
-		offset += sizeof(d_graph_edges);
-		cuParamSetv(f1, offset, &d_graph_mask, sizeof(d_graph_mask));
-		offset += sizeof(d_graph_mask);
-		cuParamSetv(f1, offset, &d_updating_graph_mask, sizeof(d_updating_graph_mask));
-		offset += sizeof(d_updating_graph_mask);
-		cuParamSetv(f1, offset, &d_graph_visited, sizeof(d_graph_visited));
-		offset += sizeof(d_graph_visited);
-		cuParamSetv(f1, offset, &d_cost, sizeof(d_cost));
-		offset += sizeof(d_cost);
-		cuParamSetv(f1, offset, &nr_nodes, sizeof(nr_nodes));
-		offset += sizeof(nr_nodes);
-        cuParamSetSize(f1, offset);
-        res = cuLaunchGrid(f1, gdx, gdy);
+		void *param1[] = {&d_graph_nodes, &d_graph_edges, &d_graph_mask, 
+						  &d_updating_graph_mask, &d_graph_visited, &d_cost,
+						  &nr_nodes};
+		res = cuLaunchKernel(f1, gdx, gdy, 1, bdx, bdy, 1, 0, 0, 
+							 (void**)param1, NULL);
         if (res != CUDA_SUCCESS) {
-            printf("cuLaunchGrid(f1) failed: res = %u\n", res);
+            printf("cuLaunchKernel(f1) failed: res = %u\n", res);
             return -1;
         }
 		/* check if kernel execution generated and error */
 		
 		/* f2 */
-		offset = 0;
-		cuParamSetv(f2, offset, &d_graph_mask, sizeof(d_graph_mask));
-		offset += sizeof(d_graph_mask);
-		cuParamSetv(f2, offset, &d_updating_graph_mask, sizeof(d_updating_graph_mask));
-		offset += sizeof(d_updating_graph_mask);
-		cuParamSetv(f2, offset, &d_graph_visited, sizeof(d_graph_visited));
-		offset += sizeof(d_graph_visited);
-		cuParamSetv(f2, offset, &d_over, sizeof(d_over));
-		offset += sizeof(d_over);
-		cuParamSetv(f2, offset, &nr_nodes, sizeof(nr_nodes));
-		offset += sizeof(nr_nodes);
-        cuParamSetSize(f2, offset);
-        res = cuLaunchGrid(f2, gdx, gdy);
+		void *param2[] = {&d_graph_mask, &d_updating_graph_mask, 
+						  &d_graph_visited, &d_over,  &nr_nodes};
+		res = cuLaunchKernel(f2, gdx, gdy, 1, bdx, bdy, 1, 0, 0, 
+							 (void**)param2, NULL);
         if (res != CUDA_SUCCESS) {
-            printf("cuLaunchGrid(f2) failed: res = %u\n", res);
+            printf("cuLaunchKernel(f2) failed: res = %u\n", res);
             return -1;
         }
 		/* check if kernel execution generated and error */
