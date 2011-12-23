@@ -683,6 +683,8 @@ int main(int argc, char *argv [])
 	free(jW); 
 	free(jE);
 
+	cuCtxSynchronize();
+
 	cuMemFree(d_I);
 	cuMemFree(d_c);
 	cuMemFree(d_iN);
