@@ -232,6 +232,8 @@ CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!hfunc || !mod || !name)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	if ((res = gdev_cuda_search_function(&func, mod, name)) != CUDA_SUCCESS)
 		return res;
@@ -253,9 +255,44 @@ CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int nu
 	return CUDA_SUCCESS;
 }
 
-CUresult cuModuleGetGlobal(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name)
+/**
+ * Returns in *dptr and *bytes the base pointer and size of the global of name 
+ * name located in module hmod. If no variable of that name exists, 
+ * cuModuleGetGlobal() returns CUDA_ERROR_NOT_FOUND. Both parameters dptr and
+ * bytes are optional. If one of them is NULL, it is ignored.
+ *
+ * Parameters:
+ * dptr 	- Returned global device pointer
+ * bytes 	- Returned global size in bytes
+ * hmod 	- Module to retrieve global from
+ * name 	- Name of global to retrieve
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_NOT_FOUND 
+ */
+CUresult cuModuleGetGlobal
+(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name)
 {
-	GDEV_PRINT("cuModuleGetGlobal: Not Implemented Yet\n");
+	CUresult res;
+	uint64_t addr;
+	uint32_t size;
+	struct CUmod_st *mod = hmod;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!dptr || !bytes || !mod || !name)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	if ((res = gdev_cuda_search_symbol(&addr, &size, mod, name)) 
+		!= CUDA_SUCCESS)
+		return res;
+
+	*dptr = addr;
+	*bytes = size;
+
 	return CUDA_SUCCESS;
 }
 
