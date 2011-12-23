@@ -751,6 +751,12 @@ CUresult cuLaunch(CUfunction f);
 CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height);
 CUresult cuLaunchGridAsync
 (CUfunction f, int grid_width, int grid_height, CUstream hStream);
+CUresult cuLaunchKernel
+(CUfunction f, 
+ unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
+ unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
+ unsigned int sharedMemBytes, CUstream hStream, 
+ void **kernelParams, void **extra);
 CUresult cuParamSetf(CUfunction hfunc, int offset, float value);
 CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value);
 CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes);
