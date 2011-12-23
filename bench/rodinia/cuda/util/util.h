@@ -22,31 +22,4 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-#if 0
-#define CUDA_LAUNCH_KERNEL(f, gdx, gdy, gdz, bdx, bdy
-	/* set block sizes. */
-	res = cuFuncSetBlockShape(f, bdx, bdy, 1);
-	if (res != CUDA_SUCCESS) {
-		printf("cuFuncSetBlockShape failed: res = %u\n", res);
-		return res;
-	}
-
-	offset = 0;
-	cuParamSetv(f, offset, &d_locations, sizeof(d_locations));
-	offset += sizeof(d_locations);
-	cuParamSetv(f, offset, &d_distances, sizeof(d_distances));
-	offset += sizeof(d_distances);
-	cuParamSetv(f, offset, &nr_records, sizeof(nr_records));
-	offset += sizeof(nr_records);
-	cuParamSetv(f, offset, &lat, sizeof(lat));
-	offset += sizeof(lat);
-	cuParamSetv(f, offset, &lng, sizeof(lng));
-	offset += sizeof(lng);
-	cuParamSetSize(f, offset);
-	res = cuLaunchGrid(f, gdx, gdy);
-	if (res != CUDA_SUCCESS) {
-		printf("cuLaunchGrid failed: res = %u\n", res);
-		return res;
-	}
-#endif
 #endif

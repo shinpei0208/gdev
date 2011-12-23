@@ -64,6 +64,7 @@ struct gdev_cuda_raw_func {
 	uint32_t shared_size;
 	uint32_t param_base;
 	uint32_t param_size;
+	uint32_t param_count;
 	struct {
 		uint32_t offset;
 		uint32_t size;

@@ -97,6 +97,12 @@ int main(int argc, char *argv[])
 	printf("\t} cmem[%d];\n", GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT);
 	printf("\tuint32_t param_base;\n");
 	printf("\tuint32_t param_size;\n");
+	printf("\tuint32_t param_count;\n");
+	printf("\tstruct {\n");
+	printf("\t\tuint32_t offset;\n");
+	printf("\t\tuint32_t size;\n");
+	printf("\t\tuint32_t flags;\n");
+	printf("\t} *param_info];\n");
 	printf("\tuint32_t *param_buf;\n");
 	printf("\tuint32_t local_size;\n");
 	printf("\tuint32_t local_size_neg;\n");
@@ -130,6 +136,14 @@ int main(int argc, char *argv[])
 		printf("\t},\n");
 		printf("\t.param_base = 0x%x,\n", f->param_base);
 		printf("\t.param_size = 0x%x,\n", f->param_size);
+		printf("\t.param_count = 0x%x,\n", f->param_count);
+		printf("\t.param_info = {\n");
+		for (i = 0; i < f->param_count; i++) {
+			printf("\t\t{0x%x, 0x%x, 0x%x},\n", 
+				   f->param_info[i].offset, f->param_info[i].size, 
+				   f->param_info[i].flags);
+		}
+		printf("\t},\n");
 		printf("\t.param_buf = NULL /* filled in later */,\n");
 		printf("\t.local_size = 0x%x,\n", f->local_size);
 		printf("\t.local_size_neg = 0x%x,\n", f->local_size_neg);

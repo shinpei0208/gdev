@@ -110,6 +110,8 @@ static void unload_bin(char *bin, file_t *fp)
 
 static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 {
+	*pos += sizeof(section_entry_t);
+#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
 	int i;
@@ -129,7 +131,7 @@ static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 	}
 #endif
 #endif
-	*pos += sizeof(section_entry_t) + e->size;
+	*pos += e->size;
 	return CUDA_SUCCESS;
 }
 
@@ -147,10 +149,11 @@ static void cubin_func_0a04
 
 	*pos += sizeof(section_entry_t);
 	ce = (const_entry_t *) *pos;
-	*pos += e->size;
-
 	raw_func->param_base = ce->base;
 	raw_func->param_size = ce->size;
+	printf("base = 0x%x\n", ce->base);
+	printf("size = 0x%x\n", ce->size);
+	*pos += e->size;
 }
 
 static void cubin_func_1704
@@ -160,23 +163,43 @@ static void cubin_func_1704
 
 	*pos += sizeof(section_entry_t);
 	pe = (param_entry_t*)*pos;
-	*pos += e->size;
 
 	/* maybe useful to check parameter format later? */
 	raw_func->param_info[pe->idx].offset = pe->offset;
 	raw_func->param_info[pe->idx].size = pe->size >> 18;
-	raw_func->param_info[pe->idx].flags = pe->size & 0x3ffff;
+	raw_func->param_info[pe->idx].flags = pe->size & 0x2ffff;
+
+	*pos += e->size;
 }
 
 static void cubin_func_1903
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
+	int i;
+	char *pos2;
+
+	*pos += sizeof(section_entry_t);
+	pos2 = *pos;
+
+	for (i = 0; i < raw_func->param_count; i++) {
+		section_entry_t *sh_e = (section_entry_t*) pos2;
+		switch (sh_e->type) {
+		case 0x1704:
+			cubin_func_1704(&pos2, sh_e, raw_func);
+			break;
+		default: /* real unknown */
+			cubin_func_unknown(&pos2, sh_e);
+			break;
+		}
+	}
+
 	/* just check if the parameter size matches. */
 	if (raw_func->param_size != e->size) {
 		GDEV_PRINT("Parameter size mismatched\n");
 		GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
 	}
-	*pos += sizeof(section_entry_t) + e->size;
+
+	*pos = pos2 + e->size; /* need to check if this is correct! */
 }
 
 static void cubin_func_0d04
@@ -186,11 +209,10 @@ static void cubin_func_0d04
 
 	*pos += sizeof(section_entry_t);
 	se = (stack_entry_t*) *pos;
-	*pos += e->size;
-
 	raw_func->stack_depth = se->size;
-
 	/* what is se->unk16 and se->unk32... */
+
+	*pos += e->size;
 }
 
 static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
@@ -261,6 +283,7 @@ static void init_raw_func(struct gdev_cuda_raw_func *f)
 	f->shared_size = 0;
 	f->param_base = 0;
 	f->param_size = 0;
+	f->param_count = 0;
 	f->local_size = 0;
 	f->local_size_neg = 0;
 }
@@ -351,9 +374,12 @@ static CUresult cubin_func
 			while (sh_pos < sh + sheads[i].sh_size) {
 				section_entry_t *sh_e = (section_entry_t*)sh_pos;
 				switch (sh_e->type) {
-				case 0x0c04: /* 4-byte aligned param_size */
+				case 0x0c04: /* 4-byte align data relevant to params. */
+					printf("%s\n", raw_func->name);
 					cubin_func_skip(&sh_pos, sh_e);
-					if (!(raw_func->param_info = MALLOC(sh_e->size / 4)))
+					raw_func->param_count = sh_e->size / 4;
+					raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
+					if (!raw_func->param_info)
 						goto fail_malloc_param_info;
 					break;
 				case 0x0a04: /* kernel parameters base and size */
@@ -371,13 +397,13 @@ static CUresult cubin_func
 				case 0x0204: /* textures */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
+				case 0xf000: /* maybe just padding??? */
+					sh_pos += 4;
+					break;
 				case 0x0001: /* unknown */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
 				case 0x080d: /* unknown */
-					cubin_func_skip(&sh_pos, sh_e);
-					break;
-				case 0xf000: /* unknown */
 					cubin_func_skip(&sh_pos, sh_e);
 					break;
 				case 0xffff: /* unknown */
@@ -533,7 +559,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			res = cubin_func(&pos, e, symbols, ehead, sheads, strings, 
 							 shstrings, bin, mod);
 			break;
-		case 0x1204: /* function#2 - what is this? */
+		case 0x1204: /* what is this? */
 			res = cubin_func_skip(&pos, e);
 			break;
 		default:
