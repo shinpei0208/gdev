@@ -1,0 +1,3 @@
+SRAD_v1 processes a real image while SRAD_v2 randomizes the inputs. 
+SRAD_v1 puts more computation on the GPU, e.g. initializations and reductions. 
+Some of SRAD_v2 kernels takes more advantage of GPU's scratchpad memory.

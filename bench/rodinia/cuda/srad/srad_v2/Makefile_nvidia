@@ -1,0 +1,22 @@
+################################################################################
+#
+# Build script for project
+#
+################################################################################
+
+# Add source files here
+EXECUTABLE	:= srad
+# CUDA source files (compiled with cudacc)
+CUFILES		:= srad.cu
+# CUDA dependency files
+CU_DEPS		:= \
+	srad_kernel.cu \
+
+# C/C++ source files (compiled with gcc / c++)
+CCFILES		:= \
+
+
+################################################################################
+# Rules and targets
+
+include ../../common/common.mk

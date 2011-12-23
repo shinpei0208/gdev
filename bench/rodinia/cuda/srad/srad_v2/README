@@ -1,0 +1,15 @@
+In srad.h, define either GPU or CPU computation
+Currently, the GPU implementation can only support x-, y-dimensions that can be divided by 16.
+
+Usage:
+srad 128 128 0 31 0 31 0.5 2
+
+128 //number of rows in the domain
+128 //number of cols in the domain
+0	//y1 position of the speckle
+31	//y2 position of the speckle
+0	//x1 position of the speckle
+31	//x2 position of the speckle
+0.5	//Lambda value
+2	//number of iterations
+
