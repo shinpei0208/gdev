@@ -62,8 +62,9 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	handle = gdev_ctx_current->gdev_handle;
-	if (!(addr = gmalloc(handle, size)))
+	if (!(addr = gmalloc(handle, size))) {
 		return CUDA_ERROR_OUT_OF_MEMORY;
+	}
 
 	gdev_ctx_current->data_size += size;
 	*dptr = addr;
