@@ -211,7 +211,8 @@ struct gdev_ctx *gdev_raw_ctx_new
 	if (ret)
 		goto fail_fence_map;
 	ctx->fence.bo = fence_bo;
-	ctx->fence.map = kmap(fence_bo->pages[0]); /* assume < PAGE_SIZE */
+	ctx->fence.map = vmap(fence_bo->pages, fence_bo->size >> PAGE_SHIFT, 0, 
+						  PAGE_KERNEL);
 	ctx->fence.addr = fence_mm->start;
 	ctx->fence.seq = 0;
 
@@ -249,9 +250,8 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	struct gdev_vas *vas = ctx->vas; 
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_chan *chan = ctx->pctx;
-	struct pscnv_bo *fence_bo = ctx->fence.bo;
 
-	kunmap(fence_bo->pages[0]);
+	vunmap(ctx->fence.map);
 	pscnv_vspace_unmap(vspace, ctx->fence.addr);
 	pscnv_mem_free((struct pscnv_bo *)ctx->fence.bo);
 	vunmap(ctx->fifo.pb_map);
