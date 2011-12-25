@@ -6,8 +6,7 @@
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * and/or sell copies of the Software, and to permit persons to whom the
  *
  * The above copyright notice and this permission notice (including the next
  * paragraph) shall be included in all copies or substantial portions of the
@@ -417,23 +416,12 @@ int __gmemcpy_dma_to_device
 (struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = h->ctx;
-	uint32_t chunk_size = h->chunk_size;
-	uint64_t rest_size = size;
-	uint64_t offset;
 	uint32_t fence;
-	uint32_t dma_size;
 
-	/* copy data by the chunk size. */
-	offset = 0;
-	while (rest_size) {
-		dma_size = __min(rest_size, chunk_size);
-		fence = gdev_memcpy(ctx, dst_addr + offset, src_addr + offset, 
-							dma_size);
-		gdev_poll(ctx, fence, NULL);
-		rest_size -= dma_size;
-		offset += dma_size;
-	}
-
+	/* we don't break data into chunks if copying directly from dma memory. */
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
+	gdev_poll(ctx, fence, NULL);
+	
 	return 0;
 }
 
@@ -578,22 +566,11 @@ int __gmemcpy_dma_from_device
 (struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = h->ctx;
-	uint32_t chunk_size = h->chunk_size;
-	uint64_t rest_size = size;
-	uint64_t offset;
 	uint32_t fence;
-	uint32_t dma_size;
 
-	/* copy data by the chunk size. */
-	offset = 0;
-	while (rest_size) {
-		dma_size = __min(rest_size, chunk_size);
-		fence = gdev_memcpy(ctx, dst_addr + offset, src_addr + offset, 
-							dma_size);
-		gdev_poll(ctx, fence, NULL);
-		rest_size -= dma_size;
-		offset += dma_size;
-	}
+	/* we don't break data into chunks if copying directly from dma memory. */
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size); 
+	gdev_poll(ctx, fence, NULL);
 
 	return 0;
 }

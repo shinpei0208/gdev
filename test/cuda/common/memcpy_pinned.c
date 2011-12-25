@@ -93,6 +93,8 @@ int cuda_test_memcpy_pinned(unsigned int size)
 		return -1;
 	}
 
+	cuCtxSynchronize();
+
 	memcpy(buf, pin, size);
 	memset(pin, size, 0);
 
