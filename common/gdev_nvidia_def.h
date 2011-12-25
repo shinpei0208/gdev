@@ -55,9 +55,9 @@
  * https://github.com/pathscale/pscnv/wiki/Nvidia_Compute
  */
 struct gdev_kernel {
-    uint64_t code_addr; /* code address in VAS */
+	uint64_t code_addr; /* code address in VAS */
 	uint32_t code_size; /* code size */
-    uint32_t code_pc; /* initial program counter */
+	uint32_t code_pc; /* initial program counter */
 	struct gdev_cmem {
 		uint64_t addr; /* constant memory address in VAS */
 		uint32_t size; /* constant memory size */
@@ -68,22 +68,22 @@ struct gdev_kernel {
 	uint32_t *param_buf; /* kernel parameter buffer */
 	uint64_t lmem_addr; /* local memory address in VAS */
 	uint64_t lmem_size_total; /* local memory size for all threads */
-    uint32_t lmem_size; /* local memory size per thread (l[positive]) */
-    uint32_t lmem_size_neg; /* local memory size per thread (l[negaive]) */
-    uint32_t lmem_base; /* $lbase */
-    uint32_t smem_size; /* shared memory size */
-    uint32_t smem_base; /* $sbase */
-    uint32_t stack_level; /* stack level */
-	uint32_t warp_size; /* warp size */
+	uint32_t lmem_size; /* local memory size per thread (l[positive]) */
+	uint32_t lmem_size_neg; /* local memory size per thread (l[negaive]) */
+	uint32_t lmem_base; /* $lbase */
+	uint32_t smem_size; /* shared memory size */
+	uint32_t smem_base; /* $sbase */
+	uint32_t warp_stack_size; /* warp stack size */
+	uint32_t warp_lmem_size; /* total warp memory size */
 	uint32_t reg_count; /* register count */
 	uint32_t bar_count; /* barrier count */
 	uint32_t grid_id; /* grid ID */
-    uint32_t grid_x; /* grid dimension X */
-    uint32_t grid_y; /* grid dimension Y */
-    uint32_t grid_z; /* grid dimension Z */
-    uint32_t block_x; /* block dimension X */
-    uint32_t block_y; /* block dimension Y */
-    uint32_t block_z; /* block dimension Z */
+	uint32_t grid_x; /* grid dimension X */
+	uint32_t grid_y; /* grid dimension Y */
+	uint32_t grid_z; /* grid dimension Z */
+	uint32_t block_x; /* block dimension X */
+	uint32_t block_y; /* block dimension Y */
+	uint32_t block_z; /* block dimension Z */
 };
 
 #endif

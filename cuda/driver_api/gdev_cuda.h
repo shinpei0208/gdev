@@ -182,8 +182,8 @@ static inline uint32_t gdev_cuda_align_lmem_size(uint32_t size)
 /* total local memory alignement. */
 static inline uint32_t gdev_cuda_align_lmem_size_total(uint32_t size)
 {
-	if (size & 0x1fffff)
-		size = (size + 0x200000) & ~0x1fffff;
+	if (size & 0x3ffff)
+		size = (size + 0x40000) & ~0x3ffff;
 	return size;
 }
 
@@ -192,6 +192,14 @@ static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 {
 	if (size & 0x7f)
 		size = (size + 0x80) & (~0x7f);
+	return size;
+}
+
+/* stack alignement. */
+static inline uint32_t gdev_cuda_align_stack_size(uint32_t size)
+{
+	if (size & 0xfff || size == 0)
+		size = (size + 0x1000) & (~0xfff);
 	return size;
 }
 
@@ -206,7 +214,7 @@ static inline uint32_t gdev_cuda_align_warp_size(uint32_t size)
 /* memory base alignement. */
 static inline uint32_t gdev_cuda_align_base(uint32_t size)
 {
-	if (size & 0xffffff)
+	if (size & 0xffffff || size == 0)
 		size = (size + 0x1000000) & (~0xffffff);
 	return size;
 }
