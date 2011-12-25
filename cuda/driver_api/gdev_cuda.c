@@ -253,8 +253,8 @@ static void init_kernel(struct gdev_kernel *k)
 	k->lmem_base = 0;
 	k->smem_size = 0;
 	k->smem_base = 0;
-	k->stack_level = 0;
-	k->warp_size = 0;
+	k->warp_stack_size = 0;
+	k->warp_lmem_size = 0;
 	k->reg_count = 0;
 	k->bar_count = 0;
 	k->grid_id = 0;
@@ -660,7 +660,6 @@ CUresult gdev_cuda_construct_kernels
 	struct CUfunc_st *func;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
-	uint32_t stack_size, stack_depth;
 	uint32_t mp_count, warp_count, warp_size, chipset;
 	int i;
 	
@@ -704,29 +703,26 @@ CUresult gdev_cuda_construct_kernels
 		}
 
 		/* FIXME: what is the right local memory size?
-		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. 
-		   if a kernel execution fails some way, try the following:
-		   k->lmem_size = k->lmem_size>0xf0?k->lmem_size:0xf0; 
-		   k->lmem_size_neg = k->lmem_size>0x7c0?k->lmem_size_neg:0x7c0; */
+		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. */
 		k->lmem_size = gdev_cuda_align_lmem_size(f->local_size);
 		k->lmem_size_neg = gdev_cuda_align_lmem_size(f->local_size_neg);
+		//k->lmem_size = k->lmem_size < 0xf0 ? 0xf0 : k->lmem_size;
+		//k->lmem_size_neg = k->lmem_size < 0x7c0 ? 0x7c0 : k->lmem_size_neg;
 
+		/* shared memory size. */
 		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);
 	
-		/* FIXME: what is the right stack depth? */
-		stack_depth = f->stack_depth > 0x10 ? f->stack_depth : 0x10;
-		k->stack_level = stack_depth / warp_count;
-		/* stack level needs rounded up? */
-		if (stack_depth % warp_count != 0)
-			k->stack_level++;
-		/* FIXME: what is the right stack size? */
-		stack_size = k->stack_level * 0x10;
-	
-		k->warp_size = warp_size * 
-			(stack_size + k->lmem_size + k->lmem_size_neg); 
-		k->warp_size = gdev_cuda_align_warp_size(k->warp_size);
+		/* warp stack and local memory sizes. */
+		/* k->warp_stack_size = f->stack_depth * 9; */
+		k->warp_stack_size = gdev_cuda_align_stack_size(f->stack_depth);
+		k->warp_lmem_size = 
+			warp_size * (k->lmem_size + k->lmem_size_neg) + k->warp_stack_size; 
 
-		k->lmem_size_total = warp_count * mp_count * k->warp_size;
+		/* total local memory size. 
+		   k->warp_lmem_size shouldn't be aligned at this point. */
+		k->lmem_size_total = warp_count * mp_count * k->warp_lmem_size;
+
+		/* align warp and total local memory sizes. */
 		if (chipset & 0xc0) {
 			k->lmem_size_total = 
 				gdev_cuda_align_lmem_size_total(k->lmem_size_total);
@@ -734,6 +730,7 @@ CUresult gdev_cuda_construct_kernels
 		else {
 			k->lmem_size_total = __round_up_pow2(k->lmem_size_total);
 		}
+		k->warp_lmem_size = gdev_cuda_align_warp_size(k->warp_lmem_size);
 
 		k->reg_count = f->reg_count;
 		k->bar_count = f->bar_count;

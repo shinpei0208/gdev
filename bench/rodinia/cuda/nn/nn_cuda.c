@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <float.h>
 #include <vector>
-#include <cuda.h>
+#include "/usr/local/gdev/include/cuda.h"
 #include "util.h" /* cuda_driver_api_{init,exit}() */
 #include "nn.h"
 

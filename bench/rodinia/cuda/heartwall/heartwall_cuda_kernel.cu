@@ -76,8 +76,8 @@ __global__ void kernel(){
 	//	THREAD PARAMETERS
 	//=================================================================
 
-	int bx = blockIdx.x;																// get current horizontal block index (0-n)
-	int tx = threadIdx.x;																// get current horizontal thread index (0-n)
+	int bx = blockIdx.x; // get current horizontal block index (0-n)
+	int tx = threadIdx.x; // get current horizontal thread index (0-n)
 	int ei_new;
 
 	//=================================================================
@@ -230,7 +230,7 @@ __global__ void kernel(){
 		//=========================================================
 
 		// work
-		ei_new = tx;
+		ei_new = tx; // this causes page faults. 
 		while(ei_new < d_common.conv_elem){
 
 			// figure out row/col location in array
@@ -277,9 +277,9 @@ __global__ void kernel(){
 
 			for(ja=ja1; ja<=ja2; ja++){
 				jb = jp1 - ja;
+				ia = ia1;
 				for(ia=ia1; ia<=ia2; ia++){
 					ib = ip1 - ia;
-					// this will cause page faults...
 					s = s + d_in_mod_temp[d_common.in_rows*(ja-1)+ia-1] * d_unique[bx].d_in2[d_common.in2_rows*(jb-1)+ib-1];
 				}
 			}
@@ -1202,11 +1202,11 @@ __global__ void kernel(){
 
 			for(ja=ja1; ja<=ja2; ja++){
 				jb = jp1 - ja;
-				for(ia=ia1; ia<=ia2; ia++){
+				ia = ia1;
+				//for(ia=ia1; ia<=ia2; ia++){
 					ib = ip1 - ia;
-					// this will cause page faults...
 					s = s + d_unique[bx].d_tMask[d_common.tMask_rows*(ja-1)+ia-1] * 1;
-				}
+				//}
 			}
 
 			// //d_unique[bx].d_mask_conv[d_common.mask_conv_rows*(jc-1)+ic-1] = s;

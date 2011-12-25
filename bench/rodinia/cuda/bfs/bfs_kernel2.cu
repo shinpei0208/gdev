@@ -23,10 +23,13 @@ __global__ void
 Kernel2(int *g_graph_mask, int *g_updating_graph_mask, int *g_graph_visited, int *g_over, int no_of_nodes)
 {
 	int tid = blockIdx.x * MAX_THREADS_PER_BLOCK + threadIdx.x;
-	if (tid < no_of_nodes && g_updating_graph_mask[tid]) {
-		g_graph_mask[tid] = true;
-		g_graph_visited[tid] = true;
-		*g_over = true;
-		g_updating_graph_mask[tid] = false;
+	if (tid < no_of_nodes) {
+		if (g_updating_graph_mask[tid]) {
+			g_graph_mask[tid] = true;
+			g_graph_visited[tid] = true;
+			*g_over = true;
+			g_updating_graph_mask[tid] = false;
+		}
 	}
 }
+	

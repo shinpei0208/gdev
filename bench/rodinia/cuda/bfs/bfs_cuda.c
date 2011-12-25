@@ -80,6 +80,7 @@ int bfs_launch
             printf("cuLaunchKernel(f1) failed: res = %u\n", res);
             return -1;
         }
+		cuCtxSynchronize();
 		/* check if kernel execution generated and error */
 		
 		/* f2 */
@@ -99,6 +100,7 @@ int bfs_launch
 			return -1;
 		}
 
+		cuCtxSynchronize();
 		k++;
 	} while (stop);
 
