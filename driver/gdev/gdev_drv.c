@@ -127,15 +127,23 @@ static int gdev_ioctl
 
 static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	void *buf = (void*) (vma->vm_pgoff << PAGE_SHIFT);
+	void *buf;
 	uint32_t size = vma->vm_end - vma->vm_start;
 	unsigned long start = vma->vm_start;
+
+	if (vma->vm_pgoff == GDEV_MMAP_PGOFF_MMIO) {
+		int i = __get_minor(filp);
+		struct gdev_device *gdev = &gdevs[i];
+		buf = gdev->mmio_regs;
+	}
+	else {
+		buf = (void*) (vma->vm_pgoff << PAGE_SHIFT);
+	}
 
 	if (size > PAGE_SIZE) {
 		char *vmalloc_area_ptr = (char *)buf;
 		unsigned long pfn;
 		int ret;
-
 		/* loop over all pages, map it page individually */
 		while (size > 0) {
 			pfn = vmalloc_to_pfn(vmalloc_area_ptr);
@@ -146,8 +154,8 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 			start += PAGE_SIZE;
 			vmalloc_area_ptr += PAGE_SIZE;
 			size -= PAGE_SIZE;
-        }
-
+		}
+		
 		return 0;
 	}
 	else {
@@ -189,8 +197,8 @@ int gdev_minor_init(struct drm_device *drm)
 		return ret;
 	}
 
-	/* initialize the Gdev compute engine. */
-	gdev_compute_init(gdev, i, drm);
+	/* initialize the Gdev engine. */
+	gdev_init_common(gdev, i, drm);
 
 	return 0;
 }
@@ -207,7 +215,7 @@ int gdev_minor_exit(struct drm_device *drm)
 
 	if (i < gdev_count) {
 		GDEV_PRINT("Removing gdev%d.\n", i);
-		gdev->priv = NULL;
+		gdev_exit_common(gdev);
 		cdev_del(cdev);
 	}
 	

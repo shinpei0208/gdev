@@ -506,7 +506,6 @@ int main(int argc, char *argv [])
 	/*******************************************************
 	 * COMPUTATION
 	 ******************************************************/
-
 	/* execute main loop:
 	   do for # of iterations input parameter */
 	for (iter = 0; iter < niter; iter++) {
@@ -575,13 +574,11 @@ int main(int argc, char *argv [])
 		}
 
 		/* checkCUDAError("copy sum"); */
-
 		/* calculate statistics */
 		meanROI	= total / (fp)(NeROI); /* mean (avg.) value of element in ROI */
 		meanROI2 = meanROI * meanROI;
 		varROI = (total2 / (fp)(NeROI)) - meanROI2; /* variance of ROI */
 		q0sqr = varROI / meanROI2; /* standard deviation of ROI */
-
 		/* execute srad kernel */
 		res = srad_launch(mod, gdx, gdy, bdx, bdy,
 						  lambda, // SRAD coefficient 

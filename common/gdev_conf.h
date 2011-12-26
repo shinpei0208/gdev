@@ -45,6 +45,8 @@
 #define GDEV_SWAP_DEVICE_SIZE 0x2000000
 #define GDEV_SWAP_DMA_SIZE 0x2000000
 
+#define GDEV_MEMCPY_IORW_LIMIT 64 /* bytes */
+
 #define GDEV_DEBUG_PRINT 0
 
 #endif

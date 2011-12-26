@@ -32,12 +32,13 @@
 #include "gdev_proto.h"
 #include "gdev_time.h"
 
-/* initialize the compute engine. */
-int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
+/* initialize the common Gdev members. */
+int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 {
+	/* setup common members. */
 	gdev->id = minor;
-	gdev->priv = priv;
 	gdev->users = 0;
+	gdev->priv = obj;
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
 	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
@@ -60,7 +61,16 @@ int gdev_compute_init(struct gdev_device *gdev, int minor, void *priv)
 		return -EINVAL;
     }
 
+	/* this must be set before calling gdev_query(). */
+	gdev_init_mmio(gdev);
+
 	return 0;
+}
+
+/* finalize the common Gdev members. */
+void gdev_exit_common(struct gdev_device *gdev)
+{
+	gdev_exit_mmio(gdev);
 }
 
 /* launch the kernel onto the GPU. */
@@ -110,6 +120,49 @@ uint32_t gdev_memcpy
 	compute->memcpy(ctx, dst_addr, src_addr, size);
 
 	return sequence;
+}
+
+/* read 32-bit value at @addr. */
+uint32_t gdev_read32
+(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	uint32_t phys = gdev_raw_virt_to_phys(ctx, mem, addr);
+	uint32_t *mmio_regs;
+	uint32_t old;
+	uint32_t val;
+
+	/* need to lock */
+	mmio_regs = gdev->mmio_regs;
+	old = mmio_regs[0x1700 / 4];
+
+	mmio_regs[0x1700 / 4] = phys >> 16;
+	val = mmio_regs[0x00700000 / 4];
+	
+	mmio_regs[0x1700 / 4] = old;
+
+	return val;
+}
+
+/* write 32-bit @val to @addr. */
+void gdev_write32
+(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr, uint32_t val)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	uint32_t phys = gdev_raw_virt_to_phys(ctx, mem, addr);
+	uint32_t *mmio_regs;
+	uint32_t old;
+
+	/* need to lock */
+	mmio_regs = gdev->mmio_regs;
+	old = mmio_regs[0x1700 / 4];
+
+	mmio_regs[0x1700 / 4] = phys >> 16;
+	mmio_regs[0x700000 / 4] = val;
+	
+	mmio_regs[0x1700 / 4] = old;
 }
 
 /* poll until the resource becomes available. */
