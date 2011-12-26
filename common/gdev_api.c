@@ -593,7 +593,7 @@ int gmemcpy_to_device
 	else {
 		/* the function will evict data *only if* necessary. */
 		gdev_shmem_evict(mem, h);
-		if (h->pipeline_count > 1)
+		if (h->pipeline_count > 1 && size > h->chunk_size)
 			ret =  __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
 												__memcpy_wrapper);
 		else
@@ -623,7 +623,7 @@ int gmemcpy_user_to_device
 	else {
 		/* the function will evict data *only if* necessary. */
 		gdev_shmem_evict(mem, h);
-		if (h->pipeline_count > 1)
+		if (h->pipeline_count > 1 && size > h->chunk_size)
 			ret = __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
 												__copy_from_user_wrapper);
 		else
@@ -653,12 +653,14 @@ int gmemcpy_from_device
 	else {
 		/* the function will reload data *only if* necessary. */
 		gdev_mem_reload(mem, h);
-		if (h->pipeline_count > 1)
+		if (h->pipeline_count > 1 && size > h->chunk_size) {
 			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
 												  __memcpy_wrapper);
-		else
+		}
+		else {
 			ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
 										 __memcpy_wrapper);
+		}
 	}
 	gdev_shmem_unlock(mem);
 
@@ -683,7 +685,7 @@ int gmemcpy_user_from_device
 	else {
 		/* the function will reload data *only if* necessary. */
 		gdev_mem_reload(mem, h);
-		if (h->pipeline_count > 1)
+		if (h->pipeline_count > 1 && size > h->chunk_size)
 			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
 												  __copy_to_user_wrapper);
 		else

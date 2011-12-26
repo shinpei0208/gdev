@@ -54,7 +54,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		for(j = 0; j < n; j++) {
 			idx = i * n + j;
 			a[idx] = i;
-			b[idx] = i;
+			b[idx] = i + 1;
 		}
 	}
 
@@ -67,8 +67,6 @@ int cuda_test_madd(unsigned int n, char *path)
 	grid_y = n / block_y;
 	if (n % block_y != 0)
 		grid_y++;
-	printf("block = (%d, %d)\n", block_x, block_y);
-	printf("grid = (%d, %d)\n", grid_x, grid_y);
 
 	gettimeofday(&tv_total_start, NULL);
 

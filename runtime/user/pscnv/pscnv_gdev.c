@@ -38,6 +38,35 @@ struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
 	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, NULL, NULL}
 };
 
+/* initialize the private Gdev members. */
+int gdev_init_mmio(struct gdev_device *gdev)
+{
+	int gdev_fd;
+	char gdev_name[64];
+
+	/* temporarily open Gdev to mmap MMIO space. */
+	sprintf(gdev_name, "/dev/gdev%d", gdev->id);
+	if ((gdev_fd = open(gdev_name, O_RDWR)) < 0)
+		return -EINVAL;
+
+	gdev->mmio_regs = mmap(0, 0x00800000, PROT_READ | PROT_WRITE, MAP_SHARED, 
+						   gdev_fd, GDEV_MMAP_PGOFF_MMIO);
+	if (gdev->mmio_regs == MAP_FAILED) {
+		return -EINVAL;
+	}
+
+	close(gdev_fd);
+
+	return 0;
+}
+
+/* finalize the private Gdev members. */
+void gdev_exit_mmio(struct gdev_device *gdev)
+{
+	munmap(gdev->mmio_regs, 0x00800000);
+	gdev->mmio_regs = NULL;
+}
+
 /* query a piece of the device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
@@ -74,17 +103,15 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	int fd;
 	struct gdev_device *gdev = &gdevs[minor];
 
-	if (gdev->users++ > 0) {
-		goto end;
-	}
+	if (gdev->users == 0) {
+		sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
+		if ((fd = open(buf, O_RDWR, 0)) < 0)
+			return NULL;
+		gdev_init_common(gdev, minor, (void *) (unsigned long) fd);
+	}		
 
-	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
-	if ((fd = open(buf, O_RDWR, 0)) < 0)
-		return NULL;
+	gdev->users++;
 
-	gdev_compute_init(gdev, minor, (void *) (unsigned long) fd);
-
-end:
 	return gdev;
 }
 
@@ -94,6 +121,7 @@ void gdev_raw_dev_close(struct gdev_device *gdev)
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
 	if (--gdev->users == 0) {
+		gdev_exit_common(gdev);
 		close(fd);
 	}
 }
@@ -285,4 +313,11 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 {
 	GDEV_PRINT("Shared memory not implemented\n");
 	/* To be implemented. */
+}
+
+uint64_t gdev_raw_virt_to_phys
+(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+{
+	/* to be implemented. */
+	return addr;
 }

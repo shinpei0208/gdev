@@ -36,6 +36,22 @@
 
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
+int gdev_init_mmio(struct gdev_device *gdev)
+{
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	gdev->mmio_regs = dev_priv->mmio;
+
+	return 0;
+}
+
+/* finalize the private Gdev members. */
+void gdev_exit_mmio(struct gdev_device *gdev)
+{
+	gdev->mmio_regs = NULL;
+}
+
 /* query device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
@@ -74,6 +90,12 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev = &gdevs[minor];
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *priv = drm->dev_private;
+
+	if (gdev->users == 0) {
+		gdev->mmio_regs = priv->mmio;
+	}
 
 	gdev->users++;
 
@@ -399,4 +421,11 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 
 	pscnv_vspace_unmap(vspace, mem->addr);
 	kfree(mem);
+}
+
+uint64_t gdev_raw_virt_to_phys
+(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+{
+	/* to be implemented. */
+	return addr;
 }
