@@ -39,32 +39,14 @@ struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
 };
 
 /* initialize the private Gdev members. */
-int gdev_init_mmio(struct gdev_device *gdev)
+int gdev_init_private(struct gdev_device *gdev)
 {
-	int gdev_fd;
-	char gdev_name[64];
-
-	/* temporarily open Gdev to mmap MMIO space. */
-	sprintf(gdev_name, "/dev/gdev%d", gdev->id);
-	if ((gdev_fd = open(gdev_name, O_RDWR)) < 0)
-		return -EINVAL;
-
-	gdev->mmio_regs = mmap(0, 0x00800000, PROT_READ | PROT_WRITE, MAP_SHARED, 
-						   gdev_fd, GDEV_MMAP_PGOFF_MMIO);
-	if (gdev->mmio_regs == MAP_FAILED) {
-		return -EINVAL;
-	}
-
-	close(gdev_fd);
-
 	return 0;
 }
 
 /* finalize the private Gdev members. */
-void gdev_exit_mmio(struct gdev_device *gdev)
+void gdev_exit_private(struct gdev_device *gdev)
 {
-	munmap(gdev->mmio_regs, 0x00800000);
-	gdev->mmio_regs = NULL;
 }
 
 /* query a piece of the device-specific information. */
@@ -315,9 +297,45 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 	/* To be implemented. */
 }
 
-uint64_t gdev_raw_virt_to_phys
-(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 {
-	/* to be implemented. */
-	return addr;
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+	uint32_t val;
+
+	pscnv_vm_read32(fd, vid, handle, addr, &val);
+
+	return val;
+}
+
+void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+
+	pscnv_vm_write32(fd, vid, handle, addr, val);
+}
+
+int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+
+	return pscnv_vm_read(fd, vid, handle, addr, buf, size);
+}
+
+int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+
+	return pscnv_vm_write(fd, vid, handle, addr, buf, size);
 }

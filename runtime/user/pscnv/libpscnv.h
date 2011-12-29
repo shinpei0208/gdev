@@ -36,6 +36,11 @@ int pscnv_obj_vdma_new(int fd, uint32_t cid, uint32_t handle, uint32_t oclass, u
 int pscnv_fifo_init(int fd, uint32_t cid, uint32_t pb_handle, uint32_t flags, uint32_t slimask, uint64_t pb_start);
 int pscnv_fifo_init_ib(int fd, uint32_t cid, uint32_t pb_handle, uint32_t flags, uint32_t slimask, uint64_t ib_start, uint32_t ib_order);
 int pscnv_obj_eng_new(int fd, uint32_t cid, uint32_t handle, uint32_t oclass, uint32_t flags);
+int pscnv_vm_read32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32_t *ptr);
+int pscnv_vm_write32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32_t val);
+int pscnv_vm_read(int fd, uint32_t vid, uint32_t handle, uint64_t addr, void *buf, uint32_t size);
+int pscnv_vm_write(int fd, uint32_t vid, uint32_t handle, uint64_t addr, const void *buf, uint32_t size);
+
 #define pscnv_obj_gr_new pscnv_obj_eng_new
 
 #endif

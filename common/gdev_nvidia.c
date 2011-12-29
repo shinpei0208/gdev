@@ -61,8 +61,7 @@ int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 		return -EINVAL;
     }
 
-	/* this must be set before calling gdev_query(). */
-	gdev_init_mmio(gdev);
+	gdev_init_private(gdev);
 
 	return 0;
 }
@@ -70,7 +69,7 @@ int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 /* finalize the common Gdev members. */
 void gdev_exit_common(struct gdev_device *gdev)
 {
-	gdev_exit_mmio(gdev);
+	gdev_exit_private(gdev);
 }
 
 /* launch the kernel onto the GPU. */
@@ -123,46 +122,25 @@ uint32_t gdev_memcpy
 }
 
 /* read 32-bit value at @addr. */
-uint32_t gdev_read32
-(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+uint32_t gdev_read32(struct gdev_mem *mem, uint64_t addr)
 {
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	uint32_t phys = gdev_raw_virt_to_phys(ctx, mem, addr);
-	uint32_t *mmio_regs;
-	uint32_t old;
-	uint32_t val;
-
-	/* need to lock */
-	mmio_regs = gdev->mmio_regs;
-	old = mmio_regs[0x1700 / 4];
-
-	mmio_regs[0x1700 / 4] = phys >> 16;
-	val = mmio_regs[0x00700000 / 4];
-	
-	mmio_regs[0x1700 / 4] = old;
-
-	return val;
+	return gdev_raw_read32(mem, addr);
 }
 
 /* write 32-bit @val to @addr. */
-void gdev_write32
-(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr, uint32_t val)
+void gdev_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 {
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	uint32_t phys = gdev_raw_virt_to_phys(ctx, mem, addr);
-	uint32_t *mmio_regs;
-	uint32_t old;
+	gdev_raw_write32(mem, addr, val);
+}
 
-	/* need to lock */
-	mmio_regs = gdev->mmio_regs;
-	old = mmio_regs[0x1700 / 4];
+int gdev_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
+{
+	return gdev_raw_read(mem, buf, addr, size);
+}
 
-	mmio_regs[0x1700 / 4] = phys >> 16;
-	mmio_regs[0x700000 / 4] = val;
-	
-	mmio_regs[0x1700 / 4] = old;
+int gdev_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
+{
+	return gdev_raw_write(mem, addr, buf, size);
 }
 
 /* poll until the resource becomes available. */

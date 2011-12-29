@@ -191,3 +191,57 @@ int pscnv_obj_eng_new(int fd, uint32_t cid, uint32_t handle, uint32_t oclass, ui
 	req.flags = flags;
 	return drmCommandWriteRead(fd, DRM_PSCNV_OBJ_ENG_NEW, &req, sizeof(req));
 }
+
+int pscnv_vm_read32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32_t *ptr) {
+	int ret;
+	struct drm_pscnv_vm_rw32 req;
+	req.vid = vid;
+	req.handle = handle;
+	req.addr = addr;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_READ32, &req, sizeof(req));
+	if (ret)
+		return ret;
+	*ptr = req.val;
+	return 0;
+}
+
+int pscnv_vm_write32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32_t val) {
+	int ret;
+	struct drm_pscnv_vm_rw32 req;
+	req.vid = vid;
+	req.handle = handle;
+	req.addr = addr;
+	req.val = val;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_WRITE32, &req, sizeof(req));
+	if (ret)
+		return ret;
+	return 0;
+}
+
+int pscnv_vm_read(int fd, uint32_t vid, uint32_t handle, uint64_t addr, void *buf, uint32_t size) {
+	int ret;
+	struct drm_pscnv_vm_rw req;
+	req.vid = vid;
+	req.handle = handle;
+	req.addr = addr;
+	req.buf_rd = buf;
+	req.size = size;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_READ, &req, sizeof(req));
+	if (ret)
+		return ret;
+	return 0;
+}
+
+int pscnv_vm_write(int fd, uint32_t vid, uint32_t handle, uint64_t addr, const void *buf, uint32_t size) {
+	int ret;
+	struct drm_pscnv_vm_rw req;
+	req.vid = vid;
+	req.handle = handle;
+	req.addr = addr;
+	req.buf_wr = buf;
+	req.size = size;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_WRITE, &req, sizeof(req));
+	if (ret)
+		return ret;
+	return 0;
+}

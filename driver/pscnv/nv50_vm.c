@@ -231,6 +231,34 @@ nv84_vm_bar_flush(struct drm_device *dev) {
 	}
 }
 
+int nv50_vm_read32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t *ptr)
+{
+	struct drm_device *dev = vs->dev;
+	NV_ERROR(dev, "nv50_vm_read32(): Not supported yet!\n");
+	return 0;
+}
+
+int nv50_vm_write32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t val)
+{
+	struct drm_device *dev = vs->dev;
+	NV_ERROR(dev, "nv50_vm_write32(): Not supported yet!\n");
+	return 0;
+}
+
+int nv50_vm_read(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, void *buf, uint32_t size)
+{
+	struct drm_device *dev = vs->dev;
+	NV_ERROR(dev, "nv50_vm_read(): Not supported yet!\n");
+	return 0;
+}
+
+int nv50_vm_write(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, const void *buf, uint32_t size)
+{
+	struct drm_device *dev = vs->dev;
+	NV_ERROR(dev, "nv50_vm_write(): Not supported yet!\n");
+	return 0;
+}
+
 int
 nv50_vm_init(struct drm_device *dev) {
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
@@ -252,6 +280,10 @@ nv50_vm_init(struct drm_device *dev) {
 		vme->base.bar_flush = nv50_vm_bar_flush;
 	else
 		vme->base.bar_flush = nv84_vm_bar_flush;
+	vme->base.read32 = nv50_vm_read32;
+	vme->base.write32 = nv50_vm_write32;
+	vme->base.read = nv50_vm_read;
+	vme->base.write = nv50_vm_write;
 	dev_priv->vm = &vme->base;
 
 	dev_priv->vm_ramin_base = dev_priv->fb_size;

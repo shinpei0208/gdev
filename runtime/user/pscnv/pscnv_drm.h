@@ -140,6 +140,22 @@ struct drm_pscnv_obj_eng_new {
 	uint32_t flags;		/* < */
 };
 
+struct drm_pscnv_vm_rw32 {
+	uint32_t vid;		/* < */
+	uint32_t handle;	/* < */
+	uint64_t addr;      /* < */
+	uint32_t val;       /* > < */
+};
+
+struct drm_pscnv_vm_rw {
+	uint32_t vid;		/* < */
+	uint32_t handle;	/* < */
+	uint64_t addr;      /* < */
+	uint32_t size;      /* < */
+	void *buf_rd;       /* < */
+	const void *buf_wr; /* < */
+};
+
 #define DRM_PSCNV_GETPARAM           0x00	/* get some information from the card */
 #define DRM_PSCNV_GEM_NEW            0x20	/* create a new BO */
 #define DRM_PSCNV_GEM_INFO           0x21	/* get info about a BO */
@@ -154,5 +170,9 @@ struct drm_pscnv_obj_eng_new {
 #define DRM_PSCNV_FIFO_INIT          0x29	/* Initialises PFIFO processing on a channel */
 #define DRM_PSCNV_OBJ_ENG_NEW        0x2a	/* Create a new engine object on a channel */
 #define DRM_PSCNV_FIFO_INIT_IB       0x2b	/* Initialises IB PFIFO processing on a channel */
+#define DRM_PSCNV_VM_READ32          0x2c	/* Read from virtual memory */
+#define DRM_PSCNV_VM_WRITE32         0x2d	/* Write to virtual memory */
+#define DRM_PSCNV_VM_READ            0x2e	/* Read from virtual memory */
+#define DRM_PSCNV_VM_WRITE           0x2f	/* Write to virtual memory */
 
 #endif /* __PSCNV_DRM_H__ */

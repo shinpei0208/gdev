@@ -132,9 +132,12 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 	unsigned long start = vma->vm_start;
 
 	if (vma->vm_pgoff == GDEV_MMAP_PGOFF_MMIO) {
-		int i = __get_minor(filp);
-		struct gdev_device *gdev = &gdevs[i];
-		buf = gdev->mmio_regs;
+		/*
+		 * int i = __get_minor(filp);
+		 * struct gdev_device *gdev = &gdevs[i];
+		 * buf = gdev->mmio_regs;
+		 */
+		return -EINVAL; /* mmio mapping is no longer supported. */
 	}
 	else {
 		buf = (void*) (vma->vm_pgoff << PAGE_SHIFT);

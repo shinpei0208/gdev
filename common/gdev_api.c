@@ -588,18 +588,29 @@ int gmemcpy_to_device
 	int ret;
 
 	gdev_shmem_lock(mem);
-	if (hmem) 
-		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
-	else {
-		/* the function will evict data *only if* necessary. */
-		gdev_shmem_evict(mem, h);
-		if (h->pipeline_count > 1 && size > h->chunk_size)
-			ret =  __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
-												__memcpy_wrapper);
-		else
-			ret = __gmemcpy_to_device(h, dst_addr, src_buf, size,
-									  __memcpy_wrapper);
+
+	/* the function will evict data *only if* necessary. */
+	gdev_shmem_evict(mem, h);
+	/* call a memcpy function. */
+	if (size <= 4) {
+		gdev_write32(mem, dst_addr, ((uint32_t*)src_buf)[0]);
+		ret = 0;
 	}
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+		ret = gdev_write(mem, dst_addr, src_buf, size);
+	}
+	else if (hmem) {
+		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+	}
+	else if (h->pipeline_count > 1 && size > h->chunk_size) {
+		ret =  __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size,
+											__memcpy_wrapper);
+	}
+	else {
+		ret = __gmemcpy_to_device(h, dst_addr, src_buf, size,
+								  __memcpy_wrapper);
+	}
+
 	gdev_shmem_unlock(mem);
 	
 	return ret;
@@ -618,18 +629,29 @@ int gmemcpy_user_to_device
 	int ret;
 
 	gdev_shmem_lock(mem);
-	if (hmem)
-		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
-	else {
-		/* the function will evict data *only if* necessary. */
-		gdev_shmem_evict(mem, h);
-		if (h->pipeline_count > 1 && size > h->chunk_size)
-			ret = __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
-												__copy_from_user_wrapper);
-		else
-			ret = __gmemcpy_to_device(h, dst_addr, src_buf, size, 
-									   __copy_from_user_wrapper);
+
+	/* the function will evict data *only if* necessary. */
+	gdev_shmem_evict(mem, h);
+	/* call a memcpy function. */
+	if (size <= 4) {
+		gdev_write32(mem, dst_addr, ((uint32_t*)src_buf)[0]);
+		ret = 0;
 	}
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+		ret = gdev_write(mem, dst_addr, src_buf, size);
+	}
+	else if (hmem) {
+		ret = __gmemcpy_dma_to_device(h, dst_addr, hmem->addr, size);
+	}
+	else if (h->pipeline_count > 1 && size > h->chunk_size) {
+		ret = __gmemcpy_to_device_pipeline(h, dst_addr, src_buf, size, 
+										   __copy_from_user_wrapper);
+	}
+	else {
+		ret = __gmemcpy_to_device(h, dst_addr, src_buf, size, 
+								  __copy_from_user_wrapper);
+	}
+
 	gdev_shmem_unlock(mem);
 
 	return ret;
@@ -648,20 +670,29 @@ int gmemcpy_from_device
 	int ret;
 
 	gdev_shmem_lock(mem);
-	if (hmem)
-		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
-	else {
-		/* the function will reload data *only if* necessary. */
-		gdev_mem_reload(mem, h);
-		if (h->pipeline_count > 1 && size > h->chunk_size) {
-			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
-												  __memcpy_wrapper);
-		}
-		else {
-			ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
-										 __memcpy_wrapper);
-		}
+
+	/* the function will reload data *only if* necessary. */
+	gdev_mem_reload(mem, h);
+	/* call a memcpy function. */
+	if (size <= 4) {
+		((uint32_t*)dst_buf)[0] = gdev_read32(mem, src_addr);
+		ret = 0;
 	}
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+		ret = gdev_read(mem, dst_buf, src_addr, size);
+	}
+	else if (hmem) {
+		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	}
+	else if (h->pipeline_count > 1 && size > h->chunk_size) {
+		ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
+											 __memcpy_wrapper);
+	}
+	else {
+		ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
+									__memcpy_wrapper);
+	}
+
 	gdev_shmem_unlock(mem);
 
 	return ret;
@@ -680,18 +711,29 @@ int gmemcpy_user_from_device
 	int ret;
 
 	gdev_shmem_lock(mem);
-	if (hmem)
-		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
-	else {
-		/* the function will reload data *only if* necessary. */
-		gdev_mem_reload(mem, h);
-		if (h->pipeline_count > 1 && size > h->chunk_size)
-			ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
-												  __copy_to_user_wrapper);
-		else
-			ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
-										 __copy_to_user_wrapper);
+
+	/* the function will reload data *only if* necessary. */
+	gdev_mem_reload(mem, h);
+	/* call a memcpy function. */
+	if (size <= 4) {
+		((uint32_t*)dst_buf)[0] = gdev_read32(mem, src_addr);
+		ret = 0;
 	}
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+		ret = gdev_read(mem, dst_buf, src_addr, size);
+	}
+	else if (hmem) {
+		ret = __gmemcpy_dma_from_device(h, hmem->addr, src_addr, size);
+	}
+	else if (h->pipeline_count > 1 && size > h->chunk_size) {
+		ret = __gmemcpy_from_device_pipeline(h, dst_buf, src_addr, size, 
+											 __copy_to_user_wrapper);
+	}
+	else {
+		ret = __gmemcpy_from_device(h, dst_buf, src_addr, size, 
+									__copy_to_user_wrapper);
+	}
+
 	gdev_shmem_unlock(mem);
 
 	return ret;
