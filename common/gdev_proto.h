@@ -64,7 +64,6 @@ struct gdev_device {
 	uint64_t dma_mem_used;
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
-	void *mmio_regs; /* memory-mapped I/O registers, if exist */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
 	gdev_lock_t vas_lock;
 	gdev_mutex_t shmem_mutex;
@@ -74,13 +73,15 @@ struct gdev_device {
  * architecture-dependent compute functions.
  */
 int gdev_init_common(struct gdev_device*, int, void*);
-int gdev_init_mmio(struct gdev_device*);
+int gdev_init_private(struct gdev_device*);
 void gdev_exit_common(struct gdev_device*);
-void gdev_exit_mmio(struct gdev_device*);
+void gdev_exit_private(struct gdev_device*);
 uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
 uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t);
-uint32_t gdev_read32(gdev_ctx_t*, gdev_mem_t*, uint64_t);
-void gdev_write32(gdev_ctx_t*, gdev_mem_t*, uint64_t, uint32_t);
+uint32_t gdev_read32(gdev_mem_t*, uint64_t);
+void gdev_write32(gdev_mem_t*, uint64_t, uint32_t);
+int gdev_read(gdev_mem_t*, void*, uint64_t, uint32_t);
+int gdev_write(gdev_mem_t*, uint64_t, const void*, uint32_t);
 int gdev_poll(gdev_ctx_t*, uint32_t, struct gdev_time*);
 int gdev_query(struct gdev_device*, uint32_t, uint64_t*);
 
@@ -125,6 +126,10 @@ void gdev_raw_mem_free(gdev_mem_t*);
 gdev_mem_t *gdev_raw_mem_share
 (gdev_vas_t*, gdev_mem_t*, uint64_t*, uint64_t*, void**);
 void gdev_raw_mem_unshare(gdev_mem_t*);
-uint64_t gdev_raw_virt_to_phys(gdev_ctx_t*, gdev_mem_t*, uint64_t);
+uint32_t gdev_raw_read32(gdev_mem_t*, uint64_t);
+void gdev_raw_write32(gdev_mem_t*, uint64_t, uint32_t);
+int gdev_raw_read(gdev_mem_t*, void*, uint64_t, uint32_t);
+int gdev_raw_write(gdev_mem_t*, uint64_t, const void*, uint32_t);
+
 
 #endif

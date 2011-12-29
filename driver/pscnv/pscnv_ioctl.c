@@ -471,6 +471,166 @@ int pscnv_ioctl_fifo_init_ib(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int pscnv_ioctl_vm_read32(struct drm_device *dev, void *data, struct drm_file *file_priv) 
+{
+	struct drm_pscnv_vm_rw32 *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	uint32_t val;
+	int ret;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	mutex_lock(&vs->lock);
+	ret = dev_priv->vm->read32(vs, bo, req->addr, &val);
+	mutex_unlock(&vs->lock);
+	req->val = val;
+
+	pscnv_vspace_unref(vs);
+
+	return ret;
+}
+
+int pscnv_ioctl_vm_write32(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_pscnv_vm_rw32 *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	int ret;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	mutex_lock(&vs->lock);
+	ret = dev_priv->vm->write32(vs, bo, req->addr, req->val);
+	mutex_unlock(&vs->lock);
+
+	pscnv_vspace_unref(vs);
+
+	return ret;
+}
+
+int pscnv_ioctl_vm_read(struct drm_device *dev, void *data, struct drm_file *file_priv) 
+{
+	struct drm_pscnv_vm_rw *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	void *buf;
+	int ret;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	/* req->size should be < 0x400000 */
+	buf = kmalloc(req->size, GFP_KERNEL);
+	if (!buf) {
+		pscnv_vspace_unref(vs);
+		return -ENOMEM;
+	}
+
+	mutex_lock(&vs->lock);
+	ret = dev_priv->vm->read(vs, bo, req->addr, buf, req->size);
+	mutex_unlock(&vs->lock);
+
+	if (copy_to_user((void __user *) req->buf_rd, buf, req->size)) {
+		pscnv_vspace_unref(vs);
+		return -EINVAL;
+	}
+
+	kfree(buf);
+
+	pscnv_vspace_unref(vs);
+
+	return ret;
+}
+
+int pscnv_ioctl_vm_write(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_pscnv_vm_rw *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	void *buf;
+	int ret;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	/* req->size should be < 0x400000 */
+	buf = kmalloc(req->size, GFP_KERNEL);
+	if (!buf) {
+		pscnv_vspace_unref(vs);
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(buf, (void __user *) req->buf_wr, req->size)) {
+		pscnv_vspace_unref(vs);
+		return -EINVAL;
+	}
+
+	mutex_lock(&vs->lock);
+	ret = dev_priv->vm->write(vs, bo, req->addr, buf, req->size);
+	mutex_unlock(&vs->lock);
+
+	kfree(buf);
+
+	pscnv_vspace_unref(vs);
+
+	return ret;
+}
+
 #ifdef PSCNV_KAPI_DRM_IOCTL_DEF_DRV
 struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PSCNV_GETPARAM, pscnv_ioctl_getparam, DRM_UNLOCKED),
@@ -486,6 +646,10 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PSCNV_FIFO_INIT, pscnv_ioctl_fifo_init, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_OBJ_ENG_NEW, pscnv_ioctl_obj_eng_new, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_FIFO_INIT_IB, pscnv_ioctl_fifo_init_ib, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_READ32, pscnv_ioctl_vm_read32, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_WRITE32, pscnv_ioctl_vm_write32, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_READ, pscnv_ioctl_vm_read, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
 };
 #elif defined(PSCNV_KAPI_DRM_IOCTL_DEF)
 struct drm_ioctl_desc nouveau_ioctls[] = {
@@ -502,6 +666,10 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF(DRM_PSCNV_FIFO_INIT, pscnv_ioctl_fifo_init, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_OBJ_ENG_NEW, pscnv_ioctl_obj_eng_new, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_FIFO_INIT_IB, pscnv_ioctl_fifo_init_ib, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_READ32, pscnv_ioctl_vm_read32, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_WRITE32, pscnv_ioctl_vm_write32, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_READ, pscnv_ioctl_vm_read, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
 };
 #else
 #error "Unknown IOCTLDEF method."

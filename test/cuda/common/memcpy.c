@@ -34,12 +34,10 @@ int cuda_test_memcpy(unsigned int size)
 	CUdeviceptr data_addr;
 	unsigned int *in, *out;
 	struct timeval tv;
-	struct timeval tv_total_start, tv_total_end;
-	unsigned long total;
 	struct timeval tv_h2d_start, tv_h2d_end;
-	unsigned long h2d;
+	float h2d;
 	struct timeval tv_d2h_start, tv_d2h_end;
-	unsigned long d2h;
+	float d2h;
 
 	in = (unsigned int *) malloc(size);
 	out = (unsigned int *) malloc(size);
@@ -48,8 +46,6 @@ int cuda_test_memcpy(unsigned int size)
 		out[i] = 0;
 	}
 	
-	gettimeofday(&tv_total_start, NULL);
-
 	res = cuInit(0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuInit failed: res = %u\n", (unsigned int)res);
@@ -104,8 +100,6 @@ int cuda_test_memcpy(unsigned int size)
 		return -1;
 	}
 
-	gettimeofday(&tv_total_end, NULL);
-
 	for (i = 0; i < size / 4; i++) {
 		if (in[i] != out[i]) {
 			printf("in[%d] = %u, out[%d] = %u\n",
@@ -118,14 +112,12 @@ int cuda_test_memcpy(unsigned int size)
 	free(out);
 
 	tvsub(&tv_h2d_end, &tv_h2d_start, &tv);
-	h2d = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	h2d = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
 	tvsub(&tv_d2h_end, &tv_d2h_start, &tv);
-	d2h = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-	tvsub(&tv_total_end, &tv_total_start, &tv);
-	total = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	d2h = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
 
-	printf("HtoD: %lu\n", h2d);
-	printf("DtoH: %lu\n", d2h);
+	printf("HtoD: %f\n", h2d);
+	printf("DtoH: %f\n", d2h);
 
 	return 0;
 

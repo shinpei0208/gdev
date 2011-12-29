@@ -36,20 +36,14 @@
 
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
-int gdev_init_mmio(struct gdev_device *gdev)
+int gdev_init_private(struct gdev_device *gdev)
 {
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
-
-	gdev->mmio_regs = dev_priv->mmio;
-
 	return 0;
 }
 
 /* finalize the private Gdev members. */
-void gdev_exit_mmio(struct gdev_device *gdev)
+void gdev_exit_private(struct gdev_device *gdev)
 {
-	gdev->mmio_regs = NULL;
 }
 
 /* query device-specific information. */
@@ -90,12 +84,6 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev = &gdevs[minor];
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *priv = drm->dev_private;
-
-	if (gdev->users == 0) {
-		gdev->mmio_regs = priv->mmio;
-	}
 
 	gdev->users++;
 
@@ -423,9 +411,67 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 	kfree(mem);
 }
 
-uint64_t gdev_raw_virt_to_phys
-(struct gdev_ctx *ctx, struct gdev_mem *mem, uint64_t addr)
+uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 {
-	/* to be implemented. */
-	return addr;
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	uint32_t val;
+
+	mutex_lock(&vspace->lock);
+	dev_priv->vm->read32(vspace, bo, addr, &val);
+	mutex_unlock(&vspace->lock);
+	
+	return val;
+}
+
+void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	mutex_lock(&vspace->lock);
+	dev_priv->vm->write32(vspace, bo, addr, val);
+	mutex_unlock(&vspace->lock);
+}
+
+int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	int ret;
+
+	mutex_lock(&vspace->lock);
+	ret = dev_priv->vm->read(vspace, bo, addr, buf, size);
+	mutex_unlock(&vspace->lock);
+
+	return ret;
+}
+
+int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	int ret;
+
+	mutex_lock(&vspace->lock);
+	ret = dev_priv->vm->write(vspace, bo, addr, buf, size);
+	mutex_unlock(&vspace->lock);
+
+	return ret;
 }
