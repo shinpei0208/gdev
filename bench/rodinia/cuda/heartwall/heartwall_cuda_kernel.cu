@@ -231,6 +231,7 @@ __global__ void kernel(){
 
 		// work
 		ei_new = tx; // this causes page faults. 
+		ei_new = 0;
 		while(ei_new < d_common.conv_elem){
 
 			// figure out row/col location in array
