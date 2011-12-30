@@ -36,7 +36,7 @@
 #define GDEV_PIPELINE_DEFAULT_COUNT 2
 
 #define GDEV_CHUNK_MAX_SIZE 0x2000000 /* 32MB */
-#define GDEV_CHUNK_DEFAULT_SIZE 0x100000 /* 1MB */
+#define GDEV_CHUNK_DEFAULT_SIZE 0x200000 /* 2MB */
 
 /* define this if you want to allocate a new bounce buffer every time
    you copy data to/from device memory. */

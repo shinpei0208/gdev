@@ -38,6 +38,8 @@
 #include "cuda.h"
 #include "dirpath.h"
 
+#define ECB_SPLIT_LAUNCH
+
 #define ECB_GPU_ENC 0
 #define ECB_GPU_DEC 1
 #define ECB_GPU_SIZE_THRESHOLD (PAGE_SIZE-1)
@@ -90,7 +92,7 @@ CUresult launch_bpt
 	int nr_threads = size / 16; /* specific to our aes_gpu.cu */
 	int block_x = 32;
 	int block_y = 1;
-	int grid_x = nr_threads / block_x; /* should be < 512 */
+	int grid_x = nr_threads / block_x; /* should be < 1024 */
 	int grid_y = 1;
 	int offset;
 	unsigned long nrounds;
@@ -108,7 +110,7 @@ CUresult launch_bpt
             printk("[ecb_gpu] cuModuleGetFunction() failed\n");
             return res;
         }
-
+#if 0
         res = cuFuncSetBlockShape(func, block_x, block_y, 1);
         if (res != CUDA_SUCCESS) {
             printk("[ecb_gpu] cuFuncSetBlockShape() failed\n");
@@ -129,6 +131,16 @@ CUresult launch_bpt
             printk("[ecb_gpu] cuLaunchGrid failed: res = %u\n", res);
             return res;
         }
+#else
+		void *param[] = {&rkptr, &nrounds, &textptr};
+		res = cuLaunchKernel(func, sr->grid_x, sr->grid_y, 1, 
+							 sr->block_x, sr->block_y, 1, 
+							 0, 0, (void**)param, NULL);
+        if (res != CUDA_SUCCESS) {
+            printf("[ecb_gpu] cuLaunchKernel failed: res = %u\n", res);
+            return -1;
+        }
+#endif
     }
     else {
         nrounds = hctx->key_length/4+6;
@@ -140,7 +152,7 @@ CUresult launch_bpt
             printk("[ecb_gpu] cuModuleGetFunction() failed\n");
             return res;
         }
-
+#if 0
         res = cuFuncSetBlockShape(func, block_x, block_y, 1);
         if (res != CUDA_SUCCESS) {
             printk("[ecb_gpu] cuFuncSetBlockShape() failed\n");
@@ -161,6 +173,16 @@ CUresult launch_bpt
             printk("[ecb_gpu] cuLaunchGrid failed: res = %u\n", res);
             return res;
         }
+#else
+		void *param[] = {&rkptr, &nrounds, &textptr};
+		res = cuLaunchKernel(func, sr->grid_x, sr->grid_y, 1, 
+							 sr->block_x, sr->block_y, 1, 
+							 0, 0, (void**)param, NULL);
+        if (res != CUDA_SUCCESS) {
+            printf("[ecb_gpu] cuLaunchKernel failed: res = %u\n", res);
+            return -1;
+        }
+#endif
     }
 
     return CUDA_SUCCESS;
@@ -250,7 +272,6 @@ static int ecb_gpu_crypt
 	}
 	else {
 		page_locked = true;
-		printk("[ecb_gpu] Pinned host memory.\n");
 	}
 
 	res = cuMemAlloc(&devptr, rsz + sizeof(struct crypto_aes_ctx));

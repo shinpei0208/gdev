@@ -61,6 +61,7 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
             return 0;
         }
 
+#if 0
         res = cuFuncSetBlockShape(func, sr->block_x, sr->block_y, 1);
         if (res != CUDA_SUCCESS) {
             printf("cuFuncSetBlockShape() failed\n");
@@ -81,6 +82,16 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
             printf("cuLaunchGrid failed: res = %u\n", res);
             return 0;
         }
+#else
+		void *param[] = {&rkptr, &nrounds, &textptr};
+		res = cuLaunchKernel(func, sr->grid_x, sr->grid_y, 1, 
+							 sr->block_x, sr->block_y, 1, 
+							 0, 0, (void**)param, NULL);
+        if (res != CUDA_SUCCESS) {
+            printf("cuLaunchKernel failed: res = %u\n", res);
+            return -1;
+        }
+#endif
     }
     else {
         nrounds = hctx->key_length/4+6;
@@ -93,6 +104,7 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
             return 0;
         }
 
+#if 0
         res = cuFuncSetBlockShape(func, sr->block_x, sr->block_y, 1);
         if (res != CUDA_SUCCESS) {
             printf("cuFuncSetBlockShape() failed\n");
@@ -107,12 +119,21 @@ int gaes_ecb_launch_bpt(struct kgpu_service_request *sr)
 		cuParamSetv(func, offset, &textptr, sizeof(textptr));
 		offset += sizeof(textptr);
         cuParamSetSize(func, offset);
-
         res = cuLaunchGrid(func, sr->grid_x, sr->grid_y);
         if (res != CUDA_SUCCESS) {
             printf("cuLaunchGrid failed: res = %u\n", res);
             return 0;
         }
+#else
+		void *param[] = {&rkptr, &nrounds, &textptr};
+		res = cuLaunchKernel(func, sr->grid_x, sr->grid_y, 1, 
+							 sr->block_x, sr->block_y, 1, 
+							 0, 0, (void**)param, NULL);
+        if (res != CUDA_SUCCESS) {
+            printf("cuLaunchKernel failed: res = %u\n", res);
+            return -1;
+        }
+#endif
     }
 
     return 0;
