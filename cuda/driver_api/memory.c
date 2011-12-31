@@ -29,8 +29,8 @@
 #include "gdev_cuda.h"
 
 /***************************************************************************
- * Currently, a very limited set of memory management functions is supported
- * under Gdev. There are lots of things to be additionally implemented...
+ * Currently a very limited set of memory management functions is supported.
+ * There are lots things to be additionally implemented...
  ***************************************************************************/
 
 /**
@@ -231,6 +231,34 @@ CUresult cuMemcpyHtoD
 }
 
 /**
+ * Copies from host memory to device memory. dstDevice and srcHost are the base
+ * addresses of the destination and source, respectively. ByteCount specifies 
+ * the number of bytes to copy.
+ *
+ * cuMemcpyHtoDAsync() is asynchronous and can optionally be associated to a 
+ * stream by passing a non-zero hStream argument. It only works on page-locked 
+ * memory and returns an error if a pointer to pageable memory is passed as 
+ * input.
+ *
+ * Parameters:
+ * dstDevice - Destination device pointer
+ * srcHost - Source host pointer
+ * ByteCount - Size of memory copy in bytes
+ * hStream - Stream identifier 
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemcpyHtoDAsync
+(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, 
+ CUstream hStream)
+{
+	GDEV_PRINT("cuMemcpyHtoD: Not Implemented Yet\n");
+	return CUDA_SUCCESS;
+}
+
+/**
  * Copies from device to host memory. dstHost and srcDevice specify the base 
  * pointers of the destination and source, respectively. ByteCount specifies 
  * the number of bytes to copy. Note that this function is synchronous.
@@ -267,7 +295,35 @@ CUresult cuMemcpyDtoH
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Copies from device to host memory. dstHost and srcDevice specify the base 
+ * pointers of the destination and source, respectively. ByteCount specifies 
+ * the number of bytes to copy.
+ *
+ * cuMemcpyDtoHAsync() is asynchronous and can optionally be associated to a 
+ * stream by passing a non-zero hStream argument. It only works on page-locked 
+ * memory and returns an error if a pointer to pageable memory is passed as 
+ * input.
+ *
+ * Parameters:
+ * dstHost - Destination host pointer
+ * srcDevice - Source device pointer
+ * ByteCount - Size of memory copy in bytes
+ * hStream - Stream identifier
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemcpyDtoHAsync
+(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hstream)
+{
+	GDEV_PRINT("cuMemcpyDtoH: Not Implemented Yet\n");
+	return CUDA_SUCCESS;
+}
+
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
+	GDEV_PRINT("cuMemcpyDtoD: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }

@@ -2,7 +2,7 @@
 
 CC	= gcc
 TARGET	= libgdev
-CFLAGS	= -O3 -Wall
+CFLAGS	= -O2 -Wall
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h,gdev_lib.h,gdev_nvidia_def.h,gdev_list.h,gdev_time.h
 
