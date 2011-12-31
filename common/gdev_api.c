@@ -806,7 +806,7 @@ int gmemcpy_in_device
 
 /**
  * glaunch():
- * launch the GPU kernel.
+ * launch the GPU kernel code.
  */
 int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
@@ -814,6 +814,7 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 	gdev_ctx_t *ctx = h->ctx;
 
 	gdev_shmem_lock_all(vas);
+	gdev_shmem_reload_all(h, vas); /* this reloads data only if necessary */
 	*id = gdev_launch(ctx, kernel);
 	gdev_shmem_unlock_all(vas);
 

@@ -1,0 +1,13 @@
+# Makefile
+TARGET	= user_test
+CC	= gcc
+NVCC	= nvcc -arch sm_20 -cubin
+LIBS	= -lcuda
+CFLAGS	= -I /usr/local/cuda/include
+
+all:
+	$(NVCC) -o loop_gpu.cubin loop_gpu.cu
+	gcc -o $(TARGET) $(CFLAGS) $(LIBS) main.c
+
+clean:
+	rm -f $(TARGET) *.cubin ./*~

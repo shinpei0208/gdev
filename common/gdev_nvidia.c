@@ -418,7 +418,8 @@ void gdev_mem_gc(struct gdev_vas *vas)
 	}
 }
 
-/* evict the shared memory object data. */
+/* evict the shared memory object data.
+   the shared memory object associated with @mem must be locked. */
 int gdev_shmem_evict(void *h, struct gdev_mem *mem)
 {
 	struct gdev_mem *holder;
@@ -453,7 +454,21 @@ fail_malloc:
 	return ret;
 }
 
-/* reload the evicted memory object data. */
+/* evict all the shared memory object data associated to @vas. 
+   all the shared memory objects associated to @vas must be locked. */
+int gdev_shmem_evict_all(void *h, struct gdev_vas *vas)
+{
+	struct gdev_mem *mem;
+
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_shmem_evict(h, mem);
+	}
+
+	return 0;
+}
+
+/* reload the evicted memory object data. 
+   the shared memory object associated with @mem must be locked. */
 int gdev_shmem_reload(void *h, struct gdev_mem *mem)
 {
 	uint64_t addr;
@@ -462,6 +477,9 @@ int gdev_shmem_reload(void *h, struct gdev_mem *mem)
 	int ret;
 
 	if (mem->evicted) {
+		/* evict the corresponding memory space first. */
+		gdev_shmem_evict(h, mem);
+		/* reload data regardless whether eviction succeeded or failed. */
 		addr = mem->addr;
 		buf = mem->swap_buf;
 		size = mem->size;
@@ -476,6 +494,19 @@ int gdev_shmem_reload(void *h, struct gdev_mem *mem)
 
 fail_reload:
 	return ret;
+}
+
+/* reload all the evicted memory object data associated to @vas.
+   all the shared memory objects associated to @vas must be locked. */
+int gdev_shmem_reload_all(void *h, struct gdev_vas *vas)
+{
+	struct gdev_mem *mem;
+
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_shmem_reload(h, mem);
+	}
+
+	return 0;
 }
 
 /* find a memory object that we can borrow some memory space from. */
@@ -613,12 +644,30 @@ void gdev_shmem_unlock(struct gdev_mem *mem)
 	}
 }
 
+/* lock all the shared memory objects associated with @vas. */
 void gdev_shmem_lock_all(struct gdev_vas *vas)
 {
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+
+	MUTEX_LOCK(&gdev->shmem_mutex);
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_shmem_lock(mem);
+	}
+	MUTEX_UNLOCK(&gdev->shmem_mutex);
 }
 
+/* unlock all the shared memory objects associated with @vas. */
 void gdev_shmem_unlock_all(struct gdev_vas *vas)
 {
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+
+	MUTEX_LOCK(&gdev->shmem_mutex);
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_shmem_unlock(mem);
+	}
+	MUTEX_UNLOCK(&gdev->shmem_mutex);
 }
 
 /* add a new VAS object into the device VAS list. */
