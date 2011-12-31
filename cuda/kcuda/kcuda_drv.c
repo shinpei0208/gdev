@@ -33,7 +33,6 @@
 #include <linux/stat.h>
 #include "cuda.h"
 
-
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Gdev/KCUDA");
 MODULE_AUTHOR("Shinpei Kato");

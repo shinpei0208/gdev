@@ -63,6 +63,11 @@ struct gdev_handle *gopen(int minor)
 	h->fd = fd;
 	gdev_list_init(&h->map_bo_list, NULL);
 
+	/* chunk size of 0x40000 seems best when using OS runtime. */
+	if (gtune(h, GDEV_TUNE_MEMCPY_CHUNK_SIZE, 0x40000)) {
+		return NULL;
+	}
+
 	return h;
 }
 
