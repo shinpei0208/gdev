@@ -149,8 +149,9 @@ free:
 	return mem.size;
 }
 
-int gmemcpy_to_device
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+static int __gmemcpy_to_device
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size,
+ int ioctl_cmd)
 {
 	struct gdev_map_bo *bo;
 	struct gdev_ioctl_dma dma;
@@ -168,11 +169,26 @@ int gmemcpy_to_device
 		dma.src_buf = src_buf;
 	dma.size = size;
 
-	return ioctl(fd, GDEV_IOCTL_GMEMCPY_TO_DEVICE, &dma);
+	return ioctl(fd, ioctl_cmd, &dma);
 }
 
-int gmemcpy_from_device
-(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+int gmemcpy_to_device
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+{
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
+							   GDEV_IOCTL_GMEMCPY_TO_DEVICE);
+}
+
+int gmemcpy_to_device_async
+(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+{
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 
+							   GDEV_IOCTL_GMEMCPY_TO_DEVICE_ASYNC);
+}
+
+static int __gmemcpy_from_device
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, 
+ int ioctl_cmd)
 {
 	struct gdev_map_bo *bo;
 	struct gdev_ioctl_dma dma;
@@ -190,7 +206,21 @@ int gmemcpy_from_device
 		dma.dst_buf = dst_buf;
 	dma.size = size;
 
-	return ioctl(fd, GDEV_IOCTL_GMEMCPY_FROM_DEVICE, &dma);
+	return ioctl(fd, ioctl_cmd, &dma);
+}
+
+int gmemcpy_from_device
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+{
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size,
+								 GDEV_IOCTL_GMEMCPY_FROM_DEVICE);
+}
+
+int gmemcpy_from_device_async
+(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+{
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size,
+								 GDEV_IOCTL_GMEMCPY_FROM_DEVICE_ASYNC);
 }
 
 int gmemcpy_in_device

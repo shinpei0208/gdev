@@ -729,51 +729,38 @@ CUresult cuCtxPushCurrent(CUcontext ctx);
 CUresult cuCtxSynchronize(void);
 
 /* Module Management */
-CUresult cuModuleGetFunction
-(CUfunction *hfunc, CUmodule hmod, const char *name);
-CUresult cuModuleGetGlobal
-(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name);
+CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name);
+CUresult cuModuleGetGlobal(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name);
 CUresult cuModuleGetTexRef(CUtexref *pTexRef, CUmodule hmod, const char *name);
 CUresult cuModuleLoad(CUmodule *module, const char *fname);
 CUresult cuModuleLoadData(CUmodule *module, const void *image);
-CUresult cuModuleLoadDataEx
-(CUmodule *module, const void *image, unsigned int numOptions, 
- CUjit_option *options, void **optionValues);
+CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int numOptions, CUjit_option *options, void **optionValues);
 CUresult cuModuleLoadFatBinary(CUmodule *module, const void *fatCubin);
 CUresult cuModuleUnload(CUmodule hmod);
 
 /* Execution Control */
-CUresult cuFuncGetAttribute
-(int *pi, CUfunction_attribute attrib, CUfunction hfunc);
+CUresult cuFuncGetAttribute(int *pi, CUfunction_attribute attrib, CUfunction hfunc);
 CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z);
 CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes);
 CUresult cuLaunch(CUfunction f);
 CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height);
-CUresult cuLaunchGridAsync
-(CUfunction f, int grid_width, int grid_height, CUstream hStream);
-CUresult cuLaunchKernel
-(CUfunction f, 
- unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
- unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
- unsigned int sharedMemBytes, CUstream hStream, 
- void **kernelParams, void **extra);
+CUresult cuLaunchGridAsync(CUfunction f, int grid_width, int grid_height, CUstream hStream);
+CUresult cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, void **kernelParams, void **extra);
 CUresult cuParamSetf(CUfunction hfunc, int offset, float value);
 CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value);
 CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes);
 CUresult cuParamSetTexRef(CUfunction hfunc, int texunit, CUtexref hTexRef);
-CUresult cuParamSetv
-(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes);
+CUresult cuParamSetv(CUfunction hfunc, int offset, void *ptr, unsigned int numbytes);
 
 /* Memory Management (Incomplete) */
 CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize);
 CUresult cuMemFree(CUdeviceptr dptr);
 CUresult cuMemAllocHost(void **pp, unsigned int bytesize);
 CUresult cuMemFreeHost(void *p);
-CUresult cuMemcpyDtoH
-(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount);
-CUresult cuMemcpyHtoD
-(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount);
-CUresult cuMemcpyDtoD
-(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
+CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount);
+CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream);
+CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount);
+CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream);
+CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
 
 #endif

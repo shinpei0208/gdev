@@ -132,6 +132,46 @@ int gdev_ioctl_gmemcpy_to_device(Ghandle handle, unsigned long arg)
 	return 0;
 }
 
+int gdev_ioctl_gmemcpy_to_device_async(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_dma dma;
+	int ret;
+#ifndef GDEV_MEMCPY_USER_DIRECT
+	void *buf;
+#endif
+
+	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
+		return -EFAULT;
+
+#ifdef GDEV_MEMCPY_USER_DIRECT
+	ret = gmemcpy_user_to_device_async(handle, dma.dst_addr, dma.src_buf, dma.size);
+	if (ret)
+		return ret;
+#else
+	if (dma.size > 0x400000)
+		buf = vmalloc(dma.size);
+	else
+		buf = kmalloc(dma.size, GFP_KERNEL);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, (void __user *)dma.src_buf, dma.size))
+		return -EFAULT;
+
+	ret = gmemcpy_to_device_async(handle, dma.dst_addr, buf, dma.size);
+	if (ret)
+		return ret;
+
+	if (dma.size > 0x400000)
+		vfree(buf);
+	else
+		kfree(buf);
+#endif
+
+	return 0;
+}
+
 int gdev_ioctl_gmemcpy_from_device(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_dma dma;
@@ -157,6 +197,46 @@ int gdev_ioctl_gmemcpy_from_device(Ghandle handle, unsigned long arg)
 		return -ENOMEM;
 
 	ret = gmemcpy_from_device(handle, buf, dma.src_addr, dma.size);
+	if (ret)
+		return ret;
+
+	if (copy_to_user((void __user *)dma.dst_buf, buf, dma.size))
+		return -EFAULT;
+
+	if (dma.size > 0x400000)
+		vfree(buf);
+	else
+		kfree(buf);
+#endif
+
+	return 0;
+}
+
+int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_dma dma;
+	int ret;
+#ifndef GDEV_MEMCPY_USER_DIRECT
+	void *buf;
+#endif
+
+	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
+		return -EFAULT;
+
+#ifdef GDEV_MEMCPY_USER_DIRECT
+	ret = gmemcpy_user_from_device_async(handle, dma.dst_buf, dma.src_addr, dma.size);
+	if (ret)
+		return ret;
+#else
+	if (dma.size > 0x400000)
+		buf = vmalloc(dma.size);
+	else
+		buf = kmalloc(dma.size, GFP_KERNEL);
+
+	if (!buf)
+		return -ENOMEM;
+
+	ret = gmemcpy_from_device_async(handle, buf, dma.src_addr, dma.size);
 	if (ret)
 		return ret;
 

@@ -32,6 +32,31 @@
 #include "gdev_proto.h"
 #include "gdev_time.h"
 
+/**
+ * these functions must be used when evicting/reloading data.
+ */
+int gdev_callback_evict(void*, void*, uint64_t, uint64_t, struct gdev_mem*);
+int gdev_callback_reload(void*, uint64_t, void*, uint64_t, struct gdev_mem*);
+
+/**
+ * memcpy functions prototypes
+ */
+static uint32_t gdev_memcpy_sync
+(struct gdev_ctx *, uint64_t, uint64_t, uint32_t, uint32_t);
+static uint32_t gdev_memcpy_async
+(struct gdev_ctx *, uint64_t, uint64_t, uint32_t, uint32_t);
+
+/**
+ * pointers to memcpy functions.
+ * gdev_memcpy_func[0] is synchronous memcpy.
+ * gdev_memcpy_func[1] is asynchrounous memcpy.
+ */
+static uint32_t (*gdev_memcpy_func[2])
+(struct gdev_ctx*, uint64_t, uint64_t, uint32_t, uint32_t) = {
+	gdev_memcpy_sync,
+	gdev_memcpy_async
+};
+
 /* initialize the common Gdev members. */
 int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 {
@@ -78,50 +103,81 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence;
+	uint32_t seq;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
 		ctx->fence.seq = 1;
-	sequence = ctx->fence.seq;
+	seq = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *after* launch():
 	   the LAUNCH method of the PGRAPH engine is not associated with
 	   the QUERY method, i.e., we have to submit the QUERY method 
 	   explicitly after the kernel is launched. */
-	compute->fence_reset(ctx, sequence);
+	compute->fence_reset(ctx, seq);
 	compute->launch(ctx, kern);
-	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, sequence);
+	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
 	
-	return sequence;
+	return seq;
 }
 
-/* copy data of @size from @src_addr to @dst_addr. */
-uint32_t gdev_memcpy
-(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+/* synchrounously copy data of @size from @src_addr to @dst_addr. */
+static uint32_t gdev_memcpy_sync
+(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
+ uint32_t seq)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-	uint32_t sequence;
-
-	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
-		ctx->fence.seq = 1;
-	sequence = ctx->fence.seq;
 
 	compute->membar(ctx);
 	/* it's important to emit a fence *before* memcpy():
 	   the EXEC method of the PCOPY and M2MF engines is associated with
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
-	compute->fence_reset(ctx, sequence);
-	compute->fence_write(ctx, GDEV_SUBCH_M2MF, sequence);
+	compute->fence_reset(ctx, seq);
+	compute->fence_write(ctx, GDEV_SUBCH_M2MF, seq);
 	compute->memcpy(ctx, dst_addr, src_addr, size);
 
-	return sequence;
+	return seq;
 }
 
-/* read 32-bit value at @addr. */
+/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
+static uint32_t gdev_memcpy_async
+(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
+ uint32_t seq)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+
+	compute->membar(ctx);
+	/* it's important to emit a fence *before* memcpy():
+	   the EXEC method of the PCOPY and M2MF engines is associated with
+	   the QUERY method, i.e., if QUERY is set, the sequence will be 
+	   written to the specified address when the data are transfered. */
+	compute->fence_reset(ctx, seq);
+	compute->fence_write(ctx, GDEV_SUBCH_PCOPY0, seq);
+	compute->memcpy_async(ctx, dst_addr, src_addr, size);
+
+	return seq;
+}
+
+/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
+uint32_t gdev_memcpy
+(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
+ int async)
+{
+	uint32_t seq;
+
+	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 1;
+	seq = ctx->fence.seq;
+
+	return gdev_memcpy_func[async](ctx, dst_addr, src_addr, size, seq);
+}
+
+/* read 32-bit value from @addr. */
 uint32_t gdev_read32(struct gdev_mem *mem, uint64_t addr)
 {
 	return gdev_raw_read32(mem, addr);
@@ -133,11 +189,13 @@ void gdev_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 	gdev_raw_write32(mem, addr, val);
 }
 
+/* read @size of data from @addr. */
 int gdev_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 {
 	return gdev_raw_read(mem, buf, addr, size);
 }
 
+/* write @size of data to @addr. */
 int gdev_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
 {
 	return gdev_raw_write(mem, addr, buf, size);
@@ -152,10 +210,11 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 	struct gdev_compute *compute = gdev->compute;
 
 	gdev_time_stamp(&time_start);
-	gdev_time_ms(&time_relax, 1); /* relax polling when 1 ms elapsed. */
+	gdev_time_ms(&time_relax, 100); /* relax polling when 100 ms elapsed. */
 
 	while (seq != compute->fence_read(ctx, seq)) {
 		gdev_time_stamp(&time_now);
+		/* time_elapse = time_now - time_start */
 		gdev_time_sub(&time_elapse, &time_now, &time_start);
 		/* relax polling after some time. */
 		if (gdev_time_ge(&time_elapse, &time_relax))
@@ -359,43 +418,26 @@ void gdev_mem_gc(struct gdev_vas *vas)
 	}
 }
 
-/* reload the evicted memory object data. */
-int gdev_mem_reload(struct gdev_mem *mem, void *h)
-{
-	int ret;
-
-	if (mem->evicted) {
-		if ((ret = gmemcpy_to_device(h, mem->addr, mem->swap_buf, mem->size)))
-			goto fail_gmemcpy;
-		mem->evicted = 0;
-		mem->shmem->holder = mem;
-		FREE(mem->swap_buf);
-	}
-
-	return 0;
-
-fail_gmemcpy:
-	return ret;
-}
-
 /* evict the shared memory object data. */
-int gdev_shmem_evict(struct gdev_mem *mem, void *h)
+int gdev_shmem_evict(void *h, struct gdev_mem *mem)
 {
 	struct gdev_mem *holder;
+	uint64_t addr;
 	uint64_t size;
 	void *buf;
 	int ret;
 
 	if (mem->shmem) {
-		if (mem->shmem->holder) {
+		if (mem->shmem->holder && mem->shmem->holder != mem) {
+			addr = mem->addr;
 			holder = mem->shmem->holder;
 			size = mem->shmem->size;
 			if (!(buf = MALLOC(size))) {
 				ret = -ENOMEM;
 				goto fail_malloc;
 			}
-			if ((ret = gmemcpy_from_device(h, buf, mem->addr, size)))
-				goto fail_gmemcpy;
+			if ((ret = gdev_callback_evict(h, buf, addr, size, mem)))
+				goto fail_evict;
 			holder->swap_buf = buf;
 			holder->evicted = 1;
 		}
@@ -405,9 +447,34 @@ int gdev_shmem_evict(struct gdev_mem *mem, void *h)
 	return 0;
 
 	
-fail_gmemcpy:
+fail_evict:
 	FREE(buf);
 fail_malloc:
+	return ret;
+}
+
+/* reload the evicted memory object data. */
+int gdev_shmem_reload(void *h, struct gdev_mem *mem)
+{
+	uint64_t addr;
+	uint64_t size;
+	void *buf;
+	int ret;
+
+	if (mem->evicted) {
+		addr = mem->addr;
+		buf = mem->swap_buf;
+		size = mem->size;
+		if ((ret = gdev_callback_reload(h, addr, buf, size, mem)))
+			goto fail_reload;
+		mem->evicted = 0;
+		mem->shmem->holder = mem;
+		FREE(mem->swap_buf);
+	}
+
+	return 0;
+
+fail_reload:
 	return ret;
 }
 
@@ -513,14 +580,14 @@ struct gdev_mem *gdev_shmem_request
 
 	__gdev_mem_init(new, vas, addr, size, map, GDEV_MEM_DEVICE);
 
-	MUTEX_LOCK(&new->shmem->mutex);
+	MUTEX_LOCK(&mem->shmem->mutex);
 	new->shmem = mem->shmem;
 	/* set the highest prio among users to the shared memory's priority. */
 	if (new->shmem->prio < vas->prio)
 		new->shmem->prio = vas->prio;
 	/* insert the new memory object into the shared memory list. */
 	gdev_list_add(&new->list_entry_shmem, &new->shmem->shmem_list);
-	MUTEX_UNLOCK(&new->shmem->mutex);
+	MUTEX_UNLOCK(&mem->shmem->mutex);
 
 	return new;
 

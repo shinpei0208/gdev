@@ -83,8 +83,6 @@ int cuda_test_memcpy_async(unsigned int size)
 		return -1;
 	}
 
-	cuCtxSynchronize();
-
 	gettimeofday(&tv_d2h_start, NULL);
 	res = cuMemcpyDtoHAsync(out, data_addr, size, 0);
 	gettimeofday(&tv_d2h_end, NULL);
