@@ -65,18 +65,7 @@ void test_tasks(unsigned int size, int nr_tasks)
 		exit(-1);
 	}
 
-	if (--nr_tasks) {
-		pid = fork();
-		if (pid == 0) { /* child */
-			test_tasks(size, nr_tasks);
-			printf("Child finished\n");
-			exit(0);
-		}
-		else { /* parent */
-			waitpid(pid, &status, 0);
-		}
-	}
-
+#if 1
 	res = cuModuleLoad(&module, "./loop_gpu.cubin");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleLoad() failed\n");
@@ -94,6 +83,39 @@ void test_tasks(unsigned int size, int nr_tasks)
 		printf("cuLaunchKernel failed: res = %u\n", res);
 		exit(-1);
 	}
+#endif
+
+	if (--nr_tasks) {
+		pid = fork();
+		if (pid == 0) { /* child */
+			test_tasks(size, nr_tasks);
+			printf("Child finished\n");
+			exit(0);
+		}
+		else { /* parent */
+			waitpid(pid, &status, 0);
+		}
+	}
+
+#if 0
+	res = cuModuleLoad(&module, "./loop_gpu.cubin");
+	if (res != CUDA_SUCCESS) {
+		printf("cuModuleLoad() failed\n");
+		exit(-1);
+	}
+	res = cuModuleGetFunction(&function, module, "_Z4loopPjjj");
+	if (res != CUDA_SUCCESS) {
+		printf("cuModuleGetFunction() failed\n");
+		exit(-1);
+	}
+	
+	void *param1[] = {&data_addr, &size, &n}; 
+	res = cuLaunchKernel(function, 1, 1, 1, 1, 1, 1, 0, 0, (void**)param1, 0);
+	if (res != CUDA_SUCCESS) {
+		printf("cuLaunchKernel failed: res = %u\n", res);
+		exit(-1);
+	}
+#endif
 
 	res = cuMemcpyDtoH(out, data_addr, size);
 	if (res != CUDA_SUCCESS) {
