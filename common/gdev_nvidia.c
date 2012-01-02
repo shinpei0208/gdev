@@ -34,9 +34,12 @@
 
 /**
  * these functions must be used when evicting/reloading data.
+ * better implementations wanted!
  */
-int gdev_callback_evict(void*, void*, uint64_t, uint64_t, struct gdev_mem*);
-int gdev_callback_reload(void*, uint64_t, void*, uint64_t, struct gdev_mem*);
+int gdev_callback_evict_to_host(void*, void*, uint64_t, uint64_t);
+int gdev_callback_evict_to_device(void*, uint64_t, uint64_t, uint64_t);
+int gdev_callback_reload_from_host(void*, uint64_t, void*, uint64_t);
+int gdev_callback_reload_from_device(void*, uint64_t, uint64_t, uint64_t);
 
 /**
  * memcpy functions prototypes
@@ -69,6 +72,24 @@ int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
 	LOCK_INIT(&gdev->vas_lock);
 	MUTEX_INIT(&gdev->shmem_mutex);
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		gdev->swap = gdev_raw_swap_alloc(gdev, GDEV_SWAP_MEM_SIZE);
+		if (gdev->swap) {
+			struct gdev_shmem *shmem;
+			shmem = MALLOC(sizeof(*shmem));
+			if (shmem)
+				shmem->holder = NULL;
+			else
+				gdev->swap = NULL;
+			gdev->swap->shmem = shmem;
+		}
+		else {
+			gdev->swap = NULL;
+		}
+	}
+	else {
+		gdev->swap = NULL;
+	}
 
     switch (gdev->chipset & 0xf0) {
     case 0xC0:
@@ -95,6 +116,14 @@ int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 void gdev_exit_common(struct gdev_device *gdev)
 {
 	gdev_exit_private(gdev);
+
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		if (gdev->swap) {
+			if (gdev->swap->shmem)
+				FREE(gdev->swap->shmem);
+			gdev_raw_swap_free(gdev->swap);
+		}
+	}
 }
 
 /* launch the kernel onto the GPU. */
@@ -102,8 +131,15 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *dev_swap = gdev->swap;
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t seq;
+
+	if (dev_swap && dev_swap->shmem->holder) {
+		struct gdev_mem *mem = dev_swap->shmem->holder;
+		gdev_shmem_evict(ctx, mem->swap_mem); /* don't pass gdev->swap! */
+		dev_swap->shmem->holder = NULL;
+	}
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
 		ctx->fence.seq = 1;
@@ -259,7 +295,7 @@ void gdev_dev_close(struct gdev_device *gdev)
 }
 
 /* allocate a new virual address space (VAS) object. */
-struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
+struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size, void *h)
 {
 	struct gdev_vas *vas;
 
@@ -267,8 +303,9 @@ struct gdev_vas *gdev_vas_new(struct gdev_device *gdev, uint64_t size)
 		return NULL;
 	}
 
-	vas->prio = GDEV_PRIO_DEFAULT;
+	vas->handle = h;
 	vas->gdev = gdev;
+	vas->prio = GDEV_PRIO_DEFAULT;
 	gdev_list_init(&vas->list_entry, (void *) vas); /* entry to VAS list. */
 	gdev_list_init(&vas->mem_list, NULL); /* device memory list. */
 	gdev_list_init(&vas->dma_mem_list, NULL); /* host dma memory list. */
@@ -284,7 +321,8 @@ void gdev_vas_free(struct gdev_vas *vas)
 }
 
 /* create a new GPU context object. */
-struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
+struct gdev_ctx *gdev_ctx_new
+(struct gdev_device *gdev, struct gdev_vas *vas, void *h)
 {
 	struct gdev_ctx *ctx;
 	struct gdev_compute *compute = gdev->compute;
@@ -293,6 +331,7 @@ struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 		return NULL;
 	}
 
+	ctx->handle = h;
 	ctx->vas = vas;
 
 	/* initialize the channel. */
@@ -318,11 +357,54 @@ static void __gdev_mem_init
 	mem->map = map;
 	mem->type = type;
 	mem->evicted = 0;
+	mem->swap_mem = NULL;
 	mem->swap_buf = NULL;
 	mem->shmem = NULL;
 
 	gdev_list_init(&mem->list_entry_heap, (void *) mem);
 	gdev_list_init(&mem->list_entry_shmem, (void *) mem);
+}
+
+/* attach device memory and allocate host buffer for swap */
+static int __gdev_swap_create(struct gdev_mem *mem)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *swap_mem;
+	uint64_t addr, size;
+	void *map, *swap_buf;
+
+	/* host buffer for swap. */
+	swap_buf = MALLOC(mem->size);
+	if (!swap_buf)
+		goto fail_swap_buf;
+	/* device memory for temporal swap (shared by others). */
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		swap_mem = gdev_raw_mem_share(vas, gdev->swap, &addr, &size, &map);
+		if (!swap_mem)
+			goto fail_swap_mem;
+		__gdev_mem_init(swap_mem, vas, addr, size, map,	GDEV_MEM_DEVICE);
+	}
+	else {
+		swap_mem = NULL;
+	}
+	mem->swap_buf = swap_buf;
+	mem->swap_mem = swap_mem;
+
+	return 0;
+
+fail_swap_mem:
+	FREE(swap_buf);
+fail_swap_buf:
+	return -ENOMEM;
+}
+
+/* dettach device memory and free host buffer for swap */
+static void __gdev_swap_destroy(struct gdev_mem *mem)
+{
+	if (GDEV_SWAP_MEM_SIZE > 0)
+		gdev_raw_mem_unshare(mem->swap_mem);
+	FREE(mem->swap_buf);
 }
 
 /* allocate a new memory object. */
@@ -361,42 +443,43 @@ void gdev_mem_free(struct gdev_mem *mem)
 	struct gdev_shmem *shmem = mem->shmem;
 	struct gdev_mem *m;
 
-	/* be careful of dead lock. */
-	MUTEX_LOCK(&gdev->shmem_mutex);
+	MUTEX_LOCK(&gdev->shmem_mutex); /* be careful of dead lock. */
 
 	/* if the memory object is not shared, free it. */
 	if (!shmem) {
 		gdev_raw_mem_free(mem);
 	}
-	/* if the memory object is shared but no users, free it. 
-	   since users == 0, no one else will use mem->shmem. */
-	else if (shmem->users == 0) {
-		MUTEX_LOCK(&shmem->mutex);
-		shmem->users--;
-		mem->shmem = NULL;
-		gdev_raw_mem_free(mem);
-		MUTEX_UNLOCK(&shmem->mutex);
-		FREE(shmem);
-	}
-	/* otherwise, just unshare the memory object. */
 	else {
 		MUTEX_LOCK(&shmem->mutex);
+		mem->shmem = NULL;
 		gdev_list_del(&mem->list_entry_shmem);
-		/* if a freeing memory object has the highest priority among the 
-		   shared memory objects, find the next highest priority one. */
-		if (shmem->prio == vas->prio) {
-			int prio = GDEV_PRIO_MIN;
-			gdev_list_for_each (m, &shmem->shmem_list, list_entry_shmem) {
-				if (m->vas->prio < prio)
-					prio = m->vas->prio;
-			}
-			shmem->prio = prio;
+		__gdev_swap_destroy(mem);
+		/* if the memory object is shared but no users, free it. 
+		   since users == 0, no one else will use mem->shmem. */
+		if (shmem->users == 0) {
+			gdev_raw_mem_free(mem);
+			MUTEX_UNLOCK(&shmem->mutex);
+			FREE(shmem);
 		}
-		if (shmem->holder == mem)
-			shmem->holder = NULL;
-		shmem->users--;
-		gdev_raw_mem_unshare(mem);
-		MUTEX_UNLOCK(&shmem->mutex);
+		/* otherwise, just unshare the memory object. */
+		else {
+			/* if a freeing memory object has the highest priority among the 
+			   shared memory objects, find the next highest priority one. */
+			if (shmem->prio == vas->prio) {
+				int prio = GDEV_PRIO_MIN;
+				gdev_list_for_each (m, &shmem->shmem_list, list_entry_shmem) {
+					if (m->vas->prio < prio)
+						prio = m->vas->prio;
+				}
+				shmem->prio = prio;
+			}
+			if (shmem->holder == mem)
+				shmem->holder = NULL;
+			/* unshare the memory object. */
+			gdev_raw_mem_unshare(mem);
+			shmem->users--;
+			MUTEX_UNLOCK(&shmem->mutex);
+		}
 	}
 
 	MUTEX_UNLOCK(&gdev->shmem_mutex);
@@ -420,27 +503,39 @@ void gdev_mem_gc(struct gdev_vas *vas)
 
 /* evict the shared memory object data.
    the shared memory object associated with @mem must be locked. */
-int gdev_shmem_evict(void *h, struct gdev_mem *mem)
+int gdev_shmem_evict(struct gdev_ctx *ctx, struct gdev_mem *mem)
 {
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
 	struct gdev_mem *holder;
-	uint64_t addr;
+	uint64_t src_addr;
 	uint64_t size;
-	void *buf;
 	int ret;
 
 	if (mem->shmem) {
 		if (mem->shmem->holder && mem->shmem->holder != mem) {
-			addr = mem->addr;
+			struct gdev_mem *dev_swap = gdev->swap;
 			holder = mem->shmem->holder;
+			src_addr = mem->addr;
 			size = mem->shmem->size;
-			if (!(buf = MALLOC(size))) {
-				ret = -ENOMEM;
-				goto fail_malloc;
+			if (dev_swap && !dev_swap->shmem->holder) {
+				uint64_t dst_addr = holder->swap_mem->addr;
+				ret = gdev_callback_evict_to_device(ctx->handle, dst_addr, 
+													src_addr, size);
+				if (ret)
+					goto fail_evict;
+				dev_swap->shmem->holder = mem;
 			}
-			if ((ret = gdev_callback_evict(h, buf, addr, size, mem)))
-				goto fail_evict;
-			holder->swap_buf = buf;
+			else {
+				void *dst_buf = holder->swap_buf;
+				ret = gdev_callback_evict_to_host(ctx->handle, dst_buf, 
+												  src_addr, size);
+				if (ret)
+					goto fail_evict;
+			}
 			holder->evicted = 1;
+			GDEV_PRINT("Evicted memory of 0x%llx bytes from 0x%llx\n", 
+					   size, src_addr);
 		}
 		mem->shmem->holder = mem;
 	}
@@ -449,19 +544,17 @@ int gdev_shmem_evict(void *h, struct gdev_mem *mem)
 
 	
 fail_evict:
-	FREE(buf);
-fail_malloc:
 	return ret;
 }
 
 /* evict all the shared memory object data associated to @vas. 
    all the shared memory objects associated to @vas must be locked. */
-int gdev_shmem_evict_all(void *h, struct gdev_vas *vas)
+int gdev_shmem_evict_all(struct gdev_ctx *ctx, struct gdev_vas *vas)
 {
 	struct gdev_mem *mem;
 
 	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shmem_evict(h, mem);
+		gdev_shmem_evict(ctx, mem);
 	}
 
 	return 0;
@@ -469,25 +562,40 @@ int gdev_shmem_evict_all(void *h, struct gdev_vas *vas)
 
 /* reload the evicted memory object data. 
    the shared memory object associated with @mem must be locked. */
-int gdev_shmem_reload(void *h, struct gdev_mem *mem)
+int gdev_shmem_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 {
-	uint64_t addr;
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *dev_swap;
+	uint64_t dst_addr;
 	uint64_t size;
-	void *buf;
 	int ret;
 
 	if (mem->evicted) {
 		/* evict the corresponding memory space first. */
-		gdev_shmem_evict(h, mem);
+		gdev_shmem_evict(ctx, mem);
 		/* reload data regardless whether eviction succeeded or failed. */
-		addr = mem->addr;
-		buf = mem->swap_buf;
+		dev_swap = gdev->swap;
+		dst_addr = mem->addr;
 		size = mem->size;
-		if ((ret = gdev_callback_reload(h, addr, buf, size, mem)))
-			goto fail_reload;
+		if (dev_swap && dev_swap->shmem->holder == mem) {
+			uint64_t src_addr = mem->swap_mem->addr;
+			ret = gdev_callback_reload_from_device(ctx->handle, dst_addr, 
+												   src_addr, size);
+			if (ret)
+				goto fail_reload;
+		}
+		else {
+			void *src_buf = mem->swap_buf;
+			ret = gdev_callback_reload_from_host(ctx->handle, dst_addr, 
+												 src_buf, size);
+			if (ret)
+				goto fail_reload;
+		}
 		mem->evicted = 0;
 		mem->shmem->holder = mem;
-		FREE(mem->swap_buf);
+		GDEV_PRINT("Reloaded memory of 0x%llx bytes to 0x%llx\n", 
+				   size, dst_addr);
 	}
 
 	return 0;
@@ -498,12 +606,12 @@ fail_reload:
 
 /* reload all the evicted memory object data associated to @vas.
    all the shared memory objects associated to @vas must be locked. */
-int gdev_shmem_reload_all(void *h, struct gdev_vas *vas)
+int gdev_shmem_reload_all(struct gdev_ctx *ctx, struct gdev_vas *vas)
 {
 	struct gdev_mem *mem;
 
 	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shmem_reload(h, mem);
+		gdev_shmem_reload(ctx, mem);
 	}
 
 	return 0;
@@ -520,7 +628,7 @@ static struct gdev_mem *__gdev_shmem_find_victim
 	unsigned long flags;
 
 	if (!(shmem = MALLOC(sizeof(*shmem))))
-		goto fail;
+		goto fail_shmem;
 
 	/* be careful of dead lock. this lock is valid only for shared memory. */
 	MUTEX_LOCK(&gdev->shmem_mutex);
@@ -566,6 +674,9 @@ static struct gdev_mem *__gdev_shmem_find_victim
 		shmem->holder = NULL;
 		shmem->bo = victim->bo;
 		shmem->size = victim->size;
+		/* create swap for evicting data from shared memory space. */
+		if (__gdev_swap_create(victim))
+			goto fail_swap;
 		MUTEX_LOCK(&shmem->mutex);
 		/* the victim object itself must be inserted into the list. */
 		gdev_list_add(&victim->list_entry_shmem, &shmem->shmem_list);
@@ -586,7 +697,10 @@ static struct gdev_mem *__gdev_shmem_find_victim
 
 	return victim;
 
-fail:
+fail_swap:
+	FREE(shmem);
+	MUTEX_UNLOCK(&gdev->shmem_mutex);
+fail_shmem:
 	return NULL;
 }
 
@@ -609,7 +723,12 @@ struct gdev_mem *gdev_shmem_request
 	if (!(new = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
 		goto fail_shmem;
 
+	/* initialize the new memory object. */
 	__gdev_mem_init(new, vas, addr, size, map, GDEV_MEM_DEVICE);
+
+	/* create swap. */
+	if (__gdev_swap_create(new))
+		goto fail_swap;
 
 	MUTEX_LOCK(&mem->shmem->mutex);
 	new->shmem = mem->shmem;
@@ -622,6 +741,8 @@ struct gdev_mem *gdev_shmem_request
 
 	return new;
 
+fail_swap:
+	gdev_raw_mem_unshare(new);
 fail_shmem:
 	mem->shmem->users--; /* not really needed? */
 fail_victim:

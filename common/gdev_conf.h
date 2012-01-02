@@ -38,12 +38,7 @@
 #define GDEV_CHUNK_MAX_SIZE 0x2000000 /* 32MB */
 #define GDEV_CHUNK_DEFAULT_SIZE 0x200000 /* 2MB */
 
-/* define this if you want to allocate a new bounce buffer every time
-   you copy data to/from device memory. */
-//#define GDEV_NO_STATIC_BOUNCE_BUFFER
-
-#define GDEV_SWAP_DEVICE_SIZE 0x2000000
-#define GDEV_SWAP_DMA_SIZE 0x2000000
+#define GDEV_SWAP_MEM_SIZE 0 //0x8000000 /* 128MB */
 
 #define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
 

@@ -39,12 +39,6 @@
 #define GDEV_PRIO_DEFAULT 20
 
 /**
- * memory offset for the mmap() operation.
- */
-#define GDEV_MMAP_PGOFF_MMIO 0x0
-
-
-/**
  * Gdev types: they are not exposed to end users.
  */
 typedef struct gdev_vas gdev_vas_t;
@@ -67,6 +61,7 @@ struct gdev_device {
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
 	gdev_lock_t vas_lock;
 	gdev_mutex_t shmem_mutex;
+	gdev_mem_t *swap; /* reserved swap memory space */
 };
 
 /**
@@ -90,17 +85,17 @@ int gdev_query(struct gdev_device*, uint32_t, uint64_t*);
  */
 struct gdev_device *gdev_dev_open(int);
 void gdev_dev_close(struct gdev_device*);
-gdev_vas_t *gdev_vas_new(struct gdev_device*, uint64_t);
+gdev_vas_t *gdev_vas_new(struct gdev_device*, uint64_t, void*);
 void gdev_vas_free(gdev_vas_t*);
-gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
+gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*, void*);
 void gdev_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
 void gdev_mem_free(gdev_mem_t*);
 void gdev_mem_gc(gdev_vas_t*);
-int gdev_shmem_evict(void*, gdev_mem_t*);
-int gdev_shmem_evict_all(void*, gdev_vas_t*);
-int gdev_shmem_reload(void*, gdev_mem_t*);
-int gdev_shmem_reload_all(void*, gdev_vas_t*);
+int gdev_shmem_evict(gdev_ctx_t*, gdev_mem_t*);
+int gdev_shmem_evict_all(gdev_ctx_t*, gdev_vas_t*);
+int gdev_shmem_reload(gdev_ctx_t*, gdev_mem_t*);
+int gdev_shmem_reload_all(gdev_ctx_t*, gdev_vas_t*);
 gdev_mem_t *gdev_shmem_request(gdev_vas_t*, gdev_mem_t*, uint64_t);
 void gdev_shmem_lock(gdev_mem_t*);
 void gdev_shmem_unlock(gdev_mem_t*);
@@ -125,8 +120,9 @@ void gdev_raw_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_raw_mem_alloc(gdev_vas_t*, uint64_t*, uint64_t*, void**);
 gdev_mem_t *gdev_raw_mem_alloc_dma(gdev_vas_t*, uint64_t*, uint64_t*, void**);
 void gdev_raw_mem_free(gdev_mem_t*);
-gdev_mem_t *gdev_raw_mem_share
-(gdev_vas_t*, gdev_mem_t*, uint64_t*, uint64_t*, void**);
+gdev_mem_t *gdev_raw_swap_alloc(struct gdev_device*, uint64_t);
+void gdev_raw_swap_free(gdev_mem_t*);
+gdev_mem_t *gdev_raw_mem_share(gdev_vas_t*, gdev_mem_t*, uint64_t*, uint64_t*, void**);
 void gdev_raw_mem_unshare(gdev_mem_t*);
 uint32_t gdev_raw_read32(gdev_mem_t*, uint64_t);
 void gdev_raw_write32(gdev_mem_t*, uint64_t, uint32_t);

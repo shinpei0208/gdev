@@ -97,6 +97,7 @@ struct gdev_shmem {
  * mapped on SRAM present in each MP.
  */
 struct gdev_vas {
+	void *handle; /* Gdev API handle. */
 	void *pvas; /* driver private object. */
 	struct gdev_device *gdev; /* vas is associated with a specific device. */
 	struct gdev_list mem_list; /* list of device memory spaces. */
@@ -110,6 +111,7 @@ struct gdev_vas {
  * GPU context object struct:
  */
 struct gdev_ctx {
+	void *handle; /* Gdev API handle. */
 	void *pctx; /* driver private object. */
 	struct gdev_vas *vas; /* chan is associated with a specific vas object. */
 	struct gdev_fifo {
@@ -149,7 +151,8 @@ struct gdev_mem {
 	struct gdev_list list_entry_heap; /* entry to heap list */
 	struct gdev_list list_entry_shmem; /* entry to shared memory list */
 	struct gdev_shmem *shmem; /* shared memory information */
-	void *swap_buf; /* buffer for swapping memory */
+	struct gdev_mem *swap_mem; /* device memory for temporal swap */
+	void *swap_buf; /* host buffer for swap */
 	int evicted; /* 1 if evicted, 0 otherwise */
 	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */

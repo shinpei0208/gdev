@@ -322,8 +322,39 @@ CUresult cuMemcpyDtoHAsync
 	return CUDA_SUCCESS;
 }
 
+/**
+ * Copies from device memory to device memory. dstDevice and srcDevice are the 
+ * base pointers of the destination and source, respectively. ByteCount 
+ * specifies the number of bytes to copy. Note that this function is 
+ * asynchronous.
+ *
+ * Parameters:
+ * dstDevice - Destination device pointer
+ * srcDevice - Source device pointer
+ * ByteCount - Size of memory copy in bytes
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
-	GDEV_PRINT("cuMemcpyDtoD: Not Implemented Yet\n");
+	Ghandle handle;
+	uint64_t dst_addr = dstDevice;
+	uint64_t src_addr = srcDevice;
+	uint32_t size = ByteCount;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!dst_addr || !src_addr || !size)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gmemcpy_in_device(handle, dst_addr, src_addr, size))
+		return CUDA_ERROR_UNKNOWN;
+
 	return CUDA_SUCCESS;
 }
