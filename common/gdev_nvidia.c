@@ -135,6 +135,7 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	struct gdev_compute *compute = gdev->compute;
 	uint32_t seq;
 
+	/* evict data saved in device swap memory space to host memory. */
 	if (dev_swap && dev_swap->shmem->holder) {
 		struct gdev_mem *mem = dev_swap->shmem->holder;
 		gdev_shmem_evict(ctx, mem->swap_mem); /* don't pass gdev->swap! */
@@ -534,8 +535,6 @@ int gdev_shmem_evict(struct gdev_ctx *ctx, struct gdev_mem *mem)
 					goto fail_evict;
 			}
 			holder->evicted = 1;
-			GDEV_PRINT("Evicted memory of 0x%llx bytes from 0x%llx\n", 
-					   size, src_addr);
 		}
 		mem->shmem->holder = mem;
 	}
@@ -594,8 +593,6 @@ int gdev_shmem_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 		}
 		mem->evicted = 0;
 		mem->shmem->holder = mem;
-		GDEV_PRINT("Reloaded memory of 0x%llx bytes to 0x%llx\n", 
-				   size, dst_addr);
 	}
 
 	return 0;
