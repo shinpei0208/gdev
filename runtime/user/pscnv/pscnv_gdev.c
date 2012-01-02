@@ -280,6 +280,21 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	free(mem);
 }
 
+/* allocate a reserved swap memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
+{
+	GDEV_PRINT("Swap memory not implemented\n");
+	/* To be implemented. */
+	return NULL;
+}
+
+/* free the specified swap memory object. */
+void gdev_raw_swap_free(struct gdev_mem *mem)
+{
+	GDEV_PRINT("Swap memory not implemented\n");
+	/* To be implemented. */
+}
+
 /* create a new memory object sharing memory space with @mem. */
 struct gdev_mem *gdev_raw_mem_share
 (struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 

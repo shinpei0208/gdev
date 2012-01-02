@@ -359,6 +359,41 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	kfree(mem);
 }
 
+/* allocate a reserved swap memory object. size may be aligned. */
+struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
+{
+	struct gdev_mem *mem;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct pscnv_bo *bo;
+
+	if (size == 0)
+		return NULL;
+
+	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
+		return NULL;
+
+	if (!(bo = pscnv_mem_alloc(drm, size, PSCNV_GEM_VRAM_SMALL, 0, 0))) {
+		GDEV_PRINT("Failed to allocate PSCNV buffer object for swap memory.\n");
+		kfree(mem);
+		return NULL;
+	}
+
+	/* private data. */
+	mem->bo = (void *) bo;
+
+	return mem;
+}
+
+/* free the specified swap memory object. */
+void gdev_raw_swap_free(struct gdev_mem *mem)
+{
+	if (mem) {
+		struct pscnv_bo *bo = mem->bo;
+		pscnv_mem_free(bo);
+		kfree(mem);
+	}
+}
+
 /* create a new memory object sharing memory space with @mem. */
 struct gdev_mem *gdev_raw_mem_share
 (struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
@@ -391,7 +426,8 @@ struct gdev_mem *gdev_raw_mem_share
 	/* private data. */
 	new->bo = (void *) bo;
 
-	GDEV_PRINT("Shared memory at 0x%llx.\n", *addr);
+	GDEV_PRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", 
+			   *size, *addr);
 
 	return new;
 

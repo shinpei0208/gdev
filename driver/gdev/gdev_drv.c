@@ -135,7 +135,7 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 	uint32_t size = vma->vm_end - vma->vm_start;
 	unsigned long start = vma->vm_start;
 
-	if (vma->vm_pgoff == GDEV_MMAP_PGOFF_MMIO) {
+	if (vma->vm_pgoff == 0) {
 		/*
 		 * int i = __get_minor(filp);
 		 * struct gdev_device *gdev = &gdevs[i];
