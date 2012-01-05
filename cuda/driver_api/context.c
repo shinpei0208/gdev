@@ -122,19 +122,20 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 #ifdef __KERNEL__
 	/* chunk size of 0x40000 seems best when using OS runtime. */
 	if (gtune(handle, GDEV_TUNE_MEMCPY_CHUNK_SIZE, 0x40000)) {
-		return NULL;
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_tune_chunk;
 	}
 #endif
 
 	/* get the CUDA-specific device information. */
 	cuda_info = &ctx->cuda_info;
+	if (gquery(handle, GDEV_QUERY_CHIPSET, &cuda_info->chipset)) {
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_query_chipset;
+	}
 	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &cuda_info->mp_count)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_mp_count;
-	}
-	if (gquery(handle, GDEV_NVIDIA_QUERY_CHIPSET, &cuda_info->chipset)) {
-		res = CUDA_ERROR_UNKNOWN;
-		goto fail_query_chipset;
 	}
 
 	/* FIXME: per-thread warp size and active warps */
@@ -170,8 +171,11 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	return CUDA_SUCCESS;
 
-fail_query_chipset:
 fail_query_mp_count:
+fail_query_chipset:
+#ifdef __KERNEL__
+fail_tune_chunk:
+#endif
 	gclose(handle);
 fail_open_gdev:
 	FREE(ctx);

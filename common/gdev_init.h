@@ -1,5 +1,9 @@
 /*
  * Copyright 2011 Shinpei Kato
+ *
+ * University of California, Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,28 +26,15 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __GDEV_CONF_H__
-#define __GDEV_CONF_H__
+#ifndef __GDEV_INIT_H__
+#define __GDEV_INIT_H__
 
-#include "gdev_nvidia.h"
-// #include "gdev_amd.h"
-// #include "gdev_intel.h"
+#include "gdev_proto.h"
 
-#define GDEV_VDEVICE_COUNT 4 /* # of virtual devices */
+int gdev_init_device(struct gdev_device*, int, void*);
+void gdev_exit_device(struct gdev_device*);
+int gdev_init_vdevice(struct gdev_device*, int, uint32_t, uint32_t, struct gdev_device *);
+void gdev_exit_vdevice(struct gdev_device*);
 
-#define GDEV_CONTEXT_MAX_COUNT 128 /* # of GPU contexts */
-
-#define GDEV_PIPELINE_MAX_COUNT 4
-#define GDEV_PIPELINE_MIN_COUNT 1
-#define GDEV_PIPELINE_DEFAULT_COUNT 2
-
-#define GDEV_CHUNK_MAX_SIZE 0x2000000 /* 32MB */
-#define GDEV_CHUNK_DEFAULT_SIZE 0x200000 /* 2MB */
-
-#define GDEV_SWAP_MEM_SIZE 0x8000000 /* 128MB */
-
-#define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
-
-#define GDEV_DEBUG_PRINT 0
 
 #endif

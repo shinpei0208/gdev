@@ -1,5 +1,9 @@
 /*
- * Copyright 2011 Shinpei Kato
+ * Copyright 2012 Shinpei Kato
+ *
+ * University of California, Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,28 +26,48 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __GDEV_CONF_H__
-#define __GDEV_CONF_H__
+#include "gdev_proto.h"
+#include "gdev_sched.h"
 
-#include "gdev_nvidia.h"
-// #include "gdev_amd.h"
-// #include "gdev_intel.h"
+struct gdev_sched_entity *sched_entity_ptr[GDEV_CONTEXT_MAX_COUNT];
 
-#define GDEV_VDEVICE_COUNT 4 /* # of virtual devices */
+/**
+ * initialize the scheduler for the device.
+ */
+int gdev_init_scheduler(struct gdev_device *gdev)
+{
+	gdev_init_scheduler_thread(gdev);
 
-#define GDEV_CONTEXT_MAX_COUNT 128 /* # of GPU contexts */
+	return 0;
+}
 
-#define GDEV_PIPELINE_MAX_COUNT 4
-#define GDEV_PIPELINE_MIN_COUNT 1
-#define GDEV_PIPELINE_DEFAULT_COUNT 2
+/**
+ * finalized the scheduler for the device.
+ */
+void gdev_exit_scheduler(struct gdev_device *gdev)
+{
+	gdev_exit_scheduler_thread(gdev);
+}
 
-#define GDEV_CHUNK_MAX_SIZE 0x2000000 /* 32MB */
-#define GDEV_CHUNK_DEFAULT_SIZE 0x200000 /* 2MB */
+/**
+ * schedule kernel-launch calls.
+ */
+void gdev_schedule_launch(struct gdev_sched_entity *se)
+{
+}
 
-#define GDEV_SWAP_MEM_SIZE 0x8000000 /* 128MB */
+/**
+ * schedule memcpy-copy calls.
+ */
+void gdev_schedule_memcpy(struct gdev_sched_entity *se)
+{
+}
 
-#define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
+/**
+ * schedule next contexts.
+ * invoked upon the completion of preceding contexts.
+ */
+void gdev_schedule_invoked(int subc, uint32_t data)
+{
+}
 
-#define GDEV_DEBUG_PRINT 0
-
-#endif

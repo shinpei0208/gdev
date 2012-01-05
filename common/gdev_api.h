@@ -73,4 +73,11 @@ int gtune(Ghandle h, uint32_t type, uint32_t value);
 #define GDEV_TUNE_MEMCPY_PIPELINE_COUNT 1
 #define GDEV_TUNE_MEMCPY_CHUNK_SIZE 2
 
+/**
+ * common queries:
+ */
+#define GDEV_QUERY_DEVICE_MEM_SIZE 1
+#define GDEV_QUERY_DMA_MEM_SIZE 2
+#define GDEV_QUERY_CHIPSET 3
+
 #endif

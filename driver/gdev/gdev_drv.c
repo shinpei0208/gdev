@@ -1,5 +1,9 @@
 /*
  * Copyright 2011 Shinpei Kato
+ *
+ * University of California, Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,13 +38,25 @@
 #include "gdev_api.h"
 #include "gdev_conf.h"
 #include "gdev_drv.h"
+#include "gdev_init.h"
 #include "gdev_ioctl.h"
+#include "gdev_proc.h"
 #include "gdev_proto.h"
 
+/**
+ * global variables.
+ */
 dev_t dev;
-struct cdev *cdevs;
-struct gdev_device *gdevs;
-int gdev_count;
+struct cdev *cdevs; /* character devices for virtual devices */
+int gdev_count; /* # of physical devices. */
+int gdev_vcount; /* # of virtual devices. */
+struct gdev_device *gdevs; /* physical devices */
+struct gdev_device *gdev_vds; /* virtual devices */
+
+/**
+ * pointers to callback functions.
+ */
+void (*gdev_callback_notify)(int subc, uint32_t data);
 
 static int __get_minor(struct file *filp)
 {
@@ -183,53 +199,77 @@ static struct file_operations gdev_fops = {
 	.mmap = gdev_mmap,
 };
 
+static void __gdev_notify_handler(int subc, uint32_t data)
+{
+#if 0
+	struct gdev_device *gdev;
+	struct gdev_sched_entity *se;
+	int cid = (int)data;
+
+	if (cid < GDEV_CONTEXT_MAX_COUNT) {
+		se = sched_entity_ptr[cid];
+		gdev = se->gdev;
+		wake_up_process(gdev->sched_thread);
+	}
+#endif
+}
+
+/**
+ * called for each minor physical device.
+ */
 int gdev_minor_init(struct drm_device *drm)
 {
-	int ret;
-	int i = drm->primary->index;
-	struct gdev_device *gdev = &gdevs[i];
-	struct cdev *cdev = &cdevs[i];
+	int minor = drm->primary->index;
 
-	if (i >= gdev_count) {
-		GDEV_PRINT("Could not find gdev%d.\n", i);
+	if (minor >= gdev_count) {
+		GDEV_PRINT("Could not find device %d\n", minor);
 		return -EINVAL;
 	}
 
-	/* register a new character device. */
-	GDEV_PRINT("Adding gdev%d.\n", i);
-	cdev_init(cdev, &gdev_fops);
-	ret = cdev_add(cdev, dev, 1);
-	if (ret < 0) {
-		GDEV_PRINT("Failed to register gdev%d.\n", i);
-		return ret;
-	}
+	/* initialize the physical device. */
+	gdev_init_device(&gdevs[minor], minor, drm);
 
-	/* initialize the Gdev engine. */
-	gdev_init_common(gdev, i, drm);
+	/* initialize the virtual device. 
+	   when Gdev first loaded, one-to-one map physical and virtual device. */
+	gdev_init_vdevice(&gdev_vds[minor], minor, 100, 100, &gdevs[minor]);
+
+	/* initialize the scheduler for the virtual device. */
+	gdev_init_scheduler(&gdev_vds[minor]);
+
+	/* create the swap memory object, if configured, for the virtual device. */
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		gdev_swap_create(&gdev_vds[minor], GDEV_SWAP_MEM_SIZE);
+	}
 
 	return 0;
 }
 
+/**
+ * called for each minor physical device.
+ */
 int gdev_minor_exit(struct drm_device *drm)
 {
-	int i = drm->primary->index;
-	struct gdev_device *gdev = &gdevs[i];
-	struct cdev *cdev = &cdevs[i];
+	int minor = drm->primary->index;
+	int i;
 
-	if (gdev->users) {
-		GDEV_PRINT("gdev%d still has %d users.\n", i, gdev->users);
+	if (gdevs[minor].users) {
+		GDEV_PRINT("Device %d has %d users\n", minor, gdevs[minor].users);
 	}
 
-	if (i < gdev_count) {
-		GDEV_PRINT("Removing gdev%d.\n", i);
-		gdev_exit_common(gdev);
-		cdev_del(cdev);
+	if (minor < gdev_count) {
+		for (i = 0; i < gdev_vcount; i++) {
+			if (gdev_vds[i].parent == &gdevs[minor]) {
+				if (GDEV_SWAP_MEM_SIZE > 0) {
+					gdev_swap_destroy(&gdev_vds[i]);
+				}
+				gdev_exit_scheduler(&gdev_vds[i]);
+			}
+		}
+		gdev_exit_device(&gdevs[minor]);
 	}
 	
 	return 0;
 }
-
-#include "gdev_proc.c"
 
 int gdev_major_init(struct pci_driver *pdriver)
 {
@@ -239,7 +279,7 @@ int gdev_major_init(struct pci_driver *pdriver)
 
 	GDEV_PRINT("Initializing module...\n");
 
-	/* count how many devices are installed. */
+	/* count how many physical devices are installed. */
 	gdev_count = 0;
 	for (i = 0; pdriver->id_table[i].vendor != 0; i++) {
 		pid = &pdriver->id_table[i];
@@ -253,40 +293,96 @@ int gdev_major_init(struct pci_driver *pdriver)
 		}
 	}
 
-	GDEV_PRINT("Found %d GPU device(s).\n", gdev_count);
+	GDEV_PRINT("Found %d GPU physical device(s).\n", gdev_count);
 
-	ret = alloc_chrdev_region(&dev, 0, gdev_count, MODULE_NAME);
-	if (ret < 0) {
+	/* virtual device count. */
+	gdev_vcount = GDEV_VDEVICE_COUNT;
+	GDEV_PRINT("Configured %d GPU virtual device(s).\n", gdev_vcount);
+
+	/* allocate vdev_count character devices. */
+	if ((ret = alloc_chrdev_region(&dev, 0, gdev_vcount, MODULE_NAME))) {
 		GDEV_PRINT("Failed to allocate module.\n");
-		return ret;
+		goto fail_alloc_chrdev;
 	}
 
-	/* allocate Gdev device objects. */
-	gdevs = kmalloc(sizeof(struct gdev_device) * gdev_count, GFP_KERNEL);
+	/* allocate Gdev physical device objects. */
+	if (!(gdevs = kzalloc(sizeof(*gdevs) * gdev_count, GFP_KERNEL))) {
+		ret = -ENOMEM;
+		goto fail_alloc_gdevs;
+	}
+	/* allocate Gdev virtual device objects. */
+	if (!(gdev_vds = kzalloc(sizeof(*gdev_vds) * gdev_vcount, GFP_KERNEL))) {
+		ret = -ENOMEM;
+		goto fail_alloc_gdev_vds;
+	}
 	/* allocate character device objects. */
-	cdevs = kmalloc(sizeof(struct cdev) * gdev_count, GFP_KERNEL);
+	if (!(cdevs = kzalloc(sizeof(*cdevs) * gdev_vcount, GFP_KERNEL))) {
+		ret = -ENOMEM;
+		goto fail_alloc_cdevs;
+	}
+
+	/* register character devices. */
+	for (i = 0; i < gdev_vcount; i++) {
+		cdev_init(&cdevs[i], &gdev_fops);
+		if ((ret = cdev_add(&cdevs[i], dev, 1))){
+			GDEV_PRINT("Failed to register virtual device %d\n", i);
+			goto fail_cdevs_add;
+		}
+	}
 
 	/* create /proc entries. */
-	gdev_create_proc();
+	if ((ret = gdev_proc_create())) {
+		GDEV_PRINT("Failed to create /proc entry\n");
+		goto fail_proc_create;
+	}
+
+	/* interrupt handler. */
+	gdev_callback_notify = __gdev_notify_handler;
 
 	return 0;
+
+fail_proc_create:
+fail_cdevs_add:
+	for (i = 0; i < gdev_vcount; i++) {
+		cdev_del(&cdevs[i]);
+	}
+	kfree(cdevs);
+fail_alloc_cdevs:	
+	kfree(gdev_vds);
+fail_alloc_gdev_vds:
+	kfree(gdevs);
+fail_alloc_gdevs:
+	unregister_chrdev_region(dev, gdev_vcount);
+fail_alloc_chrdev:
+	return ret;
 }
 
 int gdev_major_exit(void)
 {
+	int i;
+
 	GDEV_PRINT("Exiting module...\n");
 
-	gdev_delete_proc();
+	gdev_callback_notify = NULL;
+
+	gdev_proc_delete();
+
+	for (i = 0; i < gdev_vcount; i++) {
+		cdev_del(&cdevs[i]);
+	}
+
 	kfree(cdevs);
+	kfree(gdev_vds);
 	kfree(gdevs);
-	unregister_chrdev_region(dev, gdev_count);
+
+	unregister_chrdev_region(dev, gdev_vcount);
 
 	return 0;
 }
 
 int gdev_getinfo_device_count(void)
 {
-	return gdev_count;
+	return gdev_vcount; /* return virtual device count. */
 }
 EXPORT_SYMBOL(gdev_getinfo_device_count);
 
