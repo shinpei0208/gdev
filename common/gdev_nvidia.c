@@ -1,7 +1,7 @@
 /*
  * Copyright 2011 Shinpei Kato
  *
- * University of California at Santa Cruz
+ * University of California, Santa Cruz
  * Systems Research Lab.
  *
  * All Rights Reserved.
@@ -60,37 +60,9 @@ static uint32_t (*gdev_memcpy_func[2])
 	gdev_memcpy_async
 };
 
-/* initialize the common Gdev members. */
-int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
+/* set up the architecture-dependent compute engine. */
+int gdev_compute_setup(struct gdev_device *gdev)
 {
-	/* setup common members. */
-	gdev->id = minor;
-	gdev->users = 0;
-	gdev->priv = obj;
-	gdev_query(gdev, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
-	gdev_query(gdev, GDEV_NVIDIA_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
-	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	LOCK_INIT(&gdev->vas_lock);
-	MUTEX_INIT(&gdev->shmem_mutex);
-	if (GDEV_SWAP_MEM_SIZE > 0) {
-		gdev->swap = gdev_raw_swap_alloc(gdev, GDEV_SWAP_MEM_SIZE);
-		if (gdev->swap) {
-			struct gdev_shmem *shmem;
-			shmem = MALLOC(sizeof(*shmem));
-			if (shmem)
-				shmem->holder = NULL;
-			else
-				gdev->swap = NULL;
-			gdev->swap->shmem = shmem;
-		}
-		else {
-			gdev->swap = NULL;
-		}
-	}
-	else {
-		gdev->swap = NULL;
-	}
-
     switch (gdev->chipset & 0xf0) {
     case 0xC0:
 		nvc0_compute_setup(gdev);
@@ -107,23 +79,7 @@ int gdev_init_common(struct gdev_device *gdev, int minor, void *obj)
 		return -EINVAL;
     }
 
-	gdev_init_private(gdev);
-
 	return 0;
-}
-
-/* finalize the common Gdev members. */
-void gdev_exit_common(struct gdev_device *gdev)
-{
-	gdev_exit_private(gdev);
-
-	if (GDEV_SWAP_MEM_SIZE > 0) {
-		if (gdev->swap) {
-			if (gdev->swap->shmem)
-				FREE(gdev->swap->shmem);
-			gdev_raw_swap_free(gdev->swap);
-		}
-	}
 }
 
 /* launch the kernel onto the GPU. */
@@ -154,6 +110,9 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	compute->fence_reset(ctx, seq);
 	compute->launch(ctx, kern);
 	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
+
+	/* set an interrupt to be caused when compute done. */
+	compute->notify_intr(ctx);
 	
 	return seq;
 }
@@ -271,13 +230,25 @@ int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	int ret;
 
-	if ((ret = gdev_raw_query(gdev, type, result)))
-		return ret;
-
 	switch (type) {
-	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
-		*result -= 0xc010000; /* FIXME: this shouldn't be hardcoded. */
+	case GDEV_QUERY_DEVICE_MEM_SIZE:
+		if (gdev->mem_size)
+			*result = gdev->mem_size;
+		else if ((ret = gdev_raw_query(gdev, type, result)))
+			return ret;
 		break;
+	case GDEV_QUERY_DMA_MEM_SIZE:
+		if (gdev->dma_mem_size)
+			*result = gdev->dma_mem_size;
+		/* FIXME: this is valid only for PCIE. */
+		else  if (gdev->chipset > 0x40)
+			*result = 512 * 1024 * 1024;
+		else
+			*result = 64 * 1024 * 1024;
+		break;
+	default:
+		if ((ret = gdev_raw_query(gdev, type, result)))
+			return ret;
 	}
 
 	return 0;
@@ -322,8 +293,7 @@ void gdev_vas_free(struct gdev_vas *vas)
 }
 
 /* create a new GPU context object. */
-struct gdev_ctx *gdev_ctx_new
-(struct gdev_device *gdev, struct gdev_vas *vas, void *h)
+struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
 	struct gdev_compute *compute = gdev->compute;
@@ -332,7 +302,6 @@ struct gdev_ctx *gdev_ctx_new
 		return NULL;
 	}
 
-	ctx->handle = h;
 	ctx->vas = vas;
 
 	/* initialize the channel. */
@@ -514,6 +483,7 @@ int gdev_shmem_evict(struct gdev_ctx *ctx, struct gdev_mem *mem)
 	int ret;
 
 	if (mem->shmem) {
+		void *h = ctx->vas->handle;
 		if (mem->shmem->holder && mem->shmem->holder != mem) {
 			struct gdev_mem *dev_swap = gdev->swap;
 			holder = mem->shmem->holder;
@@ -521,16 +491,14 @@ int gdev_shmem_evict(struct gdev_ctx *ctx, struct gdev_mem *mem)
 			size = mem->shmem->size;
 			if (dev_swap && !dev_swap->shmem->holder) {
 				uint64_t dst_addr = holder->swap_mem->addr;
-				ret = gdev_callback_evict_to_device(ctx->handle, dst_addr, 
-													src_addr, size);
+				ret = gdev_callback_evict_to_device(h,dst_addr,src_addr,size);
 				if (ret)
 					goto fail_evict;
 				dev_swap->shmem->holder = mem;
 			}
 			else {
 				void *dst_buf = holder->swap_buf;
-				ret = gdev_callback_evict_to_host(ctx->handle, dst_buf, 
-												  src_addr, size);
+				ret = gdev_callback_evict_to_host(h,dst_buf,src_addr,size);
 				if (ret)
 					goto fail_evict;
 			}
@@ -571,6 +539,7 @@ int gdev_shmem_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 	int ret;
 
 	if (mem->evicted) {
+		void *h = vas->handle;
 		/* evict the corresponding memory space first. */
 		gdev_shmem_evict(ctx, mem);
 		/* reload data regardless whether eviction succeeded or failed. */
@@ -579,15 +548,13 @@ int gdev_shmem_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 		size = mem->size;
 		if (dev_swap && dev_swap->shmem->holder == mem) {
 			uint64_t src_addr = mem->swap_mem->addr;
-			ret = gdev_callback_reload_from_device(ctx->handle, dst_addr, 
-												   src_addr, size);
+			ret = gdev_callback_reload_from_device(h, dst_addr, src_addr, size);
 			if (ret)
 				goto fail_reload;
 		}
 		else {
 			void *src_buf = mem->swap_buf;
-			ret = gdev_callback_reload_from_host(ctx->handle, dst_addr, 
-												 src_buf, size);
+			ret = gdev_callback_reload_from_host(h, dst_addr, src_buf, size);
 			if (ret)
 				goto fail_reload;
 		}
@@ -786,6 +753,44 @@ void gdev_shmem_unlock_all(struct gdev_vas *vas)
 		gdev_shmem_unlock(mem);
 	}
 	MUTEX_UNLOCK(&gdev->shmem_mutex);
+}
+
+/* create swap memory object for the device. */
+int gdev_swap_create(struct gdev_device *gdev, uint32_t size)
+{
+	struct gdev_mem *swap;
+	struct gdev_shmem *shmem;
+	int ret = 0;
+
+	swap = gdev_raw_swap_alloc(gdev, size);
+	if (swap) {
+		shmem = MALLOC(sizeof(*shmem));
+		if (shmem)
+			shmem->holder = NULL;
+		else {
+			gdev_raw_swap_free(swap);
+			swap = NULL;
+			ret = -ENOMEM;
+		}
+		swap->shmem = shmem;
+	}
+	else {
+		ret = -ENOMEM;
+	}
+
+	gdev->swap = swap;
+
+	return ret;
+}
+
+/* remove swap memory object from the device. */
+void gdev_swap_destroy(struct gdev_device *gdev)
+{
+	if (gdev->swap) {
+		if (gdev->swap->shmem)
+			FREE(gdev->swap->shmem);
+		gdev_raw_swap_free(gdev->swap);
+	}
 }
 
 /* add a new VAS object into the device VAS list. */

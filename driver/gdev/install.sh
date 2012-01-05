@@ -14,7 +14,7 @@ rm -f /dev/gdev*
 
 # make nodes
 major=$(awk "\$2==\"gdev\" {print \$1}" /proc/devices)
-devnum=$(ls /dev/dri/card* | awk "{print \$1}" | wc -l)
+devnum=$(less /proc/gdev/virtual_device_count | awk "{print \$1}")
 minor=0
 while [ $minor -lt $devnum ]
 do

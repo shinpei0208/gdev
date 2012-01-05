@@ -25,6 +25,7 @@
 #include "gdev_conf.h"
 #include "gdev_mm.h"
 #include "gdev_proto.h"
+#include "gdev_sched.h"
 
 #define __max(x, y) (x) > (y) ? (x) : (y)
 #define __min(x, y) (x) < (y) ? (x) : (y)
@@ -569,7 +570,7 @@ struct gdev_handle *gopen(int minor)
 		goto fail_vas;
 
 	/* create a new GPU context object. */
-	ctx = gdev_ctx_new(gdev, vas, h);
+	ctx = gdev_ctx_new(gdev, vas);
 	if (!ctx)
 		goto fail_ctx;
 
@@ -587,21 +588,21 @@ struct gdev_handle *gopen(int minor)
 	/* insert the created VAS object to the device VAS list. */
 	gdev_vas_list_add(vas);
 
-	GDEV_PRINT("Opened gdev%d.\n", minor);
+	GDEV_PRINT("Opened gdev%d\n", minor);
 
 	return h;
 
 fail_dma:
-	GDEV_PRINT("Failed to allocate static DMA buffer object.\n");
+	GDEV_PRINT("Failed to allocate static DMA buffer object\n");
 	gdev_ctx_free(ctx);
 fail_ctx:
-	GDEV_PRINT("Failed to create a context object.\n");
+	GDEV_PRINT("Failed to create a context object\n");
 	gdev_vas_free(vas);
 fail_vas:
-	GDEV_PRINT("Failed to create a virtual address space object.\n");
+	GDEV_PRINT("Failed to create a virtual address space object\n");
 	gdev_dev_close(gdev);
 fail_open:
-	GDEV_PRINT("Failed to open gdev%d.\n", minor);
+	GDEV_PRINT("Failed to open gdev%d\n", minor);
 
 	return NULL;
 }
@@ -632,7 +633,7 @@ int gclose(struct gdev_handle *h)
 	gdev_vas_free(h->vas);
 	gdev_dev_close(h->gdev);
 
-	GDEV_PRINT("Closed gdev%d.\n", h->dev_id);
+	GDEV_PRINT("Closed gdev%d\n", h->dev_id);
 
 	FREE(h);
 
@@ -645,19 +646,26 @@ int gclose(struct gdev_handle *h)
  */
 uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
+	gdev->mem_used += size;
+
+	if (gdev->mem_used > gdev->mem_size) {
 		/* a second chance with shared memory (only for device memory). */
 		if (!(mem = gdev_shmem_request(vas, NULL, size)))
 			goto fail;
 	}
+	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
+		goto fail;
+
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
 
 	return GDEV_MEM_ADDR(mem);
 
 fail:
+	gdev->mem_used -= size;
 	return 0;
 }
 
@@ -667,6 +675,7 @@ fail:
  */
 uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 	uint64_t size;
@@ -676,6 +685,8 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 	size = GDEV_MEM_SIZE(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
+
+	gdev->mem_used -= size;
 
 	return size;
 
@@ -689,16 +700,22 @@ fail:
  */
 void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
+	gdev->dma_mem_used += size;
+
+	if (gdev->dma_mem_used > gdev->dma_mem_size)
+		goto fail;
+	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
 
 	return GDEV_MEM_BUF(mem);
 
 fail:
+	gdev->dma_mem_used -= size;
 	return 0;
 }
 
@@ -708,6 +725,7 @@ fail:
  */
 uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 	uint64_t size;
@@ -717,6 +735,8 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 	size = GDEV_MEM_SIZE(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
+
+	gdev->dma_mem_used -= size;
 
 	return size;
 
@@ -846,6 +866,8 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
+
+	//gdev_schedule_launch(ctx);
 
 	gdev_shmem_lock_all(vas);
 	gdev_shmem_reload_all(ctx, vas); /* this reloads data only if necessary */

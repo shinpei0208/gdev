@@ -1,7 +1,7 @@
 /*
  * Copyright 2011 Shinpei Kato
  *
- * University of California at Santa Cruz
+ * University of California, Santa Cruz
  * Systems Research Lab.
  *
  * All Rights Reserved.
@@ -49,15 +49,19 @@ typedef struct gdev_mem gdev_mem_t;
  * Gdev device struct:
  */
 struct gdev_device {
-	int id;
+	int id; /* physical device minor ID */
 	int users; /* the number of threads/processes using the device */
 	uint32_t chipset;
 	uint64_t mem_size;
 	uint64_t mem_used;
 	uint64_t dma_mem_size;
 	uint64_t dma_mem_used;
+	uint32_t proc_util; /* available processor utilization */
+	uint32_t mem_util; /* available memory utilization */
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
+	void *sched_thread; /* scheduler thread */
+	struct gdev_device *parent; /* only for virtual devices */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
 	gdev_lock_t vas_lock;
 	gdev_mutex_t shmem_mutex;
@@ -67,10 +71,7 @@ struct gdev_device {
 /**
  * architecture-dependent compute functions.
  */
-int gdev_init_common(struct gdev_device*, int, void*);
-int gdev_init_private(struct gdev_device*);
-void gdev_exit_common(struct gdev_device*);
-void gdev_exit_private(struct gdev_device*);
+int gdev_compute_setup(struct gdev_device*);
 uint32_t gdev_launch(gdev_ctx_t*, struct gdev_kernel*);
 uint32_t gdev_memcpy(gdev_ctx_t*, uint64_t, uint64_t, uint32_t, int);
 uint32_t gdev_read32(gdev_mem_t*, uint64_t);
@@ -87,7 +88,7 @@ struct gdev_device *gdev_dev_open(int);
 void gdev_dev_close(struct gdev_device*);
 gdev_vas_t *gdev_vas_new(struct gdev_device*, uint64_t, void*);
 void gdev_vas_free(gdev_vas_t*);
-gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*, void*);
+gdev_ctx_t *gdev_ctx_new(struct gdev_device*, gdev_vas_t*);
 void gdev_ctx_free(gdev_ctx_t*);
 gdev_mem_t *gdev_mem_alloc(gdev_vas_t*, uint64_t, int);
 void gdev_mem_free(gdev_mem_t*);
@@ -101,6 +102,8 @@ void gdev_shmem_lock(gdev_mem_t*);
 void gdev_shmem_unlock(gdev_mem_t*);
 void gdev_shmem_lock_all(gdev_vas_t*);
 void gdev_shmem_unlock_all(gdev_vas_t*);
+int gdev_swap_create(struct gdev_device*, uint32_t);
+void gdev_swap_destroy(struct gdev_device*);
 void gdev_vas_list_add(gdev_vas_t*);
 void gdev_vas_list_del(gdev_vas_t*);
 void gdev_mem_list_add(gdev_mem_t*, int);
@@ -108,7 +111,7 @@ void gdev_mem_list_del(gdev_mem_t*);
 gdev_mem_t *gdev_mem_lookup(gdev_vas_t*, uint64_t, int);
 
 /**
- * driver/runtime-dependent functions.
+ * architecture-dependent and runtime-dependent functions.
  */
 int gdev_raw_query(struct gdev_device*, uint32_t, uint64_t*);
 struct gdev_device *gdev_raw_dev_open(int);
@@ -129,5 +132,16 @@ void gdev_raw_write32(gdev_mem_t*, uint64_t, uint32_t);
 int gdev_raw_read(gdev_mem_t*, void*, uint64_t, uint32_t);
 int gdev_raw_write(gdev_mem_t*, uint64_t, const void*, uint32_t);
 
+/**
+ * architecture-independent but runtime-dependent scheduler functions.
+ */
+int gdev_init_scheduler_thread(struct gdev_device*);
+void gdev_exit_scheduler_thread(struct gdev_device*);
+
+/**
+ * architecture-independent and runtime-independent scheduler functions.
+ */
+int gdev_init_scheduler(struct gdev_device*);
+void gdev_exit_scheduler(struct gdev_device*);
 
 #endif

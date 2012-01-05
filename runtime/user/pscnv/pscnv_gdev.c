@@ -33,21 +33,11 @@
 #include <sys/unistd.h>
 
 #define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
+#define GDEV_DEVICE_MAX_COUNT 32
 
 struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
-	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, NULL, NULL}
+	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
-
-/* initialize the private Gdev members. */
-int gdev_init_private(struct gdev_device *gdev)
-{
-	return 0;
-}
-
-/* finalize the private Gdev members. */
-void gdev_exit_private(struct gdev_device *gdev)
-{
-}
 
 /* query a piece of the device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
@@ -89,7 +79,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
 		if ((fd = open(buf, O_RDWR, 0)) < 0)
 			return NULL;
-		gdev_init_common(gdev, minor, (void *) (unsigned long) fd);
+		gdev_init_device(gdev, minor, (void *) (unsigned long) fd);
 	}		
 
 	gdev->users++;
@@ -103,7 +93,7 @@ void gdev_raw_dev_close(struct gdev_device *gdev)
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
 
 	if (--gdev->users == 0) {
-		gdev_exit_common(gdev);
+		gdev_exit_device(gdev);
 		close(fd);
 	}
 }
@@ -125,6 +115,8 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 
 	/* private data */
 	vas->pvas = (void *) chan;
+	/* VAS ID */
+	vas->vid = chan->vid;
 
 	return vas;
 
@@ -158,6 +150,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 {
 	struct gdev_ctx *ctx;
 	struct pscnv_ib_bo *fence_bo;
+	struct pscnv_ib_bo *notify_bo;
 	struct pscnv_ib_chan *chan = (struct pscnv_ib_chan *) vas->pvas;
 	uint32_t chipset = gdev->chipset;
 
@@ -192,7 +185,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 		goto fail_fifo_reg;
 	}
 
-	/* fences init. */
+	/* fence buffer. */
 	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_BO_FLAGS_HOST, 0, 
 						  GDEV_FENCE_BUF_SIZE, 0, &fence_bo))
 		goto fail_fence_alloc;
@@ -201,11 +194,22 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.addr = fence_bo->vm_base;
 	ctx->fence.seq = 0;
 
+	/* interrupt buffer. */
+	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_GEM_VRAM_SMALL, 0, 
+						  8 /* 64 bits */, 0, &notify_bo))
+		goto fail_notify_alloc;
+	ctx->notify.bo = notify_bo;
+	ctx->notify.addr = notify_bo->vm_base;
+
 	/* private data */
 	ctx->pctx = (void *) chan;
+	/* context ID = channel ID. */
+	ctx->cid = chan->cid;
 
 	return ctx;
-	
+
+fail_notify_alloc:
+	pscnv_ib_bo_free(fence_bo);
 fail_fence_alloc:
 fail_fifo_reg:
 	free(ctx);
@@ -217,6 +221,7 @@ fail_ctx:
 void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 {
 	pscnv_ib_bo_free(ctx->fence.bo);
+	pscnv_ib_bo_free(ctx->notify.bo);
 	free(ctx);
 }
 

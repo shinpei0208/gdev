@@ -26,6 +26,7 @@
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
 #include "gdev_proto.h"
+#include "gdev_sched.h"
 #include "nouveau_drv.h"
 #include "pscnv_chan.h"
 #include "pscnv_fifo.h"
@@ -36,54 +37,45 @@
 
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
 
-int gdev_init_private(struct gdev_device *gdev)
-{
-	return 0;
-}
-
-/* finalize the private Gdev members. */
-void gdev_exit_private(struct gdev_device *gdev)
-{
-}
-
 /* query device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_pscnv_getparam getparam;
+	int ret;
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
 		getparam.param = PSCNV_GETPARAM_MP_COUNT;
-		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
 		*result = getparam.value;
 		break;
-	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
+	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		getparam.param = PSCNV_GETPARAM_FB_SIZE;
-		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
 		*result = getparam.value;
 		break;
-	case GDEV_NVIDIA_QUERY_DMA_MEM_SIZE:
+	case GDEV_QUERY_DMA_MEM_SIZE:
 		getparam.param = PSCNV_GETPARAM_AGP_SIZE;
-		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
 		*result = getparam.value;
 		break;
-	case GDEV_NVIDIA_QUERY_CHIPSET:
+	case GDEV_QUERY_CHIPSET:
 		getparam.param = PSCNV_GETPARAM_CHIPSET_ID;
-		pscnv_ioctl_getparam(drm, &getparam, NULL);
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
 		*result = getparam.value;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 
-	return 0;
+	return ret;
 }
 
 /* open a new Gdev object associated with the specified device. */
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
-	struct gdev_device *gdev = &gdevs[minor];
+	struct gdev_device *gdev = &gdev_vds[minor]; /* virutal device */
 
 	gdev->users++;
 
@@ -111,6 +103,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 
 	vspace->filp = NULL; /* we don't need vspace->filp in Gdev. */
 	vas->pvas = (void *) vspace; /* driver private object. */
+	vas->vid = vspace->vid; /* VAS ID. */
 
 	return vas;
 
@@ -141,8 +134,8 @@ struct gdev_ctx *gdev_raw_ctx_new
 	uint32_t chipset = priv->chipset;
 	struct pscnv_vspace *vspace = vas->pvas; 
 	struct pscnv_chan *chan;
-	struct pscnv_bo *ib_bo, *pb_bo, *fence_bo;
-	struct pscnv_mm_node *ib_mm, *pb_mm, *fence_mm;
+	struct pscnv_bo *ib_bo, *pb_bo, *fence_bo, *notify_bo;
+	struct pscnv_mm_node *ib_mm, *pb_mm, *fence_mm, *notify_mm;
 	int ret;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
@@ -211,7 +204,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 		goto fail_fifo_reg;
 	}
 
-	/* fences init. */
+	/* fence buffer. */
 	fence_bo = pscnv_mem_alloc(drm, GDEV_FENCE_BUF_SIZE, 
 							   PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
 	if (!fence_bo)
@@ -226,11 +219,28 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.addr = fence_mm->start;
 	ctx->fence.seq = 0;
 
+	/* notify buffer. */
+	notify_bo = pscnv_mem_alloc(drm, 8 /* 64bit */, PSCNV_GEM_VRAM_SMALL, 0, 0);
+	if (!notify_bo)
+		goto fail_notify_alloc;
+	ret = pscnv_vspace_map(vspace, notify_bo, GDEV_VAS_USER_START, 
+						   GDEV_VAS_USER_END, 0, &notify_mm);
+	if (ret)
+		goto fail_notify_map;
+	ctx->notify.bo = notify_bo;
+	ctx->notify.addr = notify_mm->start;
+
 	/* private data. */
 	ctx->pctx = (void *) chan;
+	/* context ID = channel ID. */
+	ctx->cid = chan->cid;
 
 	return ctx;
 	
+fail_notify_map:
+	pscnv_mem_free(notify_bo);
+fail_notify_alloc:
+	pscnv_vspace_unmap(vspace, fence_mm->start);
 fail_fence_map:
 	pscnv_mem_free(fence_bo);
 fail_fence_alloc:

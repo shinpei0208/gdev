@@ -278,7 +278,7 @@ CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (gquery(handle, GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE, &total_mem)) {
+	if (gquery(handle, GDEV_QUERY_DEVICE_MEM_SIZE, &total_mem)) {
 		return CUDA_ERROR_UNKNOWN;
 	}
 

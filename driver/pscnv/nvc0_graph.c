@@ -1048,6 +1048,8 @@ nvc0_graph_trap_handler(struct drm_device *dev, int cid)
 	}
 }
 
+#include "gdev_drv.h"
+
 void nvc0_graph_irq_handler(struct drm_device *dev, int irq)
 {
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
@@ -1077,7 +1079,12 @@ void nvc0_graph_irq_handler(struct drm_device *dev, int irq)
 	cid = -1;
 
 	if (status & NVC0_PGRAPH_INTR_NOTIFY) {
-		PGRAPH_ERROR("PGRAPH_NOTIFY");
+		if (gdev_callback_notify) {
+			gdev_callback_notify(subc, datal);
+		}
+		else {
+			PGRAPH_ERROR("PGRAPH_NOTIFY");
+		}
 		nv_wr32(dev, NVC0_PGRAPH_INTR, NVC0_PGRAPH_INTR_NOTIFY);
 		status &= ~NVC0_PGRAPH_INTR_NOTIFY;
 	}

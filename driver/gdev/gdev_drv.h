@@ -126,7 +126,13 @@ int gdev_minor_exit(struct drm_device *);
  */
 int gdev_getinfo_device_count(void);
 
-extern struct gdev_device *gdevs;
+/**
+ * exported variables.
+ */
 extern int gdev_count;
+extern int gdev_vcount;
+extern struct gdev_device *gdevs;
+extern struct gdev_device *gdev_vds;
+extern void (*gdev_callback_notify)(int subc, uint32_t data);
 
 #endif

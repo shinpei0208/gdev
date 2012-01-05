@@ -1054,8 +1054,7 @@ nv50_pgraph_irq_handler(struct drm_device *dev)
 		if (status & 0x00000001) {
 			nouveau_graph_trap_info(dev, &trap);
 			if (nouveau_ratelimit())
-				nouveau_graph_dump_trap_info(dev,
-						"PGRAPH_NOTIFY", &trap);
+				nouveau_graph_dump_trap_info(dev, "PGRAPH_NOTIFY", &trap);
 			status &= ~0x00000001;
 			nv_wr32(dev, NV03_PGRAPH_INTR, 0x00000001);
 		}

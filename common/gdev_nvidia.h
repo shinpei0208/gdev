@@ -97,6 +97,7 @@ struct gdev_shmem {
  * mapped on SRAM present in each MP.
  */
 struct gdev_vas {
+	int vid; /* vritual address space ID. */
 	void *handle; /* Gdev API handle. */
 	void *pvas; /* driver private object. */
 	struct gdev_device *gdev; /* vas is associated with a specific device. */
@@ -111,7 +112,7 @@ struct gdev_vas {
  * GPU context object struct:
  */
 struct gdev_ctx {
-	void *handle; /* Gdev API handle. */
+	int cid; /* context ID. */
 	void *pctx; /* driver private object. */
 	struct gdev_vas *vas; /* chan is associated with a specific vas object. */
 	struct gdev_fifo {
@@ -139,6 +140,10 @@ struct gdev_ctx {
 		uint64_t addr;
 		uint32_t seq;
 	} fence;
+	struct gdev_intr { /* notifier objects (for compute and dma). */
+		void *bo; /* driver private object. */
+		uint64_t addr;
+	} notify;
 	uint32_t dummy;
 };
 
@@ -171,6 +176,7 @@ struct gdev_compute {
 	void (*memcpy)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
 	void (*memcpy_async)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
 	void (*membar)(struct gdev_ctx *);
+	void (*notify_intr)(struct gdev_ctx *);
 	void (*init)(struct gdev_ctx *);
 };
 
