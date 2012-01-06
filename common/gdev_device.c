@@ -51,8 +51,9 @@ int gdev_init_device(struct gdev_device *gdev, int minor, void *priv)
 	gdev->parent = NULL;
 	gdev->priv = priv; /* this must be set before calls to gdev_query(). */
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
+	gdev_list_init(&gdev->shm_list, NULL); /* shared memory list. */
 	gdev_lock_init(&gdev->vas_lock);
-	gdev_mutex_init(&gdev->shmem_mutex);
+	gdev_mutex_init(&gdev->shm_mutex);
 
 	/* architecture-dependent chipset. 
 	   this call must be prior to the following. */
@@ -96,8 +97,9 @@ int gdev_init_virtual_device
 	gdev->dma_mem_size = phys->dma_mem_size * mem_util / 100;
 	gdev->chipset = phys->chipset;
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
+	gdev_list_init(&gdev->shm_list, NULL); /* shared memory list. */
 	gdev_lock_init(&gdev->vas_lock);
-	gdev_mutex_init(&gdev->shmem_mutex);
+	gdev_mutex_init(&gdev->shm_mutex);
 
 	/* create the swap memory object, if configured, for the virtual device. */
 	if (GDEV_SWAP_MEM_SIZE > 0) {

@@ -48,8 +48,6 @@ uint64_t gmalloc(Ghandle h, uint64_t size);
 uint64_t gfree(Ghandle h, uint64_t addr);
 void *gmalloc_dma(Ghandle h, uint64_t size);
 uint64_t gfree_dma(Ghandle h, void *buf);
-uint64_t gmalloc_shm(Ghandle h, int key, uint32_t flags, uint64_t size);
-uint64_t gfree_shm(Ghandle h, uint64_t addr);
 int gmemcpy_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
 int gmemcpy_to_device_async(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
 int gmemcpy_user_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
@@ -63,6 +61,10 @@ int glaunch(Ghandle h, struct gdev_kernel *kernel, uint32_t *id);
 int gsync(Ghandle h, uint32_t id, struct gdev_time *timeout);
 int gquery(Ghandle h, uint32_t type, uint64_t *result);
 int gtune(Ghandle h, uint32_t type, uint32_t value);
+int gshmget(Ghandle h, int key, uint64_t size, int flags);
+uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags);
+uint64_t gshmdt(Ghandle h, uint64_t addr);
+
 
 /**
  * tuning types for Gdev resource management parameters.

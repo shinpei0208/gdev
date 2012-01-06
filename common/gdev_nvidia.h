@@ -60,13 +60,16 @@
 /**
  * Gdev shared memory information:
  */
-struct gdev_shmem {
+struct gdev_shm {
 	struct gdev_mem *holder; /* current memory holder */
-	struct gdev_list shmem_list; /* list of shared memory users */
+	struct gdev_list mem_list; /* list of memory objects attached */
+	struct gdev_list list_entry; /* entry to the list of shared memory */
 	gdev_mutex_t mutex;
 	uint64_t size;
 	int prio; /* highest prio among users (effective only for master) */
 	int users; /* number of users (effective only for master) */
+	int key; /* key value of this shared memory */
+	int id; /* indentifier of this shared memory */
 	void *bo; /* private buffer object */
 };
 
@@ -151,8 +154,8 @@ struct gdev_mem {
 	void *bo; /* driver private object */
 	struct gdev_vas *vas; /* mem is associated with a specific vas object */
 	struct gdev_list list_entry_heap; /* entry to heap list */
-	struct gdev_list list_entry_shmem; /* entry to shared memory list */
-	struct gdev_shmem *shmem; /* shared memory information */
+	struct gdev_list list_entry_shm; /* entry to shared memory list */
+	struct gdev_shm *shm; /* shared memory information */
 	struct gdev_mem *swap_mem; /* device memory for temporal swap */
 	void *swap_buf; /* host buffer for swap */
 	int evicted; /* 1 if evicted, 0 otherwise */
@@ -205,7 +208,26 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size);
 
 /**
- * runtime/driver/architecture-independent inline FIFO functions.
+ * initialize a memory object. 
+ */
+static inline void __gdev_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type)
+{
+	mem->vas = vas;
+	mem->addr = addr;
+	mem->size = size;
+	mem->map = map;
+	mem->type = type;
+	mem->evicted = 0;
+	mem->swap_mem = NULL;
+	mem->swap_buf = NULL;
+	mem->shm = NULL;
+
+	gdev_list_init(&mem->list_entry_heap, (void *) mem);
+	gdev_list_init(&mem->list_entry_shm, (void *) mem);
+}
+
+/**
+ * FIFO control functions.
  */
 static inline void __gdev_relax_fifo(void)
 {

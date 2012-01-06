@@ -275,12 +275,12 @@ static int __gmemcpy_to_device
 	if (!mem)
 		return -ENOENT;
 
-	gdev_shmem_lock(mem);
-	gdev_shmem_evict(ctx, mem); /* evict data only if necessary */
+	gdev_shm_lock(mem);
+	gdev_shm_evict(ctx, mem); /* evict data only if necessary */
 	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, async, 
 									 ch_size, p_count, vas, mem, dma_mem, 
 									 host_copy);
-	gdev_shmem_unlock(mem);
+	gdev_shm_unlock(mem);
 	
 	return ret;
 }
@@ -463,12 +463,12 @@ static int __gmemcpy_from_device
 	if (!mem)
 		return -ENOENT;
 
-	gdev_shmem_lock(mem);
-	gdev_shmem_reload(ctx, mem); /* reload data only if necessary. */
+	gdev_shm_lock(mem);
+	gdev_shm_reload(ctx, mem); /* reload data only if necessary. */
 	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, async, 
 									   ch_size, p_count, vas, mem, dma_mem,
 									   host_copy);
-	gdev_shmem_unlock(mem);
+	gdev_shm_unlock(mem);
 
 	return ret;
 }
@@ -607,9 +607,6 @@ struct gdev_handle *gopen(int minor)
 	h->gdev = gdev;
 	h->dev_id = minor;
 
-	/* insert the created VAS object to the device VAS list. */
-	gdev_vas_list_add(vas);
-
 	GDEV_PRINT("Opened gdev%d\n", minor);
 
 	return h;
@@ -636,9 +633,6 @@ int gclose(struct gdev_handle *h)
 		return -ENOENT;
 	if (!h->gdev || !h->ctx || !h->vas || !h->se)
 		return -ENOENT;
-
-	/* delete the VAS object from the device VAS list. */
-	gdev_vas_list_del(h->vas);
 
 	/* free the scheduling entity. */
 	gdev_sched_entity_destroy(h->se);
@@ -675,14 +669,14 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	gdev->mem_used += size;
 
 	if (gdev->mem_used > gdev->mem_size) {
-		/* a second chance with shared memory (only for device memory). */
-		if (!(mem = gdev_shmem_request(vas, NULL, size)))
+		/* try to share memory with someone (only for device memory). 
+		   the shared memory must be freed in gdev_mem_free() when 
+		   unreferenced by all users. */
+		if (!(mem = gdev_mem_share(vas, size)))
 			goto fail;
 	}
 	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
 		goto fail;
-
-	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
 
 	return gdev_mem_get_addr(mem);
 
@@ -705,7 +699,6 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 	size = gdev_mem_get_size(mem);
-	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
 	gdev->mem_used -= size;
@@ -732,7 +725,6 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 		goto fail;
 	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
-	gdev_mem_list_add(mem, GDEV_MEM_DMA);
 
 	return gdev_mem_get_buf(mem);
 
@@ -755,37 +747,12 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
 	size = gdev_mem_get_size(mem);
-	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
 	gdev->dma_mem_used -= size;
 
 	return size;
 
-fail:
-	return 0;
-}
-
-/**
- * gmalloc_shm():
- * allocate new device memory, if necessary, and reference it.
- */
-uint64_t gmalloc_shm(Ghandle h, int key, uint32_t flags, uint64_t size)
-{
-	struct gdev_device *gdev = h->gdev;
-	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *mem;
-
-fail:
-	return 0;
-}
-
-/**
- * gfree_shm():
- * unreference the shared memory space, and free it if necessary.
- */
-uint64_t gfree_shm(Ghandle h, uint64_t addr)
-{
 fail:
 	return 0;
 }
@@ -894,12 +861,12 @@ int gmemcpy_in_device
 	if (!dst || !src)
 		return -ENOENT;
 
-	gdev_shmem_lock(dst);
-	gdev_shmem_lock(src);
+	gdev_shm_lock(dst);
+	gdev_shm_lock(src);
 	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, 0); 
 	gdev_poll(ctx, fence, NULL);
-	gdev_shmem_unlock(src);
-	gdev_shmem_unlock(dst);
+	gdev_shm_unlock(src);
+	gdev_shm_unlock(dst);
 
 	return 0;
 }
@@ -916,10 +883,10 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 
 	gdev_schedule_launch(se);
 
-	gdev_shmem_lock_all(vas);
-	gdev_shmem_reload_all(ctx, vas); /* this reloads data only if necessary */
+	gdev_shm_lock_all(vas);
+	gdev_shm_reload_all(ctx, vas); /* this reloads data only if necessary */
 	*id = gdev_launch(ctx, kernel);
-	gdev_shmem_unlock_all(vas);
+	gdev_shm_unlock_all(vas);
 
 	return 0;
 }
@@ -985,5 +952,23 @@ int gtune(struct gdev_handle *h, uint32_t type, uint32_t value)
 	default:
 		return -EINVAL;
 	}
+	return 0;
+}
+
+int gshmget(Ghandle h, int key, uint64_t size, int flags)
+{
+	struct gdev_device *gdev = h->gdev;
+	gdev_vas_t *vas = h->vas;
+	
+	return gdev_shm_create(gdev, vas, key, size, flags);
+}
+
+uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags)
+{
+	return 0;
+}
+
+uint64_t gshmdt(Ghandle h, uint64_t addr)
+{
 	return 0;
 }

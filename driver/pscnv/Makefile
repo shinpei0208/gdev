@@ -19,7 +19,7 @@ pscnv-y := nouveau_drv.o nouveau_state.o \
 	pscnv_gdev.o \
 	gdev_drv.o gdev_fops.o gdev_ioctl.o gdev_proc.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
-	gdev_nvidia.o gdev_nvidia_nvc0.o 
+	gdev_nvidia.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o 
 
 pscnv-$(CONFIG_DRM_NOUVEAU_DEBUG) += nouveau_debugfs.o
 pscnv-$(CONFIG_COMPAT) += nouveau_ioc32.o

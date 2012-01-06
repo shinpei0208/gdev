@@ -51,8 +51,9 @@ struct gdev_device {
 	void *sched_thread; /* scheduler thread */
 	struct gdev_device *parent; /* only for virtual devices */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */
+	struct gdev_list shm_list; /* list of VASes allocated to this device */
 	gdev_lock_t vas_lock;
-	gdev_mutex_t shmem_mutex;
+	gdev_mutex_t shm_mutex;
 	gdev_mem_t *swap; /* reserved swap memory space */
 };
 
