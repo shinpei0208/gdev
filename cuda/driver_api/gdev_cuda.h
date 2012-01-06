@@ -33,11 +33,6 @@
 #define NULL 0
 #endif
 
-#ifdef __KERNEL__
-#include "gdev_drv.h"
-#else
-#include "gdev_lib.h"
-#endif
 #include "gdev_api.h"
 #include "gdev_list.h"
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */

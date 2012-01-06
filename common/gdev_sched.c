@@ -26,8 +26,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_proto.h"
 #include "gdev_sched.h"
+#include "gdev_system.h"
 
 struct gdev_sched_entity *sched_entity_ptr[GDEV_CONTEXT_MAX_COUNT];
 
@@ -36,7 +36,7 @@ struct gdev_sched_entity *sched_entity_ptr[GDEV_CONTEXT_MAX_COUNT];
  */
 int gdev_init_scheduler(struct gdev_device *gdev)
 {
-	gdev_init_scheduler_thread(gdev);
+	gdev_sched_create_scheduler(gdev);
 
 	return 0;
 }
@@ -46,7 +46,35 @@ int gdev_init_scheduler(struct gdev_device *gdev)
  */
 void gdev_exit_scheduler(struct gdev_device *gdev)
 {
-	gdev_exit_scheduler_thread(gdev);
+	gdev_sched_destroy_scheduler(gdev);
+}
+
+/**
+ * create a new scheduling entity.
+ */
+struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gdev_ctx_t *ctx)
+{
+	struct gdev_sched_entity *se;
+
+	if (!(se= MALLOC(sizeof(*se))))
+		return NULL;
+
+	/* set up the scheduling entity. */
+	se->gdev = gdev;
+	se->task = gdev_sched_get_current_task();
+	se->ctx = ctx;
+	se->rt_prio = GDEV_PRIO_DEFAULT;
+	sched_entity_ptr[gdev_ctx_get_cid(ctx)] = se;
+
+	return se;
+}
+
+/**
+ * destroy the scheduling entity.
+ */
+void gdev_sched_entity_destroy(struct gdev_sched_entity *se)
+{
+	FREE(se);
 }
 
 /**

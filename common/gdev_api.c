@@ -1,12 +1,17 @@
 /*
  * Copyright 2011 Shinpei Kato
+ *
+ * University of California, Santa Cruz
+ * Systems Research Lab.
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
  * The above copyright notice and this permission notice (including the next
  * paragraph) shall be included in all copies or substantial portions of the
@@ -22,9 +27,7 @@
  */
 
 #include "gdev_api.h"
-#include "gdev_conf.h"
-#include "gdev_mm.h"
-#include "gdev_proto.h"
+#include "gdev_device.h"
 #include "gdev_sched.h"
 
 #define __max(x, y) (x) > (y) ? (x) : (y)
@@ -35,6 +38,7 @@
  */
 struct gdev_handle {
 	struct gdev_device *gdev; /* gdev handle object. */
+	struct gdev_sched_entity *se; /* scheduling entity. */
 	gdev_vas_t *vas; /* virtual address space object. */
 	gdev_ctx_t *ctx; /* device context object. */
 	gdev_mem_t **dma_mem; /* host-side DMA memory object (bounce buffer). */
@@ -119,8 +123,8 @@ static int __gmemcpy_to_device_p
 	int i;
 
 	for (i = 0; i < p_count; i++) {
-		dma_addr[i] = GDEV_MEM_ADDR(bmem[i]);
-		dma_buf[i] = GDEV_MEM_BUF(bmem[i]);
+		dma_addr[i] = gdev_mem_get_addr(bmem[i]);
+		dma_buf[i] = gdev_mem_get_buf(bmem[i]);
 		fence[i] = 0;
 	}
 
@@ -168,8 +172,8 @@ static int __gmemcpy_to_device_np
 	uint32_t dma_size;
 	int ret = 0;
 
-	dma_addr[0] = GDEV_MEM_ADDR(bmem[0]);
-	dma_buf[0] = GDEV_MEM_BUF(bmem[0]);
+	dma_addr[0] = gdev_mem_get_addr(bmem[0]);
+	dma_buf[0] = gdev_mem_get_buf(bmem[0]);
 
 	/* copy data by the chunk size. */
 	offset = 0;
@@ -300,8 +304,8 @@ static int __gmemcpy_from_device_p
 	int i;
 
 	for (i = 0; i < p_count; i++) {
-		dma_addr[i] = GDEV_MEM_ADDR(bmem[i]);
-		dma_buf[i] = GDEV_MEM_BUF(bmem[i]);
+		dma_addr[i] = gdev_mem_get_addr(bmem[i]);
+		dma_buf[i] = gdev_mem_get_buf(bmem[i]);
 		fence[i] = 0;
 	}
 
@@ -357,8 +361,8 @@ static int __gmemcpy_from_device_np
 	uint32_t dma_size;
 	int ret = 0;
 
-	dma_addr[0] = GDEV_MEM_ADDR(bmem[0]);
-	dma_buf[0] = GDEV_MEM_BUF(bmem[0]);
+	dma_addr[0] = gdev_mem_get_addr(bmem[0]);
+	dma_buf[0] = gdev_mem_get_buf(bmem[0]);
 
 	/* copy data by the chunk size. */
 	offset = 0;
@@ -549,6 +553,7 @@ struct gdev_handle *gopen(int minor)
 {
 	struct gdev_handle *h;
 	struct gdev_device *gdev;
+	struct gdev_sched_entity *se;
 	gdev_vas_t *vas;
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
@@ -561,24 +566,41 @@ struct gdev_handle *gopen(int minor)
 
 	/* open the specified device. */
 	gdev = gdev_dev_open(minor);
-	if (!gdev)
+	if (!gdev) {
+		GDEV_PRINT("Failed to open gdev%d\n", minor);
 		goto fail_open;
+	}
 
 	/* create a new virual address space (VAS) object. */
 	vas = gdev_vas_new(gdev, GDEV_VAS_SIZE, h);
-	if (!vas)
+	if (!vas) {
+		GDEV_PRINT("Failed to create a virtual address space object\n");
 		goto fail_vas;
+	}
 
 	/* create a new GPU context object. */
 	ctx = gdev_ctx_new(gdev, vas);
-	if (!ctx)
+	if (!ctx) {
+		GDEV_PRINT("Failed to create a context object\n");
 		goto fail_ctx;
+	}
 
 	/* allocate static bounce bound buffer objects. */
 	dma_mem = __malloc_dma(vas, GDEV_CHUNK_DEFAULT_SIZE, h->pipeline_count);
-	if (!dma_mem)
+	if (!dma_mem) {
+		GDEV_PRINT("Failed to allocate static DMA buffer object\n");
 		goto fail_dma;
+	}
 
+	/* allocate a scheduling entity. */
+	se = gdev_sched_entity_create(gdev, ctx);
+	if (!se) {
+		GDEV_PRINT("Failed to allocate scheduling entity\n");
+		goto fail_se;
+	}
+	
+	/* save the objects to the handle. */
+	h->se = se;
 	h->dma_mem = dma_mem;
 	h->vas = vas;
 	h->ctx = ctx;
@@ -592,18 +614,15 @@ struct gdev_handle *gopen(int minor)
 
 	return h;
 
+fail_se:
+	__free_dma(dma_mem, h->pipeline_count);
 fail_dma:
-	GDEV_PRINT("Failed to allocate static DMA buffer object\n");
 	gdev_ctx_free(ctx);
 fail_ctx:
-	GDEV_PRINT("Failed to create a context object\n");
 	gdev_vas_free(vas);
 fail_vas:
-	GDEV_PRINT("Failed to create a virtual address space object\n");
 	gdev_dev_close(gdev);
 fail_open:
-	GDEV_PRINT("Failed to open gdev%d\n", minor);
-
 	return NULL;
 }
 
@@ -615,12 +634,15 @@ int gclose(struct gdev_handle *h)
 {
 	if (!h)
 		return -ENOENT;
-	if (!h->gdev || !h->ctx || !h->vas)
+	if (!h->gdev || !h->ctx || !h->vas || !h->se)
 		return -ENOENT;
 
 	/* delete the VAS object from the device VAS list. */
 	gdev_vas_list_del(h->vas);
 
+	/* free the scheduling entity. */
+	gdev_sched_entity_destroy(h->se);
+	
 	/* free the bounce buffer. */
 	if (h->dma_mem)
 		__free_dma(h->dma_mem, h->pipeline_count);
@@ -662,7 +684,7 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 
 	gdev_mem_list_add(mem, GDEV_MEM_DEVICE);
 
-	return GDEV_MEM_ADDR(mem);
+	return gdev_mem_get_addr(mem);
 
 fail:
 	gdev->mem_used -= size;
@@ -682,7 +704,7 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
-	size = GDEV_MEM_SIZE(mem);
+	size = gdev_mem_get_size(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
@@ -712,7 +734,7 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 		goto fail;
 	gdev_mem_list_add(mem, GDEV_MEM_DMA);
 
-	return GDEV_MEM_BUF(mem);
+	return gdev_mem_get_buf(mem);
 
 fail:
 	gdev->dma_mem_used -= size;
@@ -732,7 +754,7 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
-	size = GDEV_MEM_SIZE(mem);
+	size = gdev_mem_get_size(mem);
 	gdev_mem_list_del(mem);
 	gdev_mem_free(mem);
 
@@ -866,8 +888,9 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
+	struct gdev_sched_entity *se = h->se;
 
-	//gdev_schedule_launch(ctx);
+	gdev_schedule_launch(se);
 
 	gdev_shmem_lock_all(vas);
 	gdev_shmem_reload_all(ctx, vas); /* this reloads data only if necessary */

@@ -26,7 +26,14 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_init.h"
+#include "gdev_api.h"
+#include "gdev_device.h"
+#include "gdev_system.h"
+
+int gdev_count = 0; /* # of physical devices. */
+int gdev_vcount = 0; /* # of virtual devices. */
+struct gdev_device *gdevs = NULL; /* physical devices */
+struct gdev_device *gdev_vds = NULL; /* virtual devices */
 
 /* initialize the physical device information. */
 int gdev_init_device(struct gdev_device *gdev, int minor, void *priv)
@@ -44,8 +51,8 @@ int gdev_init_device(struct gdev_device *gdev, int minor, void *priv)
 	gdev->parent = NULL;
 	gdev->priv = priv; /* this must be set before calls to gdev_query(). */
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	LOCK_INIT(&gdev->vas_lock);
-	MUTEX_INIT(&gdev->shmem_mutex);
+	gdev_lock_init(&gdev->vas_lock);
+	gdev_mutex_init(&gdev->shmem_mutex);
 
 	/* architecture-dependent chipset. 
 	   this call must be prior to the following. */
@@ -63,9 +70,6 @@ int gdev_init_device(struct gdev_device *gdev, int minor, void *priv)
 	/* set up the compute engine. */
 	gdev_compute_setup(gdev);
 
-	GDEV_PRINT("Device %d: memory size (device 0x%llx, host 0x%llx)\n",
-			   gdev->id, gdev->mem_size, gdev->dma_mem_size);
-
 	return 0;
 }
 
@@ -75,7 +79,7 @@ void gdev_exit_device(struct gdev_device *gdev)
 }
 
 /* initialize the virtual device information. */
-int gdev_init_vdevice
+int gdev_init_virtual_device
 (struct gdev_device *gdev, int id, uint32_t proc_util, uint32_t mem_util, 
  struct gdev_device *phys)
 {
@@ -92,16 +96,21 @@ int gdev_init_vdevice
 	gdev->dma_mem_size = phys->dma_mem_size * mem_util / 100;
 	gdev->chipset = phys->chipset;
 	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	LOCK_INIT(&gdev->vas_lock);
-	MUTEX_INIT(&gdev->shmem_mutex);
+	gdev_lock_init(&gdev->vas_lock);
+	gdev_mutex_init(&gdev->shmem_mutex);
 
-	GDEV_PRINT("Virtual device %d: memory size (device 0x%llx, host 0x%llx)\n",
-			   gdev->id, gdev->mem_size, gdev->dma_mem_size);
+	/* create the swap memory object, if configured, for the virtual device. */
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		gdev_swap_create(gdev, GDEV_SWAP_MEM_SIZE);
+	}
 
 	return 0;
 }
 
 /* finalize the virtual device. */
-void gdev_exit_vdevice(struct gdev_device *gdev)
+void gdev_exit_virtual_device(struct gdev_device *gdev)
 {
+	if (GDEV_SWAP_MEM_SIZE > 0) {
+		gdev_swap_destroy(gdev);
+	}
 }

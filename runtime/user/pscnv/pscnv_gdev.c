@@ -22,9 +22,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_conf.h"
-#include "gdev_lib.h"
-#include "gdev_proto.h"
+#include "gdev_api.h"
+#include "gdev_device.h"
 #include "libpscnv.h"
 #include "libpscnv_ib.h"
 #include "pscnv_drm.h"
@@ -32,12 +31,8 @@
 #include <sys/mman.h>
 #include <sys/unistd.h>
 
-#define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 #define GDEV_DEVICE_MAX_COUNT 32
-
-struct gdev_device gdevs[GDEV_DEVICE_MAX_COUNT] = {
-	[0 ... GDEV_DEVICE_MAX_COUNT-1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-};
+#define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 
 /* query a piece of the device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
@@ -49,15 +44,15 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_MP_COUNT, result))
 			return -EINVAL;
 		break;
-	case GDEV_NVIDIA_QUERY_DEVICE_MEM_SIZE:
+	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_FB_SIZE, result))
 			return -EINVAL;
 		break;
-	case GDEV_NVIDIA_QUERY_DMA_MEM_SIZE:
+	case GDEV_QUERY_DMA_MEM_SIZE:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_AGP_SIZE, result))
 			return -EINVAL;
 		break;
-	case GDEV_NVIDIA_QUERY_CHIPSET:
+	case GDEV_QUERY_CHIPSET:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_CHIPSET_ID, result))
 			return -EINVAL;
 		break;
@@ -73,7 +68,16 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	char buf[64];
 	int fd;
-	struct gdev_device *gdev = &gdevs[minor];
+	struct gdev_device *gdev;
+
+	if (!gdevs) {
+		gdevs = MALLOC(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
+		if (!gdevs)
+			return NULL;
+		memset(gdevs, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT, 0);
+	}
+
+	gdev = &gdevs[minor];
 
 	if (gdev->users == 0) {
 		sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
@@ -91,10 +95,19 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 void gdev_raw_dev_close(struct gdev_device *gdev)
 {
 	int fd = ((unsigned long) gdev->priv & 0xffffffff); /* avoid warning :) */
+	int i;
 
-	if (--gdev->users == 0) {
+	gdev->users--;
+
+	if (gdev->users == 0) {
 		gdev_exit_device(gdev);
 		close(fd);
+		for (i = 0; i < GDEV_DEVICE_MAX_COUNT; i++) {
+			if (gdevs[i].users > 0)
+				return;
+		}
+		FREE(gdevs);
+		gdevs = NULL;
 	}
 }
 
@@ -226,9 +239,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static inline struct gdev_mem *__gdev_mem_alloc
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, 
- uint32_t flags)
+static struct gdev_mem *__gdev_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
 {
 	struct gdev_mem *mem;
 	struct pscnv_ib_chan *chan = vas->pvas;
@@ -262,15 +273,13 @@ fail_mem:
 }
 
 /* allocate a new device memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
 	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc_dma
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
 	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_BO_FLAGS_HOST);
 }
@@ -301,9 +310,7 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 }
 
 /* create a new memory object sharing memory space with @mem. */
-struct gdev_mem *gdev_raw_mem_share
-(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
- void **map)
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map)
 {
 	GDEV_PRINT("Shared memory not implemented\n");
 	/* To be implemented. */

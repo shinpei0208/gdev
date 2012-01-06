@@ -119,14 +119,6 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	/* save the Gdev handle. */
 	ctx->gdev_handle = handle;
 
-#ifdef __KERNEL__
-	/* chunk size of 0x40000 seems best when using OS runtime. */
-	if (gtune(handle, GDEV_TUNE_MEMCPY_CHUNK_SIZE, 0x40000)) {
-		res = CUDA_ERROR_UNKNOWN;
-		goto fail_tune_chunk;
-	}
-#endif
-
 	/* get the CUDA-specific device information. */
 	cuda_info = &ctx->cuda_info;
 	if (gquery(handle, GDEV_QUERY_CHIPSET, &cuda_info->chipset)) {
@@ -173,9 +165,6 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 fail_query_mp_count:
 fail_query_chipset:
-#ifdef __KERNEL__
-fail_tune_chunk:
-#endif
 	gclose(handle);
 fail_open_gdev:
 	FREE(ctx);

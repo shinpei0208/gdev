@@ -29,11 +29,20 @@
 #ifndef __GDEV_SCHED_H__
 #define __GDEV_SCHED_H__
 
-#include "gdev_proto.h"
+#include "gdev_device.h"
 
 struct gdev_sched_entity {
-	int rt_prio;
+	struct gdev_device *gdev; /* associated Gdev (virtual) device. */
+	void *task; /* private task structure. */
+	gdev_ctx_t *ctx;
+	int rt_prio; /* real-time priority. */
 };
+
+int gdev_init_scheduler(struct gdev_device *gdev);
+void gdev_exit_scheduler(struct gdev_device *gdev);
+
+struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gdev_ctx_t *ctx);
+void gdev_sched_entity_destroy(struct gdev_sched_entity *se);
 
 void gdev_schedule_launch(struct gdev_sched_entity *se);
 void gdev_schedule_memcpy(struct gdev_sched_entity *se);

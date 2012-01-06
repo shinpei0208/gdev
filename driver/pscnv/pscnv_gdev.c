@@ -22,10 +22,11 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "gdev_api.h"
+#include "gdev_device.h"
 #include "gdev_drv.h"
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
-#include "gdev_proto.h"
 #include "gdev_sched.h"
 #include "nouveau_drv.h"
 #include "pscnv_chan.h"
@@ -125,8 +126,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 }
 
 /* create a new GPU context object. */
-struct gdev_ctx *gdev_raw_ctx_new
-(struct gdev_device *gdev, struct gdev_vas *vas)
+struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
@@ -288,9 +288,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static inline struct gdev_mem *__gdev_raw_mem_alloc
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, 
- uint32_t flags)
+static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
 {
 	struct gdev_mem *mem;
 	struct gdev_device *gdev = vas->gdev;
@@ -338,15 +336,13 @@ fail_mem:
 }
 
 /* allocate a new device memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
 	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc_dma
-(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
 	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_SYSRAM_SNOOP);
 }
@@ -405,9 +401,7 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 }
 
 /* create a new memory object sharing memory space with @mem. */
-struct gdev_mem *gdev_raw_mem_share
-(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, 
- void **map)
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map)
 {
 	struct pscnv_vspace *vs = vas->pvas;
 	struct pscnv_bo *bo = mem->bo;
