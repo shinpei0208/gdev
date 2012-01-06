@@ -1,7 +1,7 @@
 /*
  * Copyright 2011 Shinpei Kato
  *
- * University of California at Santa Cruz
+ * University of California, Santa Cruz
  * Systems Research Lab.
  *
  * All Rights Reserved.
@@ -29,13 +29,10 @@
 #ifndef __GDEV_NVIDIA_H__
 #define __GDEV_NVIDIA_H__
 
-#ifdef __KERNEL__
-#include "gdev_drv.h"
-#else
-#include "gdev_lib.h"
-#endif
-#include "gdev_nvidia_def.h"
+#include "gdev_device.h"
 #include "gdev_list.h"
+#include "gdev_nvidia_def.h"
+#include "gdev_system.h"
 #include "gdev_time.h"
 
 #define GDEV_SUBCH_COMPUTE 1
@@ -181,16 +178,31 @@ struct gdev_compute {
 };
 
 /**
- * utility macros for memory object that must be supported.
+ * chipset specific functions.
  */
-#define GDEV_MEM_ADDR(mem) (mem)->addr
-#define GDEV_MEM_SIZE(mem) (mem)->size
-#define GDEV_MEM_BUF(mem) (mem)->map
+void nvc0_compute_setup(struct gdev_device *gdev);
 
 /**
- * architecture-dependent setup functions.
+ * OS driver and user-space runtime depen functions.
  */
-void nvc0_compute_setup(struct gdev_device *);
+int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result);
+struct gdev_device *gdev_raw_dev_open(int minor);
+void gdev_raw_dev_close(struct gdev_device *gdev);
+struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size);
+void gdev_raw_vas_free(struct gdev_vas *vas);
+struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas);
+void gdev_raw_ctx_free(struct gdev_ctx *ctx);
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map);
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map);
+void gdev_raw_mem_free(struct gdev_mem *mem);
+struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size);
+void gdev_raw_swap_free(struct gdev_mem *mem);
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map);
+void gdev_raw_mem_unshare(struct gdev_mem *mem);
+uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr);
+void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val);
+int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size);
+int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size);
 
 /**
  * runtime/driver/architecture-independent inline FIFO functions.
@@ -200,8 +212,7 @@ static inline void __gdev_relax_fifo(void)
 	SCHED_YIELD();
 }
 
-static inline void __gdev_push_fifo
-(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
+static inline void __gdev_push_fifo(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
 {
 	uint64_t w = base | (uint64_t)len << 40 | (uint64_t)flags << 40;
 	while (((ctx->fifo.ib_put + 1) & ctx->fifo.ib_mask) == ctx->fifo.ib_get) {
@@ -268,26 +279,22 @@ static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
 	ctx->fifo.pb_pos &= ctx->fifo.pb_mask;
 }
 
-static inline void __gdev_begin_ring_nv50
-(struct gdev_ctx *ctx, int subc, int mthd, int len)
+static inline void __gdev_begin_ring_nv50(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, mthd | (subc<<13) | (len<<18));
 }
 
-static inline void __gdev_begin_ring_nv50_const
-(struct gdev_ctx *ctx, int subc, int mthd, int len)
+static inline void __gdev_begin_ring_nv50_const(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, mthd | (subc<<13) | (len<<18) | (0x4<<28));
 }
 
-static inline void __gdev_begin_ring_nvc0
-(struct gdev_ctx *ctx, int subc, int mthd, int len)
+static inline void __gdev_begin_ring_nvc0(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, (0x2<<28) | (len<<16) | (subc<<13) | (mthd>>2));
 }
 
-static inline void __gdev_begin_ring_nvc0_const
-(struct gdev_ctx *ctx, int subc, int mthd, int len)
+static inline void __gdev_begin_ring_nvc0_const(struct gdev_ctx *ctx, int subc, int mthd, int len)
 {
 	__gdev_out_ring(ctx, (0x6<<28) | (len<<16) | (subc<<13) | (mthd>>2));
 }

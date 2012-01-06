@@ -2,6 +2,15 @@
 #define LIBPSCNV_H
 #include <stdint.h>
 
+#define DRM_DIR_NAME  "/dev/dri"
+#define DRM_DEV_NAME  "%s/card%d"
+#define DRM_IOCTL_NR(n)		_IOC_NR(n)
+#define DRM_IOC_VOID		_IOC_NONE
+#define DRM_IOC_READ		_IOC_READ
+#define DRM_IOC_WRITE		_IOC_WRITE
+#define DRM_IOC_READWRITE	_IOC_READ|_IOC_WRITE
+#define DRM_IOC(dir, group, nr, size) _IOC(dir, group, nr, size)
+
 #define PSCNV_GETPARAM_PCI_VENDOR      3
 #define PSCNV_GETPARAM_PCI_DEVICE      4
 #define PSCNV_GETPARAM_BUS_TYPE        5

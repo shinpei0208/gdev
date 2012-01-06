@@ -22,73 +22,59 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <sys/errno.h>
-#include <sys/ioctl.h>
+#include "gdev_device.h"
 #include "gdev_lib.h"
-#include "drm.h"
 
-int drmIoctl(int fd, unsigned long request, void *arg)
+int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
-	int	ret;
-	
-	do {
-		ret = ioctl(fd, request, arg);
-	} while (ret == -1 && (errno == EINTR || errno == EAGAIN));
-	return ret;
-}
-
-/**
- * Send a device-specific write command.
- *
- * \param fd file descriptor.
- * \param drmCommandIndex command index 
- * \param data source pointer of the data to be written.
- * \param size size of the data to be written.
- * 
- * \return zero on success, or a negative value on failure.
- * 
- * \internal
- * It issues a write ioctl given by 
- * \code DRM_COMMAND_BASE + drmCommandIndex \endcode.
- */
-int drmCommandWrite(int fd, unsigned long drmCommandIndex, void *data,
-					unsigned long size)
-{
-	unsigned long request;
-	
-	request = DRM_IOC( DRM_IOC_WRITE, DRM_IOCTL_BASE, 
-					   DRM_COMMAND_BASE + drmCommandIndex, size);
-	
-	if (drmIoctl(fd, request, data)) {
-		return -errno;
-	}
 	return 0;
 }
 
-
-/**
- * Send a device-specific read-write command.
- *
- * \param fd file descriptor.
- * \param drmCommandIndex command index 
- * \param data source pointer of the data to be read and written.
- * \param size size of the data to be read and written.
- * 
- * \return zero on success, or a negative value on failure.
- * 
- * \internal
- * It issues a read-write ioctl given by 
- * \code DRM_COMMAND_BASE + drmCommandIndex \endcode.
- */
-int drmCommandWriteRead(int fd, unsigned long drmCommandIndex, void *data,
-						unsigned long size)
+void gdev_sched_destroy_scheduler(struct gdev_device *gdev)
 {
-	unsigned long request;
-	
-	request = DRM_IOC( DRM_IOC_READ | DRM_IOC_WRITE, DRM_IOCTL_BASE, 
-					   DRM_COMMAND_BASE + drmCommandIndex, size);
-	
-	if (drmIoctl(fd, request, data))
-		return -errno;
-	return 0;
+}
+
+void *gdev_sched_get_current_task(void)
+{
+	return NULL;
+}
+
+void gdev_lock_init(struct gdev_lock *p)
+{
+}
+
+void gdev_lock(struct gdev_lock *p)
+{
+}
+
+void gdev_unlock(struct gdev_lock *p)
+{
+}
+
+void gdev_lock_save(struct gdev_lock *p, unsigned long *pflags)
+{
+}
+
+void gdev_unlock_restore(struct gdev_lock *p, unsigned long *pflags)
+{
+}
+
+void gdev_lock_nested(struct gdev_lock *p)
+{
+}
+
+void gdev_unlock_nested(struct gdev_lock *p)
+{
+}
+
+void gdev_mutex_init(struct gdev_mutex *p)
+{
+}
+
+void gdev_mutex_lock(struct gdev_mutex *p)
+{
+}
+
+void gdev_mutex_unlock(struct gdev_mutex *p)
+{
 }

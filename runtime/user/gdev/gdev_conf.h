@@ -1,9 +1,5 @@
 /*
  * Copyright 2011 Shinpei Kato
- *
- * University of California at Santa Cruz
- * Systems Research Lab.
- *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -26,26 +22,26 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "gdev_conf.h"
-#include "gdev_mm.h"
+#ifndef __GDEV_CONF_H__
+#define __GDEV_CONF_H__
 
-static int __gdev_mm_space_device(struct gdev_device *gdev, uint64_t size)
-{
-	return 0;
-}
+#include "gdev_nvidia.h"
+// #include "gdev_amd.h"
+// #include "gdev_intel.h"
 
-static int __gdev_mm_space_dma(struct gdev_device *gdev, uint64_t size)
-{
-	return 0;
-}
+#define GDEV_CONTEXT_MAX_COUNT 128 /* # of GPU contexts */
 
-int gdev_mm_space(struct gdev_device *gdev, uint64_t size, int type)
-{
-	switch (type) {
-	case GDEV_MEM_DEVICE:
-		return __gdev_mm_space_device(gdev, size);
-	case GDEV_MEM_DMA:
-		return __gdev_mm_space_dma(gdev, size);
-	}
-	return -EINVAL;
-}
+#define GDEV_PIPELINE_MAX_COUNT 4
+#define GDEV_PIPELINE_MIN_COUNT 1
+#define GDEV_PIPELINE_DEFAULT_COUNT 2
+
+#define GDEV_CHUNK_MAX_SIZE 0x2000000 /* 32MB */
+#define GDEV_CHUNK_DEFAULT_SIZE 0x200000 /* 2MB */
+
+#define GDEV_SWAP_MEM_SIZE 0x8000000 /* 128MB */
+
+#define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
+
+// #define GDEV_DEBUG_PRINT
+
+#endif

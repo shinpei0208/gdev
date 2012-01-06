@@ -29,179 +29,34 @@
 #include <asm/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
-#include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/version.h>
 #include <linux/vmalloc.h>
 
 #include "gdev_api.h"
 #include "gdev_conf.h"
+#include "gdev_device.h"
 #include "gdev_drv.h"
-#include "gdev_init.h"
-#include "gdev_ioctl.h"
+#include "gdev_fops.h"
 #include "gdev_proc.h"
-#include "gdev_proto.h"
+#include "gdev_sched.h"
+
+#define MODULE_NAME	"gdev"
 
 /**
  * global variables.
  */
 dev_t dev;
 struct cdev *cdevs; /* character devices for virtual devices */
-int gdev_count; /* # of physical devices. */
-int gdev_vcount; /* # of virtual devices. */
-struct gdev_device *gdevs; /* physical devices */
-struct gdev_device *gdev_vds; /* virtual devices */
 
 /**
  * pointers to callback functions.
  */
 void (*gdev_callback_notify)(int subc, uint32_t data);
 
-static int __get_minor(struct file *filp)
-{
-	char *devname = filp->f_dentry->d_iname;
-	if (strncmp(devname, "gdev", 4) == 0) {
-		char *devnum = devname + 4;
-		return simple_strtoul(devnum, NULL, 10);
-	}
-	return -EINVAL;
-}
-
-static int gdev_open(struct inode *inode, struct file *filp)
-{
-	int minor;
-	Ghandle handle;
-	
-	if ((minor = __get_minor(filp)) < 0) {
-		GDEV_PRINT("Could not find device.\n");
-		return -EINVAL;
-	}
-
-	if (!(handle = gopen(minor))) {
-		GDEV_PRINT("Out of resource.\n");
-		return -ENOMEM;
-	}
-
-	filp->private_data = handle;
-	
-	return 0;
-}
-
-static int gdev_release(struct inode *inode, struct file *filp)
-{
-	Ghandle handle = filp->private_data;
-
-	if (!handle) {
-		GDEV_PRINT("Device not opened.\n");
-		return -ENOENT;
-	}
-
-	return gclose(handle);
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
-static long gdev_ioctl
-(struct file *filp, unsigned int cmd, unsigned long arg)
-#else
-static int gdev_ioctl
-(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
-#endif
-{
-	Ghandle handle = filp->private_data;
-
-	switch (cmd) {
-	case GDEV_IOCTL_GMALLOC:
-		return gdev_ioctl_gmalloc(handle, arg);
-	case GDEV_IOCTL_GFREE:
-		return gdev_ioctl_gfree(handle, arg);
-	case GDEV_IOCTL_GMALLOC_DMA:
-		return gdev_ioctl_gmalloc_dma(handle, arg);
-	case GDEV_IOCTL_GFREE_DMA:
-		return gdev_ioctl_gfree_dma(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_TO_DEVICE:
-		return gdev_ioctl_gmemcpy_to_device(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_TO_DEVICE_ASYNC:
-		return gdev_ioctl_gmemcpy_to_device_async(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_FROM_DEVICE:
-		return gdev_ioctl_gmemcpy_from_device(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_FROM_DEVICE_ASYNC:
-		return gdev_ioctl_gmemcpy_from_device_async(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_IN_DEVICE:
-		return gdev_ioctl_gmemcpy_in_device(handle, arg);
-	case GDEV_IOCTL_GLAUNCH:
-		return gdev_ioctl_glaunch(handle, arg);
-	case GDEV_IOCTL_GSYNC:
-		return gdev_ioctl_gsync(handle, arg);
-	case GDEV_IOCTL_GQUERY:
-		return gdev_ioctl_gquery(handle, arg);
-	case GDEV_IOCTL_GTUNE:
-		return gdev_ioctl_gtune(handle, arg);
-	default:
-		GDEV_PRINT("Ioctl command 0x%x is not supported.\n", cmd);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	void *buf;
-	uint32_t size = vma->vm_end - vma->vm_start;
-	unsigned long start = vma->vm_start;
-
-	if (vma->vm_pgoff == 0) {
-		/*
-		 * int i = __get_minor(filp);
-		 * struct gdev_device *gdev = &gdevs[i];
-		 * buf = gdev->mmio_regs;
-		 */
-		return -EINVAL; /* mmio mapping is no longer supported. */
-	}
-	else {
-		buf = (void*) (vma->vm_pgoff << PAGE_SHIFT);
-	}
-
-	if (size > PAGE_SIZE) {
-		char *vmalloc_area_ptr = (char *)buf;
-		unsigned long pfn;
-		int ret;
-		/* loop over all pages, map it page individually */
-		while (size > 0) {
-			pfn = vmalloc_to_pfn(vmalloc_area_ptr);
-			if ((ret = remap_pfn_range(vma, start, pfn, PAGE_SIZE,
-									   PAGE_SHARED)) < 0) {
-				return ret;
-			}
-			start += PAGE_SIZE;
-			vmalloc_area_ptr += PAGE_SIZE;
-			size -= PAGE_SIZE;
-		}
-		
-		return 0;
-	}
-	else {
-		return remap_pfn_range(vma, start, virt_to_phys(buf) >> PAGE_SHIFT,
-							   size, PAGE_SHARED);
-	}
-}
-
-static struct file_operations gdev_fops = {
-	.owner = THIS_MODULE,
-	.open = gdev_open,
-	.release = gdev_release,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
-	.unlocked_ioctl = gdev_ioctl,
-#else
-	.ioctl = gdev_ioctl,
-#endif
-	.mmap = gdev_mmap,
-};
-
 static void __gdev_notify_handler(int subc, uint32_t data)
 {
-#if 0
 	struct gdev_device *gdev;
 	struct gdev_sched_entity *se;
 	int cid = (int)data;
@@ -211,7 +66,103 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 		gdev = se->gdev;
 		wake_up_process(gdev->sched_thread);
 	}
-#endif
+}
+
+static int __gdev_sched_thread(void *__data)
+{
+	struct gdev_device *gdev = (struct gdev_device*)__data;
+
+	GDEV_PRINT("Gdev #%d scheduler running\n", gdev->id);
+	gdev->sched_thread = current;
+
+	while (!kthread_should_stop()) {
+		GDEV_PRINT("Scheduler invoked\n");
+		/* push data into the list here! */
+		/*gdev_schedule_invoked();*/
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+	}
+
+	return 0;
+}
+
+int gdev_sched_create_scheduler(struct gdev_device *gdev)
+{
+	struct sched_param sp = { .sched_priority = MAX_RT_PRIO - 1 };
+	struct task_struct *p;
+	char name[64];
+
+	/* create scheduler threads. */
+	sprintf(name, "gsched%d", gdev->id);
+	p = kthread_create(__gdev_sched_thread, (void*)gdev, name);
+	if (p) {
+		sched_setscheduler(p, SCHED_FIFO, &sp);
+		wake_up_process(p);
+		gdev->sched_thread = p;
+	}
+
+	return 0;
+}
+
+void gdev_sched_destroy_scheduler(struct gdev_device *gdev)
+{
+	if (gdev->sched_thread)
+		kthread_stop(gdev->sched_thread);
+}
+
+void *gdev_sched_get_current_task(void)
+{
+	return (void*)current;
+}
+
+void gdev_lock_init(struct gdev_lock *p)
+{
+	spin_lock_init(&p->lock);
+}
+
+void gdev_lock(struct gdev_lock *p)
+{
+	spin_lock_irq(&p->lock);
+}
+
+void gdev_unlock(struct gdev_lock *p)
+{
+	spin_unlock_irq(&p->lock);
+}
+
+void gdev_lock_save(struct gdev_lock *p, unsigned long *pflags)
+{
+	spin_lock_irqsave(&p->lock, *pflags);
+}
+
+void gdev_unlock_restore(struct gdev_lock *p, unsigned long *pflags)
+{
+	spin_unlock_irqrestore(&p->lock, *pflags);
+}
+
+void gdev_lock_nested(struct gdev_lock *p)
+{
+	spin_lock(&p->lock);
+}
+
+void gdev_unlock_nested(struct gdev_lock *p)
+{
+	spin_unlock(&p->lock);
+}
+
+void gdev_mutex_init(struct gdev_mutex *p)
+{
+	mutex_init(&p->mutex);
+}
+
+void gdev_mutex_lock(struct gdev_mutex *p)
+{
+	mutex_lock(&p->mutex);
+}
+
+void gdev_mutex_unlock(struct gdev_mutex *p)
+{
+	mutex_unlock(&p->mutex);
 }
 
 /**
@@ -231,15 +182,10 @@ int gdev_minor_init(struct drm_device *drm)
 
 	/* initialize the virtual device. 
 	   when Gdev first loaded, one-to-one map physical and virtual device. */
-	gdev_init_vdevice(&gdev_vds[minor], minor, 100, 100, &gdevs[minor]);
+	gdev_init_virtual_device(&gdev_vds[minor], minor, 100, 100, &gdevs[minor]);
 
 	/* initialize the scheduler for the virtual device. */
 	gdev_init_scheduler(&gdev_vds[minor]);
-
-	/* create the swap memory object, if configured, for the virtual device. */
-	if (GDEV_SWAP_MEM_SIZE > 0) {
-		gdev_swap_create(&gdev_vds[minor], GDEV_SWAP_MEM_SIZE);
-	}
 
 	return 0;
 }
@@ -259,10 +205,8 @@ int gdev_minor_exit(struct drm_device *drm)
 	if (minor < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[minor]) {
-				if (GDEV_SWAP_MEM_SIZE > 0) {
-					gdev_swap_destroy(&gdev_vds[i]);
-				}
 				gdev_exit_scheduler(&gdev_vds[i]);
+				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
 		gdev_exit_device(&gdevs[minor]);
@@ -296,7 +240,7 @@ int gdev_major_init(struct pci_driver *pdriver)
 	GDEV_PRINT("Found %d GPU physical device(s).\n", gdev_count);
 
 	/* virtual device count. */
-	gdev_vcount = GDEV_VDEVICE_COUNT;
+	gdev_vcount = GDEV_VIRTUAL_DEVICE_COUNT;
 	GDEV_PRINT("Configured %d GPU virtual device(s).\n", gdev_vcount);
 
 	/* allocate vdev_count character devices. */

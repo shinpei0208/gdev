@@ -27,8 +27,8 @@
  */
 
 #include <linux/proc_fs.h>
+#include "gdev_device.h"
 #include "gdev_drv.h"
-#include "gdev_proto.h"
 
 #define GDEV_PROC_MAX_BUF 64
 

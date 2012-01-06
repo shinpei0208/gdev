@@ -33,14 +33,14 @@
 #include <elf.h>
 #include <limits.h>
 #if (ULONG_MAX == UINT_MAX)
-#define Elf_Ehdr	Elf32_Ehdr
-#define Elf_Shdr	Elf32_Shdr
-#define Elf_Phdr	Elf32_Phdr
+#define Elf_Ehdr Elf32_Ehdr
+#define Elf_Shdr Elf32_Shdr
+#define Elf_Phdr Elf32_Phdr
 #define Elf_Sym	 Elf32_Sym
 #else
-#define Elf_Ehdr	Elf64_Ehdr
-#define Elf_Shdr	Elf64_Shdr
-#define Elf_Phdr	Elf64_Phdr
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Phdr Elf64_Phdr
 #define Elf_Sym	 Elf64_Sym
 #endif
 typedef FILE file_t;
@@ -49,6 +49,9 @@ typedef FILE file_t;
 #define FTELL(fp) ftell(fp)
 #define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
 #define FCLOSE(fp) fclose(fp)
+#define MALLOC(x) malloc(x)
+#define FREE(x) free(x)
+#define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
 
 static inline int __gdev_get_device_count(void)
 {

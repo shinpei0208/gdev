@@ -17,8 +17,8 @@ pscnv-y := nouveau_drv.o nouveau_state.o \
 	nvc0_vram.o nvc0_vm.o nvc0_chan.o nvc0_copy.o nvc0_fifo.o \
 	nvc0_graph.o nvc0_grctx.o \
 	pscnv_gdev.o \
-	gdev_drv.o gdev_ioctl.o gdev_kthread.o gdev_proc.o \
-	gdev_api.o gdev_init.o gdev_sched.o \
+	gdev_drv.o gdev_fops.o gdev_ioctl.o gdev_proc.o \
+	gdev_api.o gdev_device.o gdev_sched.o \
 	gdev_nvidia.o gdev_nvidia_nvc0.o 
 
 pscnv-$(CONFIG_DRM_NOUVEAU_DEBUG) += nouveau_debugfs.o

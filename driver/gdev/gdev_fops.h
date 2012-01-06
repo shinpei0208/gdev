@@ -1,7 +1,7 @@
 /*
  * Copyright 2011 Shinpei Kato
  *
- * University of California at Santa Cruz
+ * University of California, Santa Cruz
  * Systems Research Lab.
  *
  * All Rights Reserved.
@@ -26,9 +26,11 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __GDEV_MM_H__
-#define __GDEV_MM_H__
+#ifndef __GDEV_FOPS_H__
+#define __GDEV_FOPS_H__
 
-int gdev_mm_space(struct gdev_device *gdev, uint64_t size, int type);
+#include <linux/fs.h>
+
+extern struct file_operations gdev_fops;
 
 #endif
