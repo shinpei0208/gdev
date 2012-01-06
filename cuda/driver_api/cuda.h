@@ -763,4 +763,8 @@ CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int B
 CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream);
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
 
+/* Inter-Process Communication (IPC) */
+CUresult cuShmAlloc(CUdeviceptr *dptr, int key, unsigned long flags, unsigned int bytesize);
+CUresult cuShmFree(CUdeviceptr dptr);
+
 #endif

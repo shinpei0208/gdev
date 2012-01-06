@@ -82,6 +82,9 @@ void gdev_sched_entity_destroy(struct gdev_sched_entity *se)
  */
 void gdev_schedule_launch(struct gdev_sched_entity *se)
 {
+	struct gdev_device *gdev = se->gdev;
+	//struct gdev_sched_entity *se_current = gdev->
+	
 }
 
 /**

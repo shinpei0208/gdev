@@ -767,6 +767,30 @@ fail:
 }
 
 /**
+ * gmalloc_shm():
+ * allocate new device memory, if necessary, and reference it.
+ */
+uint64_t gmalloc_shm(Ghandle h, int key, uint32_t flags, uint64_t size)
+{
+	struct gdev_device *gdev = h->gdev;
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+
+fail:
+	return 0;
+}
+
+/**
+ * gfree_shm():
+ * unreference the shared memory space, and free it if necessary.
+ */
+uint64_t gfree_shm(Ghandle h, uint64_t addr)
+{
+fail:
+	return 0;
+}
+
+/**
  * gmemcpy_to_device():
  * copy data from @buf to device memory at @addr.
  */
