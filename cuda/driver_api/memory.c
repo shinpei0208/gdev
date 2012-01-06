@@ -52,7 +52,7 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
 {
 	Ghandle handle;
 	uint64_t addr;
-	uint32_t size = bytesize;
+	uint64_t size = bytesize;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -66,7 +66,6 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
 		return CUDA_ERROR_OUT_OF_MEMORY;
 	}
 
-	gdev_ctx_current->data_size += size;
 	*dptr = addr;
 
 	return CUDA_SUCCESS;
@@ -101,8 +100,6 @@ CUresult cuMemFree(CUdeviceptr dptr)
 
 	if (!(size = gfree(handle, addr)))
 		return CUDA_ERROR_INVALID_VALUE;
-
-	gdev_ctx_current->data_size -= size;
 
 	return CUDA_SUCCESS;
 }
@@ -139,7 +136,7 @@ CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
 {
 	Ghandle handle;
 	void *buf;
-	uint32_t size = bytesize;
+	uint64_t size = bytesize;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -152,7 +149,6 @@ CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
 	if (!(buf = gmalloc_dma(handle, size)))
 		return CUDA_ERROR_OUT_OF_MEMORY;
 
-	gdev_ctx_current->data_size += size;
 	*pp = buf;
 
 	return CUDA_SUCCESS;
@@ -187,8 +183,6 @@ CUresult cuMemFreeHost(void *p)
 
 	if (!(size = gfree_dma(handle, buf)))
 		return CUDA_ERROR_INVALID_VALUE;
-
-	gdev_ctx_current->data_size -= size;
 
 	return CUDA_SUCCESS;
 }

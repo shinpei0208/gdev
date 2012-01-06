@@ -86,7 +86,6 @@ struct CUctx_st {
 	struct gdev_list list_entry; /* entry to ctx_list. */
 	struct gdev_list sync_list;
 	struct gdev_cuda_info cuda_info;
-	uint64_t data_size;
 	int launch_id;
 };
 
