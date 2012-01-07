@@ -70,6 +70,7 @@ struct gdev_shm {
 	int users; /* number of users (effective only for master) */
 	int key; /* key value of this shared memory */
 	int id; /* indentifier of this shared memory */
+	int implicit; /* true if created due to a lack of memory space. */
 	void *bo; /* private buffer object */
 };
 

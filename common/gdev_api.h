@@ -63,7 +63,8 @@ int gquery(Ghandle h, uint32_t type, uint64_t *result);
 int gtune(Ghandle h, uint32_t type, uint32_t value);
 int gshmget(Ghandle h, int key, uint64_t size, int flags);
 uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags);
-uint64_t gshmdt(Ghandle h, uint64_t addr);
+int gshmdt(Ghandle h, uint64_t addr);
+int gshmctl(Ghandle h, int id, int cmd, void *buf);
 
 
 /**
@@ -78,5 +79,12 @@ uint64_t gshmdt(Ghandle h, uint64_t addr);
 #define GDEV_QUERY_DEVICE_MEM_SIZE 1
 #define GDEV_QUERY_DMA_MEM_SIZE 2
 #define GDEV_QUERY_CHIPSET 3
+
+/**
+ * IPC commands:
+ */
+#define GDEV_IPC_STAT 1
+#define GDEV_IPC_SET 2
+#define GDEV_IPC_RMID 3
 
 #endif
