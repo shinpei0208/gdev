@@ -60,7 +60,7 @@ static int __gdev_swap_attach(struct gdev_mem *mem)
 		swap_mem = gdev_raw_mem_share(vas, gdev->swap, &addr, &size, &map);
 		if (!swap_mem)
 			goto fail_swap_mem;
-		__gdev_mem_init(swap_mem, vas, addr, size, map,	GDEV_MEM_DEVICE);
+		gdev_nvidia_mem_init(swap_mem, vas, addr, size, map, GDEV_MEM_DEVICE);
 	}
 	else {
 		swap_mem = NULL;
@@ -108,6 +108,8 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 {
 	struct gdev_mem *mem;
 	struct gdev_shm *shm;
+	uint64_t addr;
+	void *map;
 	int id = -1;
 	int i;
 
@@ -119,8 +121,10 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 	}
 
 	if (id < 0) {
-		if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
+		/* @size could be resized (aligned by page size) */
+		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map)))
 			goto fail_mem_alloc;
+		gdev_nvidia_mem_init(mem, vas, addr, size, map, GDEV_MEM_DEVICE);
 		/* register the new shared memory segment. */
 		for (i = 0; i < GDEV_SHM_SEGMENT_COUNT; i++) {
 			if (!gdev_shm_owners[i]) {
@@ -159,7 +163,7 @@ int gdev_shm_destroy_mark(struct gdev_device *gdev, struct gdev_mem *owner)
 		gdev_list_container(gdev_list_head(&owner->shm->mem_list));
 	gdev_mutex_unlock(&owner->shm->mutex);
 	
-	gdev_mem_free(owner);
+	gdev_shm_detach(owner);
 
 	return 0;
 }
@@ -264,8 +268,8 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 	if (!(new = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
 		goto fail_shm;
 
-	/* initialize the new memory object. */
-	__gdev_mem_init(new, vas, addr, size, map, GDEV_MEM_DEVICE);
+	/* initialize the new memory object. type = mem->type. */
+	gdev_nvidia_mem_init(new, vas, addr, size, map, mem->type);
 
 	/* if created implicitly, the object will need eviction at runtime. */
 	if (implicit) {
@@ -286,6 +290,8 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 	/* this increment is protected by gdev->shm_mutex. */
 	mem->shm->users++;
 
+	gdev_nvidia_mem_list_add(new, mem->type);
+
 	return new;
 
 fail_swap:
@@ -304,6 +310,8 @@ void gdev_shm_detach(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_shm *shm = mem->shm;
 	struct gdev_mem *m;
+
+	gdev_nvidia_mem_list_del(mem);
 
 	/* this decrement is protected by gdev->shm_mutex. */
 	shm->users--;

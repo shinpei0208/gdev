@@ -154,8 +154,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	/* initialize context synchronization list. */
 	gdev_list_init(&ctx->sync_list, NULL);
 
-	/* we will trace size of memory allocated by users and # of kernels. */
-	ctx->data_size = 0;
+	/* we will trace # of kernels. */
 	ctx->launch_id = 0;
 
 	gdev_ctx_current = ctx;	/* set to the current context. */

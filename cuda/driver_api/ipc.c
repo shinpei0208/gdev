@@ -26,11 +26,51 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-CUresult cuShmAlloc(CUdeviceptr *dptr, int key, unsigned long flags, unsigned int bytesize)
+#include "cuda.h"
+#include "gdev_api.h"
+#include "gdev_cuda.h"
+
+CUresult cuShmGet(int *ptr, int key, size_t size, int flags)
 {
 	Ghandle handle;
-	uint64_t addr;
-	uint64_t size = bytesize;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!ptr)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+	if ((*ptr = gshmget(handle, key, size, flags)) < 0) {
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	}
+
+	return CUDA_SUCCESS;
+}
+
+CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags)
+{
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!dptr || id < 0)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+	if (!(*dptr = (CUdeviceptr) gshmat(handle, id, 0 /* addr */, flags))) {
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	}
+
+	return CUDA_SUCCESS;
+}
+
+CUresult cuShmDt(CUdeviceptr dptr)
+{
+	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -39,34 +79,35 @@ CUresult cuShmAlloc(CUdeviceptr *dptr, int key, unsigned long flags, unsigned in
 	if (!dptr)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
-	if (!(addr = gmalloc_shm(handle, key, flags, size))) {
-		return CUDA_ERROR_OUT_OF_MEMORY;
-	}
+	/* wait for all kernels to complete - some may be using the memory. */
+	cuCtxSynchronize();
 
-	*dptr = addr;
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gshmdt(handle, (uint64_t)dptr))
+		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
 }
 
-CUresult cuShmFree(CUdeviceptr dptr)
+CUresult cuShmCtl(int id, int cmd, void *buf /* FIXME */)
 {
 	Ghandle handle;
-	uint64_t addr = dptr;
-	uint64_t size;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!gdev_ctx_current)
 		return CUDA_ERROR_INVALID_CONTEXT;
+	if (id < 0 || cmd < 0)
+		return CUDA_ERROR_INVALID_VALUE;
 
 	/* wait for all kernels to complete - some may be using the memory. */
 	cuCtxSynchronize();
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (!(size = gfree_shm(handle, addr)))
-		return CUDA_ERROR_INVALID_VALUE;
+	if (gshmctl(handle, id, cmd, buf))
+		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
 }

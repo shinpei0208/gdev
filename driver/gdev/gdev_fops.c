@@ -110,6 +110,14 @@ static int gdev_ioctl
 		return gdev_ioctl_gquery(handle, arg);
 	case GDEV_IOCTL_GTUNE:
 		return gdev_ioctl_gtune(handle, arg);
+	case GDEV_IOCTL_GSHMGET:
+		return gdev_ioctl_gshmget(handle, arg);
+	case GDEV_IOCTL_GSHMAT:
+		return gdev_ioctl_gshmat(handle, arg);
+	case GDEV_IOCTL_GSHMDT:
+		return gdev_ioctl_gshmdt(handle, arg);
+	case GDEV_IOCTL_GSHMCTL:
+		return gdev_ioctl_gshmctl(handle, arg);
 	default:
 		GDEV_PRINT("Ioctl command 0x%x is not supported.\n", cmd);
 		return -EINVAL;

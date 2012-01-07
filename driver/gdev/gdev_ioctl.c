@@ -26,6 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <linux/shm.h>
 #include "gdev_api.h"
 #include "gdev_conf.h"
 #include "gdev_ioctl.h"
@@ -328,3 +329,53 @@ int gdev_ioctl_gtune(Ghandle handle, unsigned long arg)
 
 	return gtune(handle, c.type, c.value);
 }
+
+int gdev_ioctl_gshmget(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_shm s;
+
+	if (copy_from_user(&s, (void __user *)arg, sizeof(s)))
+		return -EFAULT;
+
+	return gshmget(handle, s.key, s.size, s.flags);
+}
+
+int gdev_ioctl_gshmat(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_shm s;
+
+	if (copy_from_user(&s, (void __user *)arg, sizeof(s)))
+		return -EFAULT;
+
+	return gshmat(handle, s.id, s.addr, s.flags);
+}
+
+int gdev_ioctl_gshmdt(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_shm s;
+
+	if (copy_from_user(&s, (void __user *)arg, sizeof(s)))
+		return -EFAULT;
+
+	return gshmdt(handle, s.addr);
+}
+
+int gdev_ioctl_gshmctl(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_shm s;
+	struct shmid_ds ds;
+
+	if (copy_from_user(&s, (void __user *)arg, sizeof(s)))
+		return -EFAULT;
+
+	if (s.buf) {
+		if (copy_from_user(&ds, (void __user *)s.buf, sizeof(ds)))
+			return -EFAULT;
+	}
+	else {
+		memset(&ds, sizeof(ds), 0);
+	}
+
+	return gshmctl(handle, s.id, s.cmd, (void *)&ds);
+}
+

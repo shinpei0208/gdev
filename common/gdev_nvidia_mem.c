@@ -28,8 +28,25 @@
 
 #include "gdev_device.h"
 
+/* initialize a memory object. */
+void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type)
+{
+	mem->vas = vas;
+	mem->addr = addr;
+	mem->size = size;
+	mem->map = map;
+	mem->type = type;
+	mem->evicted = 0;
+	mem->swap_mem = NULL;
+	mem->swap_buf = NULL;
+	mem->shm = NULL;
+
+	gdev_list_init(&mem->list_entry_heap, (void *) mem);
+	gdev_list_init(&mem->list_entry_shm, (void *) mem);
+}
+
 /* add a new memory object to the memory list. */
-static void __gdev_mem_list_add(struct gdev_mem *mem, int type)
+void gdev_nvidia_mem_list_add(struct gdev_mem *mem, int type)
 {
 	struct gdev_vas *vas = mem->vas;
 	unsigned long flags;
@@ -51,7 +68,7 @@ static void __gdev_mem_list_add(struct gdev_mem *mem, int type)
 }
 
 /* delete the memory object from the memory list. */
-static void __gdev_mem_list_del(struct gdev_mem *mem)
+void gdev_nvidia_mem_list_del(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
 	unsigned long flags;
@@ -94,8 +111,8 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 		goto fail;
 	}
 
-	__gdev_mem_init(mem, vas, addr, size, map, type);
-	__gdev_mem_list_add(mem, type);
+	gdev_nvidia_mem_init(mem, vas, addr, size, map, type);
+	gdev_nvidia_mem_list_add(mem, type);
 
 	return mem;
 
@@ -115,8 +132,6 @@ struct gdev_mem *gdev_mem_share(struct gdev_vas *vas, uint64_t size)
 		goto fail;
 	gdev_mutex_unlock(&gdev->shm_mutex);
 
-	__gdev_mem_list_add(new, new->type);
-
 	return new;
 
 fail:
@@ -130,8 +145,6 @@ void gdev_mem_free(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
 
-	__gdev_mem_list_del(mem);
-
 	/* if the memory object is associated with shared memory, detach the 
 	   shared memory. note that the memory object will be freed if users
 	   become zero.
@@ -139,8 +152,10 @@ void gdev_mem_free(struct gdev_mem *mem)
 	gdev_mutex_lock(&gdev->shm_mutex);
 	if (mem->shm)
 		gdev_shm_detach(mem);
-	else
+	else {
+		gdev_nvidia_mem_list_del(mem);
 		gdev_raw_mem_free(mem);
+	}
 	gdev_mutex_unlock(&gdev->shm_mutex);
 }
 
