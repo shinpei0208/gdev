@@ -764,7 +764,9 @@ CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned 
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
 
 /* Inter-Process Communication (IPC) */
-CUresult cuShmAlloc(CUdeviceptr *dptr, int key, unsigned long flags, unsigned int bytesize);
-CUresult cuShmFree(CUdeviceptr dptr);
+CUresult cuShmGet(int *ptr, int key, size_t size, int flags);
+CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags);
+CUresult cuShmDt(CUdeviceptr dptr);
+CUresult cuShmCtl(int id, int cmd, void *buf /* FIXME */);
 
 #endif

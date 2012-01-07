@@ -1025,7 +1025,7 @@ int gshmctl(Ghandle h, int id, int cmd, void *buf)
 	struct gdev_device *gdev = h->gdev;
 	gdev_mem_t *owner;
 	int ret;
-	
+
 	switch (cmd) {
 	case GDEV_IPC_RMID:
 		gdev_mutex_lock(&gdev->shm_mutex);

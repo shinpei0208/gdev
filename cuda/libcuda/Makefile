@@ -7,8 +7,7 @@ GDEVDIR		= /usr/local/gdev
 CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
-OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o \
-	  gdev_cuda.o
+OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o ipc.o gdev_cuda.o
 CUDUMP_OBJS = cudump.o gdev_cuda.o
 ZOMBIE  = $(wildcard ./*~)
 

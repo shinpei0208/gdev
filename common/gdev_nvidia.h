@@ -167,7 +167,7 @@ struct gdev_mem {
 };
 
 /**
- * a set ofprivate compute functions. 
+ * private compute functions. 
  */
 struct gdev_compute {
 	int (*launch)(struct gdev_ctx *, struct gdev_kernel *);
@@ -180,6 +180,13 @@ struct gdev_compute {
 	void (*notify_intr)(struct gdev_ctx *);
 	void (*init)(struct gdev_ctx *);
 };
+
+/**
+ * generic memory list functions for NVIDIA implementations.
+ */
+void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type);
+void gdev_nvidia_mem_list_add(struct gdev_mem *mem, int type);
+void gdev_nvidia_mem_list_del(struct gdev_mem *mem);
 
 /**
  * chipset specific functions.
@@ -207,25 +214,6 @@ uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr);
 void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val);
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size);
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size);
-
-/**
- * initialize a memory object. 
- */
-static inline void __gdev_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type)
-{
-	mem->vas = vas;
-	mem->addr = addr;
-	mem->size = size;
-	mem->map = map;
-	mem->type = type;
-	mem->evicted = 0;
-	mem->swap_mem = NULL;
-	mem->swap_buf = NULL;
-	mem->shm = NULL;
-
-	gdev_list_init(&mem->list_entry_heap, (void *) mem);
-	gdev_list_init(&mem->list_entry_shm, (void *) mem);
-}
 
 /**
  * FIFO control functions.

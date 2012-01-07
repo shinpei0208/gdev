@@ -45,6 +45,10 @@
 #define GDEV_IOCTL_GSYNC 0x110
 #define GDEV_IOCTL_GQUERY 0x111
 #define GDEV_IOCTL_GTUNE 0x112
+#define GDEV_IOCTL_GSHMGET 0x113
+#define GDEV_IOCTL_GSHMAT 0x114
+#define GDEV_IOCTL_GSHMDT 0x115
+#define GDEV_IOCTL_GSHMCTL 0x116
 
 struct gdev_ioctl_mem {
 	uint64_t addr;
@@ -77,6 +81,16 @@ struct gdev_ioctl_query {
 struct gdev_ioctl_tune {
 	uint32_t type;
 	uint32_t value;
+};
+
+struct gdev_ioctl_shm {
+	int key;
+	int id;
+	int flags;
+	int cmd;
+	uint64_t addr;
+	uint64_t size;
+	void *buf;
 };
 
 #endif

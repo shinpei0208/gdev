@@ -45,5 +45,9 @@ int gdev_ioctl_glaunch(Ghandle h, unsigned long arg);
 int gdev_ioctl_gsync(Ghandle h, unsigned long arg);
 int gdev_ioctl_gquery(Ghandle h, unsigned long arg);
 int gdev_ioctl_gtune(Ghandle h, unsigned long arg);
+int gdev_ioctl_gshmget(Ghandle h, unsigned long arg);
+int gdev_ioctl_gshmat(Ghandle h, unsigned long arg);
+int gdev_ioctl_gshmdt(Ghandle h, unsigned long arg);
+int gdev_ioctl_gshmctl(Ghandle h, unsigned long arg);
 
 #endif

@@ -1,5 +1,5 @@
 TARGET = kcuda
-$(TARGET)-y := kcuda_drv.o init.o device.o version.o context.o module.o memory.o execution.o gdev_cuda.o
+$(TARGET)-y := kcuda_drv.o init.o device.o version.o context.o module.o memory.o execution.o ipc.o gdev_cuda.o
 GDEVDIR = /usr/local/gdev
 GDEVINC = $(GDEVDIR)/include
 GDEVETC = $(GDEVDIR)/etc
