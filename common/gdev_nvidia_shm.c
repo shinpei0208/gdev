@@ -34,13 +34,13 @@ static struct gdev_mem *gdev_shm_owners[GDEV_SHM_SEGMENT_COUNT] = {
 };
 
 /**
- * these functions must be used when evicting/reloading data.
+ * these functions must be used when saving/loading data.
  * better implementations wanted!
  */
-int gdev_callback_evict_to_host(void*, void*, uint64_t, uint64_t);
-int gdev_callback_evict_to_device(void*, uint64_t, uint64_t, uint64_t);
-int gdev_callback_reload_from_host(void*, uint64_t, void*, uint64_t);
-int gdev_callback_reload_from_device(void*, uint64_t, uint64_t, uint64_t);
+int gdev_callback_save_to_host(void*, void*, uint64_t, uint64_t);
+int gdev_callback_save_to_device(void*, uint64_t, uint64_t, uint64_t);
+int gdev_callback_load_from_host(void*, uint64_t, void*, uint64_t);
+int gdev_callback_load_from_device(void*, uint64_t, uint64_t, uint64_t);
 
 /* attach device memory and allocate host buffer for swap */
 static int __gdev_swap_attach(struct gdev_mem *mem)
@@ -84,7 +84,7 @@ static void __gdev_swap_detach(struct gdev_mem *mem)
 	FREE(mem->swap_buf);
 }
 
-void __gdev_shm_init(struct gdev_mem *mem, struct gdev_shm *shm)
+static void __gdev_shm_init(struct gdev_mem *mem, struct gdev_shm *shm)
 {
 	gdev_list_init(&shm->mem_list, NULL);
 	gdev_list_init(&shm->list_entry, (void*)shm);
@@ -96,6 +96,7 @@ void __gdev_shm_init(struct gdev_mem *mem, struct gdev_shm *shm)
 	shm->size = mem->size;
 	shm->key = 0;
 	shm->id = -1;
+	shm->implicit = 0;
 	gdev_mutex_lock(&shm->mutex);
 	/* the victim object itself must be inserted into the list. */
 	gdev_list_add(&mem->list_entry_shm, &shm->mem_list);
@@ -110,14 +111,8 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 	int id = -1;
 	int i;
 
-	/* key = 0 is not allowed to be used by users. */
-	if (key == 0)
-		return -1;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-
 	gdev_list_for_each(shm, &gdev->shm_list, list_entry) {
-		if (key == shm->key) {
+		if (!shm->implicit && key == shm->key) {
 			id = shm->id;
 			break;
 		}
@@ -134,6 +129,7 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 				if (!(shm = MALLOC(sizeof(*shm))))
 					goto fail_shm_malloc;
 				__gdev_shm_init(mem, shm);
+				gdev_list_add(&shm->list_entry, &gdev->shm_list);
 				shm->key = key;
 				shm->id = id;
 				break;
@@ -141,38 +137,29 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 		}
 	}
 
-	gdev_mutex_unlock(&gdev->shm_mutex);
-
 	return id;
 
 fail_shm_malloc:
 	gdev_mem_free(mem);
 fail_mem_alloc:
-	gdev_mutex_unlock(&gdev->shm_mutex);
 	return -1;
 }
 
 /**
- * destroy the shared memory segment.
+ * mark to destroy the shared memory segment.
  * FIXME: there is a security issue that anyone can destroy it...
  */
-int gdev_shm_destroy(struct gdev_device *gdev, int id)
+int gdev_shm_destroy_mark(struct gdev_device *gdev, struct gdev_mem *owner)
 {
-	struct gdev_mem *mem;
-	struct gdev_shm *shm;
-
-	if (id < 0 || id >= GDEV_SHM_SEGMENT_COUNT)
-		return -EINVAL;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-	mem = gdev_shm_owners[id];
-	shm = mem->shm;
-	gdev_list_del(&mem->list_entry_shm);
-	gdev_list_del(&shm->list_entry);
-	FREE(shm);
-	gdev_mem_free(mem);
-	gdev_shm_owners[id] = NULL;
-	gdev_mutex_unlock(&gdev->shm_mutex);
+	gdev_mutex_lock(&owner->shm->mutex);
+	/* delete the current owner. */
+	gdev_list_del(&owner->list_entry_shm);
+	/* find the new owner (could be NULL). */
+	gdev_shm_owners[owner->shm->id] = 
+		gdev_list_container(gdev_list_head(&owner->shm->mem_list));
+	gdev_mutex_unlock(&owner->shm->mutex);
+	
+	gdev_mem_free(owner);
 
 	return 0;
 }
@@ -185,9 +172,6 @@ static struct gdev_mem *__gdev_shm_find_victim(struct gdev_vas *vas, uint64_t si
 	struct gdev_mem *m, *victim = NULL;
 	struct gdev_shm *shm;
 	unsigned long flags;
-
-	if (!(shm = MALLOC(sizeof(*shm))))
-		goto fail_shm;
 
 	/* select the lowest-priority object. */
 	gdev_lock_save(&gdev->vas_lock, &flags);
@@ -217,43 +201,64 @@ static struct gdev_mem *__gdev_shm_find_victim(struct gdev_vas *vas, uint64_t si
 	}
 	gdev_unlock_restore(&gdev->vas_lock, &flags);
 
-	if (!victim) {
-		FREE(shm);
-	}
 	/* if the victim object doesn't have a shared memory object yet, 
 	   allocate a new one here. note that this shared memory doesn't need
 	   a key search, and hence is not inserted into the shared memory list. */
-	else if (!victim->shm) {
+	if (victim && !victim->shm) {
+		/* allocate new shared memory object. */
+		if (!(shm = MALLOC(sizeof(*shm))))
+			return NULL;
 		/* attach swap for evicting data from shared memory space. */
-		if (__gdev_swap_attach(victim))
-			goto fail_swap;
+		if (__gdev_swap_attach(victim)) {
+			FREE(shm);
+			return NULL;
+		}
 		__gdev_shm_init(victim, shm);
+		gdev_list_add(&shm->list_entry, &gdev->shm_list);
+		shm->implicit = 1; /* shared memory is created implicitly */
 	}
-	else {
-		FREE(shm); /* shm was unused. */
+	else if (victim) {
+		shm = victim->shm;
+		if (!shm->implicit) {
+			gdev_mutex_lock(&shm->mutex);
+			gdev_list_for_each(m, &shm->mem_list, list_entry_shm) {
+				if (__gdev_swap_attach(m)) {
+					/* if someone fails, detach all. */
+					gdev_list_for_each(m, &shm->mem_list, list_entry_shm) {
+						if (m->swap_mem)
+							__gdev_swap_detach(m);
+					}
+					gdev_mutex_unlock(&shm->mutex);
+					return NULL;
+				}
+			}
+			/* now turns into an implicit shared memory object. */
+			shm->implicit = 1; 
+			gdev_mutex_unlock(&shm->mutex);
+		}
 	}
 
 	return victim;
-
-fail_swap:
-	FREE(shm);
-fail_shm:
-	return NULL;
 }
 
-/* share memory space with @mem. if @mem is null, find victim instead. */
+/* share memory space with @mem. if @mem is null, find victim instead. 
+   the function is protected by gdev->shm_mutex. */
 struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t size)
 {
 	struct gdev_mem *new;
 	uint64_t addr;
 	void *map;
+	int implicit;
 
 	if (!mem) {
 		/* select a victim memory object. victim->shm will be newly 
 		   allocated if NULL, with shm->users being incremented. */
 		if (!(mem = __gdev_shm_find_victim(vas, size)))
 			goto fail_victim;
+		implicit = 1;
 	}
+	else
+		implicit = 0;
 
 	/* borrow the same (physical) memory space by sharing. */
 	if (!(new = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
@@ -262,9 +267,12 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 	/* initialize the new memory object. */
 	__gdev_mem_init(new, vas, addr, size, map, GDEV_MEM_DEVICE);
 
-	/* attach swap for evicting data from shared memory space. */
-	if (__gdev_swap_attach(new))
-		goto fail_swap;
+	/* if created implicitly, the object will need eviction at runtime. */
+	if (implicit) {
+		/* attach swap for evicting data from shared memory space. */
+		if (__gdev_swap_attach(new))
+			goto fail_swap;
+	}
 
 	gdev_mutex_lock(&mem->shm->mutex);
 	new->shm = mem->shm;
@@ -289,6 +297,8 @@ fail_victim:
 	return NULL;
 }
 
+/* detach @mem from the shared memory. 
+   this function is protected by gdev->shm_mutex. */
 void gdev_shm_detach(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
@@ -302,13 +312,15 @@ void gdev_shm_detach(struct gdev_mem *mem)
 	gdev_mutex_lock(&shm->mutex);
 	mem->shm = NULL;
 	gdev_list_del(&mem->list_entry_shm);
-	__gdev_swap_detach(mem);
+	if (shm->implicit)
+		__gdev_swap_detach(mem);
 	/* if the memory object is shared but no users, free it. 
 	   since users == 0, no one else will use mem->shm. */
 	if (shm->users == 0) {
 		/* freeing memory must be exclusive with using shared memory. */
 		gdev_raw_mem_free(mem); 
 		gdev_mutex_unlock(&shm->mutex);
+		gdev_list_del(&shm->list_entry); /* remove from the device shm list. */
 		FREE(shm);
 	}
 	/* otherwise, just unshare the memory object. */
@@ -331,40 +343,49 @@ void gdev_shm_detach(struct gdev_mem *mem)
 	}
 }
 
-/* evict the shared memory object data.
+/* lookup the owner of the shared memory associated with @id. */
+struct gdev_mem *gdev_shm_lookup(struct gdev_device *gdev, int id)
+{
+	if (id < 0 || id >= GDEV_SHM_SEGMENT_COUNT)
+		return NULL;
+	return gdev_shm_owners[id];
+}
+
+/* evict the conflicting shared memory object data.
    the shared memory object associated with @mem must be locked. */
-int gdev_shm_evict(struct gdev_ctx *ctx, struct gdev_mem *mem)
+int gdev_shm_evict_conflict(struct gdev_ctx *ctx, struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
+	struct gdev_shm *shm = mem->shm;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_mem *holder;
 	uint64_t src_addr;
 	uint64_t size;
 	int ret;
 
-	if (mem->shm) {
+	if (shm && shm->implicit) {
 		void *h = ctx->vas->handle;
-		if (mem->shm->holder && mem->shm->holder != mem) {
+		if (shm->holder && shm->holder != mem) {
 			struct gdev_mem *dev_swap = gdev->swap;
-			holder = mem->shm->holder;
+			holder = shm->holder;
 			src_addr = mem->addr;
-			size = mem->shm->size;
+			size = shm->size;
 			if (dev_swap && !dev_swap->shm->holder) {
 				uint64_t dst_addr = holder->swap_mem->addr;
-				ret = gdev_callback_evict_to_device(h,dst_addr,src_addr,size);
+				ret = gdev_callback_save_to_device(h, dst_addr, src_addr, size);
 				if (ret)
 					goto fail_evict;
 				dev_swap->shm->holder = mem;
 			}
 			else {
 				void *dst_buf = holder->swap_buf;
-				ret = gdev_callback_evict_to_host(h,dst_buf,src_addr,size);
+				ret = gdev_callback_save_to_host(h, dst_buf, src_addr, size);
 				if (ret)
 					goto fail_evict;
 			}
 			holder->evicted = 1;
 		}
-		mem->shm->holder = mem;
+		shm->holder = mem;
 	}
 
 	return 0;
@@ -373,22 +394,9 @@ fail_evict:
 	return ret;
 }
 
-/* evict all the shared memory object data associated to @vas. 
-   all the shared memory objects associated to @vas must be locked. */
-int gdev_shm_evict_all(struct gdev_ctx *ctx, struct gdev_vas *vas)
-{
-	struct gdev_mem *mem;
-
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shm_evict(ctx, mem);
-	}
-
-	return 0;
-}
-
-/* reload the evicted memory object data. 
+/* retrieve data evicted in swap space.
    the shared memory object associated with @mem must be locked. */
-int gdev_shm_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
+int gdev_shm_retrieve_swap(struct gdev_ctx *ctx, struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
@@ -400,22 +408,22 @@ int gdev_shm_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 	if (mem->evicted) {
 		void *h = vas->handle;
 		/* evict the corresponding memory space first. */
-		gdev_shm_evict(ctx, mem);
-		/* reload data regardless whether eviction succeeded or failed. */
+		gdev_shm_evict_conflict(ctx, mem);
+		/* load data regardless whether eviction succeeded or failed. */
 		dev_swap = gdev->swap;
 		dst_addr = mem->addr;
 		size = mem->size;
 		if (dev_swap && dev_swap->shm->holder == mem) {
 			uint64_t src_addr = mem->swap_mem->addr;
-			ret = gdev_callback_reload_from_device(h, dst_addr, src_addr, size);
+			ret = gdev_callback_load_from_device(h, dst_addr, src_addr, size);
 			if (ret)
-				goto fail_reload;
+				goto fail_retrieve;
 		}
 		else {
 			void *src_buf = mem->swap_buf;
-			ret = gdev_callback_reload_from_host(h, dst_addr, src_buf, size);
+			ret = gdev_callback_load_from_host(h, dst_addr, src_buf, size);
 			if (ret)
-				goto fail_reload;
+				goto fail_retrieve;
 		}
 		mem->evicted = 0;
 		mem->shm->holder = mem;
@@ -423,63 +431,21 @@ int gdev_shm_reload(struct gdev_ctx *ctx, struct gdev_mem *mem)
 
 	return 0;
 
-fail_reload:
+fail_retrieve:
 	return ret;
 }
 
-/* reload all the evicted memory object data associated to @vas.
+/* retrieve all data evicted in swap space associated to @vas.
    all the shared memory objects associated to @vas must be locked. */
-int gdev_shm_reload_all(struct gdev_ctx *ctx, struct gdev_vas *vas)
+int gdev_shm_retrieve_swap_all(struct gdev_ctx *ctx, struct gdev_vas *vas)
 {
 	struct gdev_mem *mem;
 
 	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shm_reload(ctx, mem);
+		gdev_shm_retrieve_swap(ctx, mem);
 	}
 
 	return 0;
-}
-
-/* lock the shared memory associated with @mem, if any. */
-void gdev_shm_lock(struct gdev_mem *mem)
-{
-	if (mem->shm) {
-		gdev_mutex_lock(&mem->shm->mutex);
-	}
-}
-
-/* unlock the shared memory associated with @mem, if any. */
-void gdev_shm_unlock(struct gdev_mem *mem)
-{
-	if (mem->shm) {
-		gdev_mutex_unlock(&mem->shm->mutex);
-	}
-}
-
-/* lock all the shared memory objects associated with @vas. */
-void gdev_shm_lock_all(struct gdev_vas *vas)
-{
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_mem *mem;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shm_lock(mem);
-	}
-	gdev_mutex_unlock(&gdev->shm_mutex);
-}
-
-/* unlock all the shared memory objects associated with @vas. */
-void gdev_shm_unlock_all(struct gdev_vas *vas)
-{
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_mem *mem;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_shm_unlock(mem);
-	}
-	gdev_mutex_unlock(&gdev->shm_mutex);
 }
 
 /* create swap memory object for the device. */

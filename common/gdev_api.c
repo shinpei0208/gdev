@@ -275,12 +275,12 @@ static int __gmemcpy_to_device
 	if (!mem)
 		return -ENOENT;
 
-	gdev_shm_lock(mem);
-	gdev_shm_evict(ctx, mem); /* evict data only if necessary */
+	gdev_mem_lock(mem);
+	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
 	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, async, 
 									 ch_size, p_count, vas, mem, dma_mem, 
 									 host_copy);
-	gdev_shm_unlock(mem);
+	gdev_mem_unlock(mem);
 	
 	return ret;
 }
@@ -463,20 +463,20 @@ static int __gmemcpy_from_device
 	if (!mem)
 		return -ENOENT;
 
-	gdev_shm_lock(mem);
-	gdev_shm_reload(ctx, mem); /* reload data only if necessary. */
+	gdev_mem_lock(mem);
+	gdev_shm_retrieve_swap(ctx, mem); /* retrieve data swapped. */
 	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, async, 
 									   ch_size, p_count, vas, mem, dma_mem,
 									   host_copy);
-	gdev_shm_unlock(mem);
+	gdev_mem_unlock(mem);
 
 	return ret;
 }
 
 /**
- * this function must be used when evicting data to host.
+ * this function must be used when saving data to host.
  */
-int gdev_callback_evict_to_host
+int gdev_callback_save_to_host
 (void *h, void* dst_buf, uint64_t src_addr, uint64_t size)
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
@@ -492,9 +492,9 @@ int gdev_callback_evict_to_host
 }
 
 /**
- * this function must be used when evicting data to device.
+ * this function must be used when saving data to device.
  */
-int gdev_callback_evict_to_device
+int gdev_callback_save_to_device
 (void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
@@ -507,9 +507,9 @@ int gdev_callback_evict_to_device
 }
 
 /**
- * this function must be used when reloading data from host.
+ * this function must be used when loading data from host.
  */
-int gdev_callback_reload_from_host
+int gdev_callback_load_from_host
 (void *h, uint64_t dst_addr, void *src_buf, uint64_t size)
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
@@ -525,9 +525,9 @@ int gdev_callback_reload_from_host
 }
 
 /**
- * this function must be used when reloading data from device.
+ * this function must be used when loading data from device.
  */
-int gdev_callback_reload_from_device
+int gdev_callback_load_from_device
 (void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
@@ -861,12 +861,12 @@ int gmemcpy_in_device
 	if (!dst || !src)
 		return -ENOENT;
 
-	gdev_shm_lock(dst);
-	gdev_shm_lock(src);
+	gdev_mem_lock(dst);
+	gdev_mem_lock(src);
 	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, 0); 
 	gdev_poll(ctx, fence, NULL);
-	gdev_shm_unlock(src);
-	gdev_shm_unlock(dst);
+	gdev_mem_unlock(src);
+	gdev_mem_unlock(dst);
 
 	return 0;
 }
@@ -883,10 +883,10 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 
 	gdev_schedule_launch(se);
 
-	gdev_shm_lock_all(vas);
-	gdev_shm_reload_all(ctx, vas); /* this reloads data only if necessary */
+	gdev_mem_lock_all(vas);
+	gdev_shm_retrieve_swap_all(ctx, vas); /* get all data swapped back! */
 	*id = gdev_launch(ctx, kernel);
-	gdev_shm_unlock_all(vas);
+	gdev_mem_unlock_all(vas);
 
 	return 0;
 }
@@ -959,16 +959,91 @@ int gshmget(Ghandle h, int key, uint64_t size, int flags)
 {
 	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
-	
-	return gdev_shm_create(gdev, vas, key, size, flags);
+	int id;
+
+	gdev_mutex_lock(&gdev->shm_mutex);
+	id = gdev_shm_create(gdev, vas, key, size, flags);
+	gdev_mutex_unlock(&gdev->shm_mutex);
+
+	return id;
 }
 
+/**
+ * gshmat():
+ * attach device shared memory.
+ * note that @addr and @flags are currently not supported.
+ */
 uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags)
 {
+	struct gdev_device *gdev = h->gdev;
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *new, *owner;
+
+	gdev_mutex_lock(&gdev->shm_mutex);
+	if (!(owner = gdev_shm_lookup(gdev, id)))
+		goto fail;
+	if (!(new = gdev_shm_attach(vas, owner, gdev_mem_get_size(owner))))
+		goto fail;
+	gdev_mutex_unlock(&gdev->shm_mutex);
+
+	return gdev_mem_get_addr(new);
+
+fail:
+	gdev_mutex_unlock(&gdev->shm_mutex);
 	return 0;
 }
 
-uint64_t gshmdt(Ghandle h, uint64_t addr)
+/**
+ * gshmdt():
+ * detach device shared memory.
+ */
+int gshmdt(Ghandle h, uint64_t addr)
 {
+	struct gdev_device *gdev = h->gdev;
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+
+	gdev_mutex_lock(&gdev->shm_mutex);
+	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+		goto fail;
+	gdev_shm_detach(mem);
+	gdev_mutex_unlock(&gdev->shm_mutex);
+
 	return 0;
+
+fail:
+	gdev_mutex_unlock(&gdev->shm_mutex);
+	return -ENOENT;
+}
+
+/**
+ * gshmctl():
+ * control device shared memory.
+ */
+int gshmctl(Ghandle h, int id, int cmd, void *buf)
+{
+	struct gdev_device *gdev = h->gdev;
+	gdev_mem_t *owner;
+	int ret;
+	
+	switch (cmd) {
+	case GDEV_IPC_RMID:
+		gdev_mutex_lock(&gdev->shm_mutex);
+		if (!(owner = gdev_shm_lookup(gdev, id))) {
+			ret = -ENOENT;
+			goto fail;
+		}
+		gdev_shm_destroy_mark(gdev, owner);
+		gdev_mutex_unlock(&gdev->shm_mutex);
+		break;
+	default:
+		GDEV_PRINT("gshmctl(): cmd %d not supported\n", cmd);
+		return -EINVAL;
+	}
+
+	return 0;
+
+fail:
+	gdev_mutex_unlock(&gdev->shm_mutex);
+	return ret;
 }

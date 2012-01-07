@@ -82,7 +82,7 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	/* evict data saved in device swap memory space to host memory. */
 	if (dev_swap && dev_swap->shm->holder) {
 		struct gdev_mem *mem = dev_swap->shm->holder;
-		gdev_shm_evict(ctx, mem->swap_mem); /* don't pass gdev->swap! */
+		gdev_shm_evict_conflict(ctx, mem->swap_mem); /* don't use gdev->swap */
 		dev_swap->shm->holder = NULL;
 	}
 
