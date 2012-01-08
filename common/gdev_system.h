@@ -38,13 +38,6 @@
 struct gdev_device; /* prototype declaration */
 
 /**
- * priority levels.
- */
-#define GDEV_PRIO_MAX 40
-#define GDEV_PRIO_MIN 0
-#define GDEV_PRIO_DEFAULT 20
-
-/**
  * OS and user-space private types.
  */
 typedef struct gdev_lock gdev_lock_t;

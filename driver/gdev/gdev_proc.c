@@ -40,6 +40,7 @@ static struct gdev_proc_vd {
 	struct proc_dir_entry *com_bw;
 	struct proc_dir_entry *mem_bw;
 	struct proc_dir_entry *mem_sh;
+	struct proc_dir_entry *period;
 } *proc_vd;
 static struct semaphore proc_sem;
 
@@ -67,8 +68,8 @@ static int gdev_proc_write(char *kbuf, const char *buf, int count)
 	return count;
 }
 
-/* integer count read. */
-static int gdev_proc_count_read(char *page, char **start, off_t off, int count, int *eof, void *data)
+/* normal integer read. */
+static int gdev_proc_val_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	char kbuf[64];
 	uint32_t dev_count = *((uint32_t*)data);
@@ -78,7 +79,19 @@ static int gdev_proc_count_read(char *page, char **start, off_t off, int count, 
 	return gdev_proc_read(kbuf, page, count, eof);
 }
 
-/* integer utilization [0,100] read. */
+/* normal integer write. */
+static int gdev_proc_val_write(struct file *filp, const char __user *buf, unsigned long count, void *data)
+{
+	char kbuf[64];
+	uint32_t *ptr = (uint32_t*)data;
+
+	count = gdev_proc_write(kbuf, buf, count);
+	sscanf(kbuf, "%u", ptr); 
+
+	return count;
+}
+
+/* utilization [0,100] read. */
 static int gdev_proc_util_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	char kbuf[64];
@@ -89,7 +102,7 @@ static int gdev_proc_util_read(char *page, char **start, off_t off, int count, i
 	return gdev_proc_read(kbuf, page, count, eof);
 }
 
-/* integer utilization [0,100] write. */
+/* utilization [0,100] write. */
 static int gdev_proc_util_write(struct file *filp, const char __user *buf, unsigned long count, void *data)
 {
 	char kbuf[64];
@@ -146,7 +159,7 @@ int gdev_proc_create(void)
 		GDEV_PRINT("Failed to create /proc/gdev/%s\n", name);
 		goto fail_proc_dev_count;
 	}
-	proc_dev_count->read_proc = gdev_proc_count_read;
+	proc_dev_count->read_proc = gdev_proc_val_read;
 	proc_dev_count->write_proc = NULL;
 	proc_dev_count->data = (void*)&gdev_count;
 
@@ -157,7 +170,7 @@ int gdev_proc_create(void)
 		GDEV_PRINT("Failed to create /proc/gdev/%s\n", name);
 		goto fail_proc_virt_dev_count;
 	}
-	proc_virt_dev_count->read_proc = gdev_proc_count_read;
+	proc_virt_dev_count->read_proc = gdev_proc_val_read;
 	proc_virt_dev_count->write_proc = NULL;
 	proc_virt_dev_count->data = (void*)&gdev_vcount;
 
@@ -204,6 +217,16 @@ int gdev_proc_create(void)
 		proc_vd[i].mem_sh->read_proc = gdev_proc_util_read;
 		proc_vd[i].mem_sh->write_proc = gdev_proc_util_write;
 		proc_vd[i].mem_sh->data = (void*)&gdev_vds[i].mem_sh;
+
+		sprintf(name, "period");
+		proc_vd[i].period = create_proc_entry(name, 0644, proc_vd[i].dir);
+		if (!proc_vd[i].period) {
+			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
+			goto fail_proc_vd;
+		}
+		proc_vd[i].period->read_proc = gdev_proc_val_read;
+		proc_vd[i].period->write_proc = gdev_proc_val_write;
+		proc_vd[i].period->data = (void*)&gdev_vds[i].period;
 	}
 
 	sema_init(&proc_sem, 1);
@@ -222,6 +245,8 @@ fail_proc_vd:
 			remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
 		if (proc_vd[i].mem_sh)
 			remove_proc_entry("memory_share", proc_vd[i].dir);
+		if (proc_vd[i].period)
+			remove_proc_entry("period", proc_vd[i].dir);
 	}
 	kfree(proc_vd);
 fail_alloc_proc_vd:
@@ -245,6 +270,7 @@ int gdev_proc_delete(void)
 		remove_proc_entry("processor_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_share", proc_vd[i].dir);
+		remove_proc_entry("period", proc_vd[i].dir);
 	}
 	kfree(proc_vd);
 

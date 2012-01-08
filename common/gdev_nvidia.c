@@ -29,7 +29,7 @@
 #include "gdev_api.h"
 #include "gdev_device.h"
 #include "gdev_list.h"
-#include "gdev_nvidia.h"
+#include "gdev_sched.h"
 #include "gdev_time.h"
 
 /* open a new Gdev object associated with the specified device. */

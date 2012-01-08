@@ -54,6 +54,9 @@ struct gdev_device {
 	uint32_t com_bw; /* available compute bandwidth */
 	uint32_t mem_bw; /* available memory bandwidth */
 	uint32_t mem_sh; /* available memory space share */
+	uint32_t period; /* minimum inter-arrival time (us) of replenishment. */
+	struct gdev_time credit_com; /* credit of compute execution */
+	struct gdev_time credit_mem; /* credit of memory transfer */
 	void *priv; /* private device object */
 	void *compute; /* private set of compute functions */
 	void *sched_com_thread; /* compute scheduler thread */
@@ -75,7 +78,7 @@ struct gdev_device {
 int gdev_init_device(struct gdev_device *gdev, int id, void *priv);
 void gdev_exit_device(struct gdev_device *gdev);
 
-int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t com_bw, uint32_t mem_bw, uint32_t mem_sh, struct gdev_device *parent);
+int gdev_init_virtual_device(struct gdev_device *gdev, int id, struct gdev_device *parent);
 void gdev_exit_virtual_device(struct gdev_device*);
 
 extern int gdev_count;

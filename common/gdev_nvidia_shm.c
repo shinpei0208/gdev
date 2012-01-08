@@ -27,6 +27,7 @@
  */
 
 #include "gdev_device.h"
+#include "gdev_sched.h"
 
 #define GDEV_SHM_SEGMENT_COUNT 64 /* hardcoded */
 static struct gdev_mem *gdev_shm_owners[GDEV_SHM_SEGMENT_COUNT] = {
