@@ -64,23 +64,53 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
 		se = sched_entity_ptr[cid];
 		gdev = se->gdev;
-		wake_up_process(gdev->sched_thread);
+		switch (subc) {
+		case GDEV_SUBCH_LAUNCH:
+			wake_up_process(gdev->sched_com_thread);
+			break;
+		case GDEV_SUBCH_MEMCPY:
+		case GDEV_SUBCH_MEMCPY_ASYNC:
+			wake_up_process(gdev->sched_mem_thread);
+			break;
+		default:
+			GDEV_PRINT("Unknown subchannel %d\n", subc);
+		}
 	}
+	else
+		GDEV_PRINT("Unknown context %d\n", cid);
 }
 
-static int __gdev_sched_thread(void *__data)
+static int __gdev_sched_com_thread(void *__data)
 {
 	struct gdev_device *gdev = (struct gdev_device*)__data;
 
-	GDEV_PRINT("Gdev #%d scheduler running\n", gdev->id);
-	gdev->sched_thread = current;
+	GDEV_PRINT("Gdev#%d compute scheduler running\n", gdev->id);
+	gdev->sched_com_thread = current;
 
 	while (!kthread_should_stop()) {
-		GDEV_PRINT("Scheduler invoked\n");
-		/* push data into the list here! */
-		/*gdev_schedule_invoked();*/
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
+#ifndef GDEV_SCHEDULER_DISABLED
+		gdev_schedule_launch_post(gdev);
+#endif
+	}
+
+	return 0;
+}
+
+static int __gdev_sched_mem_thread(void *__data)
+{
+	struct gdev_device *gdev = (struct gdev_device*)__data;
+
+	GDEV_PRINT("Gdev#%d memory scheduler running\n", gdev->id);
+	gdev->sched_mem_thread = current;
+
+	while (!kthread_should_stop()) {
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+#ifndef GDEV_SCHEDULER_DISABLED
+		gdev_schedule_memcpy_post(gdev);
+#endif
 	}
 
 	return 0;
@@ -89,16 +119,23 @@ static int __gdev_sched_thread(void *__data)
 int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
 	struct sched_param sp = { .sched_priority = MAX_RT_PRIO - 1 };
-	struct task_struct *p;
+	struct task_struct *com_thread, *mem_thread;
 	char name[64];
 
 	/* create scheduler threads. */
-	sprintf(name, "gsched%d", gdev->id);
-	p = kthread_create(__gdev_sched_thread, (void*)gdev, name);
-	if (p) {
-		sched_setscheduler(p, SCHED_FIFO, &sp);
-		wake_up_process(p);
-		gdev->sched_thread = p;
+	sprintf(name, "gcom%d", gdev->id);
+	com_thread = kthread_create(__gdev_sched_com_thread, (void*)gdev, name);
+	if (com_thread) {
+		sched_setscheduler(com_thread, SCHED_FIFO, &sp);
+		wake_up_process(com_thread);
+		gdev->sched_com_thread = com_thread;
+	}
+	sprintf(name, "gmem%d", gdev->id);
+	mem_thread = kthread_create(__gdev_sched_mem_thread, (void*)gdev, name);
+	if (mem_thread) {
+		sched_setscheduler(mem_thread, SCHED_FIFO, &sp);
+		wake_up_process(mem_thread);
+		gdev->sched_mem_thread = mem_thread;
 	}
 
 	return 0;
@@ -106,13 +143,33 @@ int gdev_sched_create_scheduler(struct gdev_device *gdev)
 
 void gdev_sched_destroy_scheduler(struct gdev_device *gdev)
 {
-	if (gdev->sched_thread)
-		kthread_stop(gdev->sched_thread);
+	if (gdev->sched_com_thread)
+		kthread_stop(gdev->sched_com_thread);
+	if (gdev->sched_mem_thread)
+		kthread_stop(gdev->sched_mem_thread);
 }
 
 void *gdev_sched_get_current_task(void)
 {
 	return (void*)current;
+}
+
+int gdev_sched_get_static_prio(void *task)
+{
+	struct task_struct *p = (struct task_struct *)task;
+	return p->static_prio;
+}
+
+void gdev_sched_sleep(void)
+{
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule();
+}
+
+void gdev_sched_wakeup(void *task)
+{
+	if (!wake_up_process(task))
+		GDEV_PRINT("Failed to wake up process\n");
 }
 
 void gdev_lock_init(struct gdev_lock *p)
@@ -170,22 +227,22 @@ void gdev_mutex_unlock(struct gdev_mutex *p)
  */
 int gdev_minor_init(struct drm_device *drm)
 {
-	int minor = drm->primary->index;
+	int id = drm->primary->index;
 
-	if (minor >= gdev_count) {
-		GDEV_PRINT("Could not find device %d\n", minor);
+	if (id >= gdev_count) {
+		GDEV_PRINT("Could not find device %d\n", id);
 		return -EINVAL;
 	}
 
 	/* initialize the physical device. */
-	gdev_init_device(&gdevs[minor], minor, drm);
+	gdev_init_device(&gdevs[id], id, drm);
 
 	/* initialize the virtual device. 
 	   when Gdev first loaded, one-to-one map physical and virtual device. */
-	gdev_init_virtual_device(&gdev_vds[minor], minor, 100, 100, &gdevs[minor]);
+	gdev_init_virtual_device(&gdev_vds[id], id, 100, 100, 100, &gdevs[id]);
 
 	/* initialize the scheduler for the virtual device. */
-	gdev_init_scheduler(&gdev_vds[minor]);
+	gdev_init_scheduler(&gdev_vds[id]);
 
 	return 0;
 }
@@ -195,21 +252,21 @@ int gdev_minor_init(struct drm_device *drm)
  */
 int gdev_minor_exit(struct drm_device *drm)
 {
-	int minor = drm->primary->index;
+	int id = drm->primary->index;
 	int i;
 
-	if (gdevs[minor].users) {
-		GDEV_PRINT("Device %d has %d users\n", minor, gdevs[minor].users);
+	if (gdevs[id].users) {
+		GDEV_PRINT("Device %d has %d users\n", id, gdevs[id].users);
 	}
 
-	if (minor < gdev_count) {
+	if (id < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
-			if (gdev_vds[i].parent == &gdevs[minor]) {
+			if (gdev_vds[i].parent == &gdevs[id]) {
 				gdev_exit_scheduler(&gdev_vds[i]);
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
-		gdev_exit_device(&gdevs[minor]);
+		gdev_exit_device(&gdevs[id]);
 	}
 	
 	return 0;

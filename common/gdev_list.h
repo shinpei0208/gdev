@@ -47,8 +47,7 @@ static inline void gdev_list_init(struct gdev_list *entry, void *container)
 	entry->container = container;
 }
 
-static inline void gdev_list_add
-(struct gdev_list *entry, struct gdev_list *head)
+static inline void gdev_list_add(struct gdev_list *entry, struct gdev_list *head)
 {
 	struct gdev_list *next = head->next;
 
@@ -57,6 +56,28 @@ static inline void gdev_list_add
 		next->prev = entry;
 	entry->prev = head; /* link to the head. */
 	head->next = entry;
+}
+
+static inline void gdev_list_add_next(struct gdev_list *entry, struct gdev_list *pos)
+{
+	struct gdev_list *next = pos->next;
+
+	entry->next = next;
+	if (next)
+		next->prev = entry;
+	entry->prev = pos;
+	pos->next = entry;
+}
+
+static inline void gdev_list_add_prev(struct gdev_list *entry, struct gdev_list *pos)
+{
+	struct gdev_list *prev = pos->prev;
+
+	entry->prev = prev;
+	if (prev)
+		prev->next = entry;
+	entry->next = pos;
+	pos->prev = entry;
 }
 
 static inline void gdev_list_del(struct gdev_list *entry)
@@ -88,24 +109,9 @@ static inline void *gdev_list_container(struct gdev_list *entry)
 	return entry ? entry->container : NULL;
 }
 
-#define gdev_list_for_each(p, list, entry)					\
+#define gdev_list_for_each(p, list, entry_name)				\
 	for (p = gdev_list_container(gdev_list_head(list));		\
 		 p != NULL;											\
-		 p = gdev_list_container((p)->entry.next))
-
-#define gdev_list_add_ordered(entry, head, member)	\
-	do {										\
-		struct gdev_list *p, *tail = head;		\
-		(entry)->next = (entry)->prev = NULL;	\
-		gdev_list_for_each(p, head) {			\
-			if ((entry)->member <= p->member) {	\
-				gdev_list_add(entry, p);		\
-				break;							\
-			}									\
-			tail = p;							\
-		}										\
-		if (gdev_list_empty(entry))				\
-			gdev_list_add(entry, tail);			\
-	} while (0)
+		 p = gdev_list_container((p)->entry_name.next))
 
 #endif

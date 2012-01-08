@@ -268,12 +268,17 @@ static int __gmemcpy_to_device
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
+	struct gdev_sched_entity *se = h->se;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
 
 	if (!mem)
 		return -ENOENT;
+
+#ifndef GDEV_SCHEDULER_DISABLED
+	gdev_schedule_memcpy(se);
+#endif
 
 	gdev_mem_lock(mem);
 	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
@@ -456,12 +461,17 @@ static int __gmemcpy_from_device
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
+	struct gdev_sched_entity *se = h->se;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
 
 	if (!mem)
 		return -ENOENT;
+
+#ifndef GDEV_SCHEDULER_DISABLED
+	gdev_schedule_memcpy(se);
+#endif
 
 	gdev_mem_lock(mem);
 	gdev_shm_retrieve_swap(ctx, mem); /* retrieve data swapped. */
@@ -881,7 +891,9 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 	gdev_ctx_t *ctx = h->ctx;
 	struct gdev_sched_entity *se = h->se;
 
+#ifndef GDEV_SCHEDULER_DISABLED
 	gdev_schedule_launch(se);
+#endif
 
 	gdev_mem_lock_all(vas);
 	gdev_shm_retrieve_swap_all(ctx, vas); /* get all data swapped back! */

@@ -35,10 +35,10 @@
 #include "gdev_system.h"
 #include "gdev_time.h"
 
-#define GDEV_SUBCH_COMPUTE 1
-#define GDEV_SUBCH_M2MF 2
-#define GDEV_SUBCH_PCOPY0 3
-#define GDEV_SUBCH_PCOPY1 4
+#define GDEV_SUBCH_COMPUTE GDEV_SUBCH_LAUNCH
+#define GDEV_SUBCH_M2MF GDEV_SUBCH_MEMCPY
+#define GDEV_SUBCH_PCOPY0 GDEV_SUBCH_MEMCPY_ASYNC
+#define GDEV_SUBCH_PCOPY1 (GDEV_SUBCH_MEMCPY_ASYNC + 1)
 
 #define GDEV_FENCE_BUF_SIZE 0x10000 /* 64KB */
 #define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */

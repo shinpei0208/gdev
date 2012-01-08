@@ -4,7 +4,7 @@ CC	= gcc
 TARGET	= libgdev
 CFLAGS	= -O3 -Wall
 GDEVDIR	= /usr/local/gdev
-HEADERS	= gdev_api.h,gdev_nvidia_def.h,gdev_list.h,gdev_time.h
+HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 	= gdev_lib.o
@@ -23,11 +23,11 @@ install:
 	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
-	cp -f ./{$(HEADERS)} $(GDEVDIR)/include
+	cp -f $(HEADERS) $(GDEVDIR)/include
 
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
-	rm -f $(GDEVDIR)/include/{$(HEADERS)}
+	rm -f $(GDEVDIR)/include/gdev*.h
 
 clean:
 	rm -f $(TARGET).so.* $(OBJS) $(ZOMBIE)
