@@ -277,7 +277,7 @@ static int __gmemcpy_to_device
 		return -ENOENT;
 
 #ifndef GDEV_SCHEDULER_DISABLED
-	gdev_schedule_memcpy(se);
+	gdev_schedule_memory(se);
 #endif
 
 	gdev_mem_lock(mem);
@@ -470,7 +470,7 @@ static int __gmemcpy_from_device
 		return -ENOENT;
 
 #ifndef GDEV_SCHEDULER_DISABLED
-	gdev_schedule_memcpy(se);
+	gdev_schedule_memory(se);
 #endif
 
 	gdev_mem_lock(mem);
@@ -892,7 +892,7 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 	struct gdev_sched_entity *se = h->se;
 
 #ifndef GDEV_SCHEDULER_DISABLED
-	gdev_schedule_launch(se);
+	gdev_schedule_compute(se);
 #endif
 
 	gdev_mem_lock_all(vas);

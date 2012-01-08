@@ -28,6 +28,7 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_sched.h"
 #include "gdev_system.h"
 
 int gdev_count = 0; /* # of physical devices. */
@@ -44,9 +45,10 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev->dma_mem_size = 0;
 	gdev->dma_mem_used = 0;
 	gdev->chipset = 0;
-	gdev->com_bw = 0;
-	gdev->mem_bw = 0;
-	gdev->mem_sh = 0;
+	gdev->com_bw = 100;
+	gdev->mem_bw = 100;
+	gdev->mem_sh = 100;
+	gdev->period = 0;
 	gdev->swap = NULL;
 	gdev->sched_com_thread = NULL;
 	gdev->sched_mem_thread = NULL;
@@ -54,6 +56,8 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev->se_mem_current = NULL;
 	gdev->parent = NULL;
 	gdev->priv = NULL;
+	gdev_time_us(&gdev->credit_com, 0);
+	gdev_time_us(&gdev->credit_mem, 0);
 	gdev_list_init(&gdev->sched_com_list, NULL);
 	gdev_list_init(&gdev->sched_mem_list, NULL);
 	gdev_list_init(&gdev->vas_list, NULL);
@@ -68,9 +72,6 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 int gdev_init_device(struct gdev_device *gdev, int id, void *priv)
 {
 	__gdev_init_device(gdev, id);
-	gdev->com_bw = 100; /* 100% */
-	gdev->mem_bw = 100; /* 100% */
-	gdev->mem_sh = 100; /* 100% */
 	gdev->priv = priv; /* this must be set before calls to gdev_query(). */
 
 	/* architecture-dependent chipset. 
@@ -98,17 +99,15 @@ void gdev_exit_device(struct gdev_device *gdev)
 }
 
 /* initialize the virtual device information. */
-int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t com_bw, uint32_t mem_bw, uint32_t mem_sh, struct gdev_device *phys)
+int gdev_init_virtual_device(struct gdev_device *gdev, int id, struct gdev_device *phys)
 {
 	__gdev_init_device(gdev, id);
-	gdev->com_bw = com_bw;
-	gdev->mem_bw = mem_bw;
-	gdev->mem_sh = mem_sh;
+	gdev->period = GDEV_PERIOD_DEFAULT;
 	gdev->parent = phys;
 	gdev->priv = phys->priv;
 	gdev->compute = phys->compute;
-	gdev->mem_size = phys->mem_size * mem_sh / 100;
-	gdev->dma_mem_size = phys->dma_mem_size * mem_sh / 100;
+	gdev->mem_size = phys->mem_size;
+	gdev->dma_mem_size = phys->dma_mem_size;
 	gdev->chipset = phys->chipset;
 
 	/* create the swap memory object, if configured, for the virtual device. */

@@ -91,7 +91,7 @@ static int __gdev_sched_com_thread(void *__data)
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
-		gdev_schedule_launch_post(gdev);
+		gdev_schedule_compute_post(gdev);
 #endif
 	}
 
@@ -109,9 +109,71 @@ static int __gdev_sched_mem_thread(void *__data)
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
-		gdev_schedule_memcpy_post(gdev);
+		gdev_schedule_memory_post(gdev);
 #endif
 	}
+
+	return 0;
+}
+
+static void __gdev_credit_handler(unsigned long __data)
+{
+	struct task_struct *p = (struct task_struct *)__data;
+	wake_up_process(p);
+}
+
+static int __gdev_credit_com_thread(void *__data)
+{
+	struct gdev_device *gdev = (struct gdev_device*)__data;
+	struct timer_list timer;
+
+	GDEV_PRINT("Gdev#%d compute reserve running\n", gdev->id);
+
+	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
+
+	while (!kthread_should_stop()) {
+#ifndef GDEV_SCHEDULER_DISABLED
+		gdev_replenish_credit_compute(gdev);
+		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
+#endif
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+	}
+
+	local_irq_enable();
+	if (timer_pending(&timer)) {
+		del_timer_sync(&timer);
+	}
+	local_irq_disable();
+	destroy_timer_on_stack(&timer);
+
+	return 0;
+}
+
+static int __gdev_credit_mem_thread(void *__data)
+{
+	struct gdev_device *gdev = (struct gdev_device*)__data;
+	struct timer_list timer;
+
+	GDEV_PRINT("Gdev#%d memory reserve running\n", gdev->id);
+
+	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
+
+	while (!kthread_should_stop()) {
+#ifndef GDEV_SCHEDULER_DISABLED
+		gdev_replenish_credit_memory(gdev);
+		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
+#endif
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+	}
+
+	local_irq_enable();
+	if (timer_pending(&timer)) {
+		del_timer_sync(&timer);
+	}
+	local_irq_disable();
+	destroy_timer_on_stack(&timer);
 
 	return 0;
 }
@@ -119,23 +181,38 @@ static int __gdev_sched_mem_thread(void *__data)
 int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
 	struct sched_param sp = { .sched_priority = MAX_RT_PRIO - 1 };
-	struct task_struct *com_thread, *mem_thread;
+	struct task_struct *sched_com, *sched_mem;
+	struct task_struct *credit_com, *credit_mem;
 	char name[64];
 
-	/* create scheduler threads. */
-	sprintf(name, "gcom%d", gdev->id);
-	com_thread = kthread_create(__gdev_sched_com_thread, (void*)gdev, name);
-	if (com_thread) {
-		sched_setscheduler(com_thread, SCHED_FIFO, &sp);
-		wake_up_process(com_thread);
-		gdev->sched_com_thread = com_thread;
+	/* create compute and memory scheduler threads. */
+	sprintf(name, "gschedc%d", gdev->id);
+	sched_com = kthread_create(__gdev_sched_com_thread, (void*)gdev, name);
+	if (sched_com) {
+		sched_setscheduler(sched_com, SCHED_FIFO, &sp);
+		wake_up_process(sched_com);
+		gdev->sched_com_thread = sched_com;
 	}
-	sprintf(name, "gmem%d", gdev->id);
-	mem_thread = kthread_create(__gdev_sched_mem_thread, (void*)gdev, name);
-	if (mem_thread) {
-		sched_setscheduler(mem_thread, SCHED_FIFO, &sp);
-		wake_up_process(mem_thread);
-		gdev->sched_mem_thread = mem_thread;
+	sprintf(name, "gschedm%d", gdev->id);
+	sched_mem = kthread_create(__gdev_sched_mem_thread, (void*)gdev, name);
+	if (sched_mem) {
+		sched_setscheduler(sched_mem, SCHED_FIFO, &sp);
+		wake_up_process(sched_mem);
+		gdev->sched_mem_thread = sched_mem;
+	}
+
+	/* create compute and memory credit replenishment threads. */
+	sprintf(name, "gcreditc%d", gdev->id);
+	credit_com = kthread_create(__gdev_credit_com_thread, (void*)gdev, name);
+	if (credit_com) {
+		sched_setscheduler(credit_com, SCHED_FIFO, &sp);
+		wake_up_process(credit_com);
+	}
+	sprintf(name, "gcreditm%d", gdev->id);
+	credit_mem = kthread_create(__gdev_credit_mem_thread, (void*)gdev, name);
+	if (credit_mem) {
+		sched_setscheduler(credit_mem, SCHED_FIFO, &sp);
+		wake_up_process(credit_mem);
 	}
 
 	return 0;
@@ -239,7 +316,7 @@ int gdev_minor_init(struct drm_device *drm)
 
 	/* initialize the virtual device. 
 	   when Gdev first loaded, one-to-one map physical and virtual device. */
-	gdev_init_virtual_device(&gdev_vds[id], id, 100, 100, 100, &gdevs[id]);
+	gdev_init_virtual_device(&gdev_vds[id], id, &gdevs[id]);
 
 	/* initialize the scheduler for the virtual device. */
 	gdev_init_scheduler(&gdev_vds[id]);
@@ -337,8 +414,11 @@ int gdev_major_init(struct pci_driver *pdriver)
 		goto fail_proc_create;
 	}
 
-	/* interrupt handler. */
+	/* set interrupt handler. */
 	gdev_callback_notify = __gdev_notify_handler;
+
+	/* init global scheduler lock. */
+	gdev_lock_init(&global_sched_lock);
 
 	return 0;
 
