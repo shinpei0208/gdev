@@ -119,8 +119,6 @@ resched:
 		gdev->se_com_current = se;
 		se->launch_instances++;
 		gdev_unlock(&gdev->sched_com_lock);
-
-		printk("ctx %d excute\n", se->ctx->cid);
 	}
 }
 
