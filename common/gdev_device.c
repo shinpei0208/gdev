@@ -35,25 +35,43 @@ int gdev_vcount = 0; /* # of virtual devices. */
 struct gdev_device *gdevs = NULL; /* physical devices */
 struct gdev_device *gdev_vds = NULL; /* virtual devices */
 
-/* initialize the physical device information. */
-int gdev_init_device(struct gdev_device *gdev, int minor, void *priv)
+void __gdev_init_device(struct gdev_device *gdev, int id)
 {
-	gdev->id = minor;
+	gdev->id = id;
 	gdev->users = 0;
 	gdev->mem_size = 0;
 	gdev->mem_used = 0;
 	gdev->dma_mem_size = 0;
 	gdev->dma_mem_used = 0;
-	gdev->proc_util = 100; /* 100% */
-	gdev->mem_util = 100; /* 100% */
+	gdev->chipset = 0;
+	gdev->com_bw = 0;
+	gdev->mem_bw = 0;
+	gdev->mem_sh = 0;
 	gdev->swap = NULL;
-	gdev->sched_thread = NULL;
+	gdev->sched_com_thread = NULL;
+	gdev->sched_mem_thread = NULL;
+	gdev->se_com_current = NULL;
+	gdev->se_mem_current = NULL;
 	gdev->parent = NULL;
-	gdev->priv = priv; /* this must be set before calls to gdev_query(). */
-	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	gdev_list_init(&gdev->shm_list, NULL); /* shared memory list. */
+	gdev->priv = NULL;
+	gdev_list_init(&gdev->sched_com_list, NULL);
+	gdev_list_init(&gdev->sched_mem_list, NULL);
+	gdev_list_init(&gdev->vas_list, NULL);
+	gdev_list_init(&gdev->shm_list, NULL);
+	gdev_lock_init(&gdev->sched_com_lock);
+	gdev_lock_init(&gdev->sched_mem_lock);
 	gdev_lock_init(&gdev->vas_lock);
 	gdev_mutex_init(&gdev->shm_mutex);
+}
+
+/* initialize the physical device information. */
+int gdev_init_device(struct gdev_device *gdev, int id, void *priv)
+{
+	__gdev_init_device(gdev, id);
+	gdev->com_bw = 100; /* 100% */
+	gdev->mem_bw = 100; /* 100% */
+	gdev->mem_sh = 100; /* 100% */
+	gdev->priv = priv; /* this must be set before calls to gdev_query(). */
 
 	/* architecture-dependent chipset. 
 	   this call must be prior to the following. */
@@ -80,26 +98,18 @@ void gdev_exit_device(struct gdev_device *gdev)
 }
 
 /* initialize the virtual device information. */
-int gdev_init_virtual_device
-(struct gdev_device *gdev, int id, uint32_t proc_util, uint32_t mem_util, 
- struct gdev_device *phys)
+int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t com_bw, uint32_t mem_bw, uint32_t mem_sh, struct gdev_device *phys)
 {
-	gdev->id = id;
-	gdev->users = 0;
-	gdev->proc_util = proc_util;
-	gdev->mem_util = mem_util;
-	gdev->swap = NULL;
-	gdev->sched_thread = NULL;
+	__gdev_init_device(gdev, id);
+	gdev->com_bw = com_bw;
+	gdev->mem_bw = mem_bw;
+	gdev->mem_sh = mem_sh;
 	gdev->parent = phys;
 	gdev->priv = phys->priv;
 	gdev->compute = phys->compute;
-	gdev->mem_size = phys->mem_size * mem_util / 100;
-	gdev->dma_mem_size = phys->dma_mem_size * mem_util / 100;
+	gdev->mem_size = phys->mem_size * mem_sh / 100;
+	gdev->dma_mem_size = phys->dma_mem_size * mem_sh / 100;
 	gdev->chipset = phys->chipset;
-	gdev_list_init(&gdev->vas_list, NULL); /* VAS list. */
-	gdev_list_init(&gdev->shm_list, NULL); /* shared memory list. */
-	gdev_lock_init(&gdev->vas_lock);
-	gdev_mutex_init(&gdev->shm_mutex);
 
 	/* create the swap memory object, if configured, for the virtual device. */
 	if (GDEV_SWAP_MEM_SIZE > 0) {

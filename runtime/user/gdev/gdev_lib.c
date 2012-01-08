@@ -39,6 +39,19 @@ void *gdev_sched_get_current_task(void)
 	return NULL;
 }
 
+int gdev_sched_get_static_prio(void *task)
+{
+	return 0;
+}
+
+void gdev_sched_sleep(void)
+{
+}
+
+void gdev_sched_wakeup(void *task)
+{
+}
+
 void gdev_lock_init(struct gdev_lock *p)
 {
 }

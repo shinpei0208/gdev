@@ -23,12 +23,6 @@ int copy_to_shm(unsigned int *in, unsigned int size)
 	CUdeviceptr data_addr;
 	int shmid;
 
-	res = cuInit(0);
-	if (res != CUDA_SUCCESS) {
-		printf("cuInit failed: res = %u\n", res);
-		return -1;
-	}
-
 	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuDeviceGet failed: res = %u\n", res);
@@ -82,12 +76,6 @@ int copy_from_shm(unsigned int *out, unsigned int size)
 	CUdeviceptr data_addr;
 	int shmid;
 
-	res = cuInit(0);
-	if (res != CUDA_SUCCESS) {
-		printf("cuInit failed: res = %u\n", res);
-		return -1;
-	}
-
 	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuDeviceGet failed: res = %u\n", res);
@@ -112,7 +100,6 @@ int copy_from_shm(unsigned int *out, unsigned int size)
 		return -1;
 	}
 
-	printf("data_addr = %llx\n", data_addr);
 	res = cuMemcpyDtoH(out, data_addr, size);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH failed: res = %u\n", res);

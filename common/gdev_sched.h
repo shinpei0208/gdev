@@ -32,10 +32,15 @@
 #include "gdev_device.h"
 
 struct gdev_sched_entity {
-	struct gdev_device *gdev; /* associated Gdev (virtual) device. */
-	void *task; /* private task structure. */
-	gdev_ctx_t *ctx;
-	int rt_prio; /* real-time priority. */
+	struct gdev_device *gdev; /* associated Gdev (virtual) device */
+	void *task; /* private task structure */
+	gdev_ctx_t *ctx; /* holder context */
+	int prio; /* general priority */
+	int rt_prio; /* real-time priority */
+	struct gdev_list list_entry_com; /* entry to compute scheduler list */
+	struct gdev_list list_entry_mem; /* entry to memory scheduler list */
+	int launch_instances;
+	int memcpy_instances;
 };
 
 int gdev_init_scheduler(struct gdev_device *gdev);
@@ -45,8 +50,9 @@ struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gde
 void gdev_sched_entity_destroy(struct gdev_sched_entity *se);
 
 void gdev_schedule_launch(struct gdev_sched_entity *se);
+void gdev_schedule_launch_post(struct gdev_device *gdev);
 void gdev_schedule_memcpy(struct gdev_sched_entity *se);
-void gdev_schedule_invoked(int subc, uint32_t data);
+void gdev_schedule_memcpy_post(struct gdev_device *gdev);
 
 /**
  * export the pointers to the scheduling entity.

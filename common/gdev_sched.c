@@ -63,7 +63,12 @@ struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gde
 	se->gdev = gdev;
 	se->task = gdev_sched_get_current_task();
 	se->ctx = ctx;
+	se->prio = gdev_sched_get_static_prio(se->task);
 	se->rt_prio = GDEV_PRIO_DEFAULT;
+	se->launch_instances = 0;
+	se->memcpy_instances = 0;
+	gdev_list_init(&se->list_entry_com, (void*)se);
+	gdev_list_init(&se->list_entry_mem, (void*)se);
 	sched_entity_ptr[gdev_ctx_get_cid(ctx)] = se;
 
 	return se;
@@ -83,8 +88,73 @@ void gdev_sched_entity_destroy(struct gdev_sched_entity *se)
 void gdev_schedule_launch(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
-	//struct gdev_sched_entity *se_current = gdev->
+	struct gdev_sched_entity *p, *tail = NULL;
 	
+resched:
+	gdev_lock(&gdev->sched_com_lock);
+	if (gdev->se_com_current && gdev->se_com_current != se) {
+		/* insert the scheduling entity to the priority-ordered list. */
+		gdev_list_for_each (p, &gdev->sched_com_list, list_entry_com) {
+			if (se->prio > p->prio) {
+				gdev_list_add_prev(&se->list_entry_com, &p->list_entry_com);
+				break;
+			}
+			tail = p;
+		}
+		if (gdev_list_empty(&se->list_entry_com)) {
+			if (tail)
+				gdev_list_add_next(&se->list_entry_com, &tail->list_entry_com);
+			else
+				gdev_list_add(&se->list_entry_com, &gdev->sched_com_list);
+		}
+		gdev_unlock(&gdev->sched_com_lock);
+
+		/* now the corresponding task will be suspended until some other tasks
+		   will awaken it upon completions of their compute launches. */
+		gdev_sched_sleep();
+
+		goto resched;
+	}
+	else {
+		gdev->se_com_current = se;
+		se->launch_instances++;
+		gdev_unlock(&gdev->sched_com_lock);
+
+		printk("ctx %d excute\n", se->ctx->cid);
+	}
+}
+
+/**
+ * schedule next contexts for kernel launch.
+ * invoked upon the completion of preceding contexts.
+ */
+void gdev_schedule_launch_post(struct gdev_device *gdev)
+{
+	struct gdev_sched_entity *se, *next;
+
+	gdev_lock(&gdev->sched_com_lock);
+	se = gdev->se_com_current;
+	if (se) {
+		se->launch_instances--;
+		if (se->launch_instances == 0) {
+			/* select the next context. */
+			next = gdev_list_container(gdev_list_head(&gdev->sched_com_list));
+			/* remove it from the waiting list. */
+			if (next)
+				gdev_list_del(&next->list_entry_com);
+			/* now this is going to be the current context. */
+			gdev->se_com_current = next;
+			gdev_unlock(&gdev->sched_com_lock);
+			/* wake up the next context! */
+			if (next) {
+				gdev_sched_wakeup(next->task);
+			}
+		}
+		else
+			gdev_unlock(&gdev->sched_com_lock);
+	}
+	else
+		gdev_unlock(&gdev->sched_com_lock);
 }
 
 /**
@@ -92,13 +162,15 @@ void gdev_schedule_launch(struct gdev_sched_entity *se)
  */
 void gdev_schedule_memcpy(struct gdev_sched_entity *se)
 {
+	//gdev_schedule_launch(se);
 }
 
 /**
- * schedule next contexts.
+ * schedule next contexts for memory copy.
  * invoked upon the completion of preceding contexts.
  */
-void gdev_schedule_invoked(int subc, uint32_t data)
+void gdev_schedule_memcpy_post(struct gdev_device *gdev)
 {
+	//gdev_schedule_launch_post(gdev);
 }
 
