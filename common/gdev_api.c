@@ -617,7 +617,7 @@ struct gdev_handle *gopen(int minor)
 	h->gdev = gdev;
 	h->dev_id = minor;
 
-	GDEV_PRINT("Opened gdev%d\n", minor);
+	GDEV_DPRINT("Opened gdev%d\n", minor);
 
 	return h;
 
@@ -659,7 +659,7 @@ int gclose(struct gdev_handle *h)
 	gdev_vas_free(h->vas);
 	gdev_dev_close(h->gdev);
 
-	GDEV_PRINT("Closed gdev%d\n", h->dev_id);
+	GDEV_DPRINT("Closed gdev%d\n", h->dev_id);
 
 	FREE(h);
 

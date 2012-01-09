@@ -93,6 +93,24 @@ static inline void gdev_time_us(struct gdev_time *ret, unsigned long us)
 	ret->neg = 0;
 }
 
+/* transform from struct gdev_time to seconds. */
+static inline unsigned long gdev_time_to_sec(struct gdev_time *p)
+{
+	return (p->sec * USEC_1SEC + p->usec) / USEC_1SEC;
+}
+
+/* transform from struct gdev_time to milliseconds. */
+static inline unsigned long gdev_time_to_ms(struct gdev_time *p)
+{
+	return (p->sec * USEC_1SEC + p->usec) / USEC_1MSEC;
+}
+
+/* transform from struct gdev_time to microseconds. */
+static inline unsigned long gdev_time_to_us(struct gdev_time *p)
+{
+	return (p->sec * USEC_1SEC + p->usec);
+}
+
 /* clear the timeval values. */
 static inline void gdev_time_clear(struct gdev_time *t)
 {

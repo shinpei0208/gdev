@@ -126,18 +126,27 @@ static int __gdev_credit_com_thread(void *__data)
 {
 	struct gdev_device *gdev = (struct gdev_device*)__data;
 	struct timer_list timer;
+	unsigned long elapsed = 0;
 
 	GDEV_PRINT("Gdev#%d compute reserve running\n", gdev->id);
 
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_compute(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
 #endif
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+		elapsed += gdev->period;
+		if (elapsed >= GDEV_UPDATE_INTERVAL) {
+			gdev->com_bw_used = gdev->com_time * 100 / GDEV_UPDATE_INTERVAL;
+			if (gdev->com_bw_used > 100)
+				gdev->com_bw_used = 100;
+			gdev->com_time = 0;
+			elapsed = 0;
+		}
 	}
 
 	local_irq_enable();
@@ -160,12 +169,12 @@ static int __gdev_credit_mem_thread(void *__data)
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_memory(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
 #endif
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
 	}
 
 	local_irq_enable();
@@ -318,8 +327,10 @@ int gdev_minor_init(struct drm_device *drm)
 	   when Gdev first loaded, one-to-one map physical and virtual device. */
 	gdev_init_virtual_device(&gdev_vds[id], id, &gdevs[id]);
 
+#ifndef GDEV_SCHEDULER_DISABLED
 	/* initialize the local scheduler for the virtual device. */
 	gdev_init_scheduler(&gdev_vds[id]);
+#endif
 
 	return 0;
 }
@@ -339,7 +350,9 @@ int gdev_minor_exit(struct drm_device *drm)
 	if (id < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[id]) {
+#ifndef GDEV_SCHEDULER_DISABLED
 				gdev_exit_scheduler(&gdev_vds[i]);
+#endif
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}

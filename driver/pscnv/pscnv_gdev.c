@@ -411,8 +411,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 	if (!(new = kzalloc(sizeof(*new), GFP_KERNEL)))
 		goto fail_mem;
 
-	if (pscnv_vspace_map(vs, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, 
-						 &mm))
+	if (pscnv_vspace_map(vs, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0,&mm))
 		goto fail_map;
 
 	/* address, size, and map. */
@@ -430,8 +429,8 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 	/* private data. */
 	new->bo = (void *) bo;
 
-	GDEV_PRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", 
-			   *size, *addr);
+	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", 
+				*size, *addr);
 
 	return new;
 
