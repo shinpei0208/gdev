@@ -43,7 +43,7 @@
  * virtual device period/threshold.
  */
 #define GDEV_PERIOD_DEFAULT 30000 /* microseconds */
-#define GDEV_CREDIT_INACTIVE_THRESHOLD 300000 /* microseconds */
+#define GDEV_CREDIT_INACTIVE_THRESHOLD GDEV_PERIOD_DEFAULT
 
 struct gdev_sched_entity {
 	struct gdev_device *gdev; /* associated Gdev (virtual) device */
@@ -53,14 +53,16 @@ struct gdev_sched_entity {
 	int rt_prio; /* real-time priority */
 	struct gdev_list list_entry_com; /* entry to compute scheduler list */
 	struct gdev_list list_entry_mem; /* entry to memory scheduler list */
-	struct gdev_time start; /* start time of kernel execution */
-	struct gdev_time end; /* end time of kernel execution */
+	struct gdev_time last_tick_com; /* last tick of compute execution */
+	struct gdev_time last_tick_mem; /* last tick of memory transfer */
 	int launch_instances;
 	int memcpy_instances;
 };
 
 struct gdev_vsched_policy {
-	void (*schedule)(struct gdev_device *gdev);
+	void (*schedule_compute)(struct gdev_sched_entity *se);
+	struct gdev_device *(*select_next_compute)(struct gdev_device *gdev);
+	void (*replenish_compute)(struct gdev_device *gdev);
 };
 
 int gdev_init_scheduler(struct gdev_device *gdev);
@@ -70,9 +72,9 @@ struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gde
 void gdev_sched_entity_destroy(struct gdev_sched_entity *se);
 
 void gdev_schedule_compute(struct gdev_sched_entity *se);
-void gdev_schedule_compute_post(struct gdev_device *gdev);
+void gdev_select_next_compute(struct gdev_device *gdev);
 void gdev_schedule_memory(struct gdev_sched_entity *se);
-void gdev_schedule_memory_post(struct gdev_device *gdev);
+void gdev_select_next_memory(struct gdev_device *gdev);
 void gdev_replenish_credit_compute(struct gdev_device *gdev);
 void gdev_replenish_credit_memory(struct gdev_device *gdev);
 

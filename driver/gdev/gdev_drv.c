@@ -91,7 +91,7 @@ static int __gdev_sched_com_thread(void *__data)
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
-		gdev_schedule_compute_post(gdev);
+		gdev_select_next_compute(gdev);
 #endif
 	}
 
@@ -109,7 +109,7 @@ static int __gdev_sched_mem_thread(void *__data)
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
-		gdev_schedule_memory_post(gdev);
+		gdev_select_next_memory(gdev);
 #endif
 	}
 
@@ -132,12 +132,12 @@ static int __gdev_credit_com_thread(void *__data)
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_compute(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
 #endif
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule();
 	}
 
 	local_irq_enable();
@@ -160,12 +160,12 @@ static int __gdev_credit_mem_thread(void *__data)
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
 #ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_memory(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
 #endif
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule();
 	}
 
 	local_irq_enable();
@@ -318,7 +318,7 @@ int gdev_minor_init(struct drm_device *drm)
 	   when Gdev first loaded, one-to-one map physical and virtual device. */
 	gdev_init_virtual_device(&gdev_vds[id], id, &gdevs[id]);
 
-	/* initialize the scheduler for the virtual device. */
+	/* initialize the local scheduler for the virtual device. */
 	gdev_init_scheduler(&gdev_vds[id]);
 
 	return 0;
@@ -416,9 +416,6 @@ int gdev_major_init(struct pci_driver *pdriver)
 
 	/* set interrupt handler. */
 	gdev_callback_notify = __gdev_notify_handler;
-
-	/* init global scheduler lock. */
-	gdev_lock_init(&global_sched_lock);
 
 	return 0;
 

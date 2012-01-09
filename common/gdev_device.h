@@ -64,6 +64,8 @@ struct gdev_device {
 	struct gdev_sched_entity *se_com_current; /* compute scheduling entity */
 	struct gdev_sched_entity *se_mem_current; /* memory scheduling entity */
 	struct gdev_device *parent; /* only for virtual devices */
+	struct gdev_list list_entry_com; /* entry to active compute list */
+	struct gdev_list list_entry_mem; /* entry to active memory list */
 	struct gdev_list sched_com_list; /* wait list for compute scheduling */
 	struct gdev_list sched_mem_list; /* wait list for memory scheduling */
 	struct gdev_list vas_list; /* list of VASes allocated to this device */

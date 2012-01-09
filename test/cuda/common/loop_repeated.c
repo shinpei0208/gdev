@@ -124,7 +124,7 @@ int cuda_test_loop(unsigned int n, int count, char *path)
 	}
 
 repeat:
-	usleep(50);
+	usleep(100);
 	res = cuLaunchGrid(function, grid_x, grid_y);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);
