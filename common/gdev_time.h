@@ -107,7 +107,7 @@ static inline int gdev_time_eq(struct gdev_time *x, struct gdev_time *y)
 }
 
 /* x > y */
-static inline int gdev_time_g(struct gdev_time *x, struct gdev_time *y)
+static inline int gdev_time_gt(struct gdev_time *x, struct gdev_time *y)
 {
 	if (!x->neg && y->neg)
 		return true;
@@ -125,11 +125,11 @@ static inline int gdev_time_ge(struct gdev_time *x, struct gdev_time *y)
 	if (gdev_time_eq(x, y))
 		return true;
 	else
-		return gdev_time_g(x, y);
+		return gdev_time_gt(x, y);
 }
 
 /* x < y */
-static inline int gdev_time_l(struct gdev_time *x, struct gdev_time *y)
+static inline int gdev_time_lt(struct gdev_time *x, struct gdev_time *y)
 {
 	if (!x->neg && y->neg)
 		return true;
@@ -147,7 +147,7 @@ static inline int gdev_time_le(struct gdev_time *x, struct gdev_time *y)
 	if (gdev_time_eq(x, y))
 		return true;
 	else
-		return gdev_time_l(x, y);
+		return gdev_time_lt(x, y);
 }
 
 /* ret = x + y (x and y must be positive) */
@@ -164,7 +164,7 @@ static inline void __gdev_time_add_pos(struct gdev_time *ret, struct gdev_time *
 /* ret = x - y (x and y must be positive) */
 static inline void __gdev_time_sub_pos(struct gdev_time *ret, struct gdev_time *x, struct gdev_time *y)
 {
-	if (gdev_time_l(x, y)) {
+	if (gdev_time_lt(x, y)) {
 		struct gdev_time *tmp = x;
 		x = y;
 		y = tmp;
