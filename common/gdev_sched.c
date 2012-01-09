@@ -195,7 +195,7 @@ resched:
 void gdev_select_next_compute(struct gdev_device *gdev)
 {
 	struct gdev_sched_entity *se, *next;
-	struct gdev_time now;
+	struct gdev_time now, exec;
 
 	gdev_lock(&gdev->sched_com_lock);
 	se = gdev->se_com_current;
@@ -207,6 +207,8 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 
 	/* record the end time (update on multiple launches too). */
 	gdev_time_stamp(&now);
+	/* account for the execution time. */
+	gdev_time_sub(&exec, &now, &se->last_tick_com);
 
 	se->launch_instances--;
 	if (se->launch_instances == 0) {
@@ -226,6 +228,9 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 			/* could be enforced when awakened. */
 			gdev_sched_wakeup(next->task);
 		}
+
+		/* accumulate the computation time on the device. */
+		gdev->com_time += gdev_time_to_us(&exec);
 	}
 	else
 		gdev_unlock(&gdev->sched_com_lock);

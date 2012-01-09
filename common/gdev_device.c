@@ -47,8 +47,12 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev->chipset = 0;
 	gdev->com_bw = 100;
 	gdev->mem_bw = 100;
+	gdev->com_bw_used = 0;
+	gdev->mem_bw_used = 0;
 	gdev->mem_sh = 100;
 	gdev->period = 0;
+	gdev->com_time = 0;
+	gdev->mem_time = 0;
 	gdev->swap = NULL;
 	gdev->sched_com_thread = NULL;
 	gdev->sched_mem_thread = NULL;

@@ -41,6 +41,8 @@ static struct gdev_proc_vd {
 	struct proc_dir_entry *mem_bw;
 	struct proc_dir_entry *mem_sh;
 	struct proc_dir_entry *period;
+	struct proc_dir_entry *com_bw_used;
+	struct proc_dir_entry *mem_bw_used;
 } *proc_vd;
 static struct semaphore proc_sem;
 
@@ -227,6 +229,26 @@ int gdev_proc_create(void)
 		proc_vd[i].period->read_proc = gdev_proc_val_read;
 		proc_vd[i].period->write_proc = gdev_proc_val_write;
 		proc_vd[i].period->data = (void*)&gdev_vds[i].period;
+
+		sprintf(name, "compute_bandwidth_used");
+		proc_vd[i].com_bw_used = create_proc_entry(name, 0644, proc_vd[i].dir);
+		if (!proc_vd[i].com_bw_used) {
+			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
+			goto fail_proc_vd;
+		}
+		proc_vd[i].com_bw_used->read_proc = gdev_proc_util_read;
+		proc_vd[i].com_bw_used->write_proc = NULL;
+		proc_vd[i].com_bw_used->data = (void*)&gdev_vds[i].com_bw_used;
+
+		sprintf(name, "memory_bandwidth_used");
+		proc_vd[i].mem_bw_used = create_proc_entry(name, 0644, proc_vd[i].dir);
+		if (!proc_vd[i].mem_bw_used) {
+			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
+			goto fail_proc_vd;
+		}
+		proc_vd[i].mem_bw_used->read_proc = gdev_proc_util_read;
+		proc_vd[i].mem_bw_used->write_proc = NULL;
+		proc_vd[i].mem_bw_used->data = (void*)&gdev_vds[i].mem_bw_used;
 	}
 
 	sema_init(&proc_sem, 1);
@@ -247,6 +269,10 @@ fail_proc_vd:
 			remove_proc_entry("memory_share", proc_vd[i].dir);
 		if (proc_vd[i].period)
 			remove_proc_entry("period", proc_vd[i].dir);
+		if (proc_vd[i].com_bw_used)
+			remove_proc_entry("compute_bandwidth_used", proc_vd[i].dir);
+		if (proc_vd[i].mem_bw_used)
+			remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
 	}
 	kfree(proc_vd);
 fail_alloc_proc_vd:
@@ -271,6 +297,8 @@ int gdev_proc_delete(void)
 		remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_share", proc_vd[i].dir);
 		remove_proc_entry("period", proc_vd[i].dir);
+		remove_proc_entry("processor_bandwidth_used", proc_vd[i].dir);
+		remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
 	}
 	kfree(proc_vd);
 

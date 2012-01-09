@@ -55,6 +55,10 @@ struct gdev_device {
 	uint32_t mem_bw; /* available memory bandwidth */
 	uint32_t mem_sh; /* available memory space share */
 	uint32_t period; /* minimum inter-arrival time (us) of replenishment. */
+	uint32_t com_bw_used; /* used compute bandwidth */
+	uint32_t mem_bw_used; /* used memory bandwidth */
+	uint32_t com_time; /* cumulative computation time. */
+	uint32_t mem_time; /* cumulative memory transfer time. */
 	struct gdev_time credit_com; /* credit of compute execution */
 	struct gdev_time credit_mem; /* credit of memory transfer */
 	void *priv; /* private device object */

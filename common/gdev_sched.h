@@ -44,6 +44,7 @@
  */
 #define GDEV_PERIOD_DEFAULT 30000 /* microseconds */
 #define GDEV_CREDIT_INACTIVE_THRESHOLD GDEV_PERIOD_DEFAULT
+#define GDEV_UPDATE_INTERVAL (GDEV_PERIOD_DEFAULT * 30)
 
 struct gdev_sched_entity {
 	struct gdev_device *gdev; /* associated Gdev (virtual) device */
