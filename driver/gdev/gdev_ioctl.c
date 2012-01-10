@@ -141,6 +141,7 @@ int gdev_ioctl_gmemcpy_to_device_async(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_dma dma;
 	int ret;
+	int id;
 #ifndef GDEV_MEMCPY_USER_DIRECT
 	void *buf;
 #endif
@@ -149,7 +150,7 @@ int gdev_ioctl_gmemcpy_to_device_async(Ghandle handle, unsigned long arg)
 		return -EFAULT;
 
 #ifdef GDEV_MEMCPY_USER_DIRECT
-	ret = gmemcpy_user_to_device_async(handle, dma.dst_addr, dma.src_buf, dma.size);
+	ret = gmemcpy_user_to_device_async(handle, dma.dst_addr, dma.src_buf, dma.size, &id);
 	if (ret)
 		return ret;
 #else
@@ -164,7 +165,7 @@ int gdev_ioctl_gmemcpy_to_device_async(Ghandle handle, unsigned long arg)
 	if (copy_from_user(buf, (void __user *)dma.src_buf, dma.size))
 		return -EFAULT;
 
-	ret = gmemcpy_to_device_async(handle, dma.dst_addr, buf, dma.size);
+	ret = gmemcpy_to_device_async(handle, dma.dst_addr, buf, dma.size, &id);
 	if (ret)
 		return ret;
 
@@ -173,6 +174,9 @@ int gdev_ioctl_gmemcpy_to_device_async(Ghandle handle, unsigned long arg)
 	else
 		kfree(buf);
 #endif
+
+	if (copy_to_user((void __user *)dma.id, &id, sizeof(id)))
+		return -EFAULT;
 
 	return 0;
 }
@@ -221,6 +225,7 @@ int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_dma dma;
 	int ret;
+	int id;
 #ifndef GDEV_MEMCPY_USER_DIRECT
 	void *buf;
 #endif
@@ -229,7 +234,7 @@ int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
 		return -EFAULT;
 
 #ifdef GDEV_MEMCPY_USER_DIRECT
-	ret = gmemcpy_user_from_device_async(handle, dma.dst_buf, dma.src_addr, dma.size);
+	ret = gmemcpy_user_from_device_async(handle, dma.dst_buf, dma.src_addr, dma.size, &id);
 	if (ret)
 		return ret;
 #else
@@ -241,7 +246,7 @@ int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
 	if (!buf)
 		return -ENOMEM;
 
-	ret = gmemcpy_from_device_async(handle, buf, dma.src_addr, dma.size);
+	ret = gmemcpy_from_device_async(handle, buf, dma.src_addr, dma.size, &id);
 	if (ret)
 		return ret;
 
@@ -253,6 +258,9 @@ int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
 	else
 		kfree(buf);
 #endif
+
+	if (copy_to_user((void __user *)dma.id, &id, sizeof(id)))
+		return -EFAULT;
 
 	return 0;
 }

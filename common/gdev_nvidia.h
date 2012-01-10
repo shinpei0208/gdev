@@ -35,10 +35,13 @@
 #include "gdev_system.h"
 #include "gdev_time.h"
 
-#define GDEV_SUBCH_COMPUTE GDEV_SUBCH_LAUNCH
-#define GDEV_SUBCH_M2MF GDEV_SUBCH_MEMCPY
-#define GDEV_SUBCH_PCOPY0 GDEV_SUBCH_MEMCPY_ASYNC
-#define GDEV_SUBCH_PCOPY1 (GDEV_SUBCH_MEMCPY_ASYNC + 1)
+#define GDEV_SUBCH_NV_COMPUTE GDEV_SUBCH_COMPUTE
+#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
+#define GDEV_SUBCH_NV_M2MF GDEV_SUBCH_MEMCPY
+#else
+#define GDEV_SUBCH_NV_PCOPY0 GDEV_SUBCH_MEMCPY
+#endif
+#define GDEV_SUBCH_NV_PCOPY1 (GDEV_SUBCH_MEMCPY + 1)
 
 #define GDEV_FENCE_BUF_SIZE 0x10000 /* 64KB */
 #define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */
@@ -175,7 +178,6 @@ struct gdev_compute {
 	void (*fence_write)(struct gdev_ctx *, int, uint32_t);
 	void (*fence_reset)(struct gdev_ctx *, uint32_t);
 	void (*memcpy)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
-	void (*memcpy_async)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
 	void (*membar)(struct gdev_ctx *);
 	void (*notify_intr)(struct gdev_ctx *);
 	void (*init)(struct gdev_ctx *);

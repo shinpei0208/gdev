@@ -41,9 +41,8 @@
 /**
  * generic subchannel definitions
  */
-#define GDEV_SUBCH_LAUNCH 1
+#define GDEV_SUBCH_COMPUTE 1
 #define GDEV_SUBCH_MEMCPY 2
-#define GDEV_SUBCH_MEMCPY_ASYNC 3
 
 /**
  * Gdev device struct:
