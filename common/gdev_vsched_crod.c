@@ -26,7 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
+static void gdev_vsched_crod_schedule_compute(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
 	struct gdev_device *phys = gdev->parent;
@@ -55,7 +55,7 @@ resched:
 	}
 }
 
-static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_device *gdev)
+static struct gdev_device *gdev_vsched_crod_select_next_compute(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
@@ -71,6 +71,7 @@ static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_de
 	if (gdev_time_le(&gdev->credit_com, &zero)) {
 		gdev_list_del(&gdev->list_entry_com);
 		gdev_list_add_tail(&gdev->list_entry_com, &phys->sched_com_list);
+		gdev_time_clear(&gdev->credit_com); /* clear the credit! */
 	}
 
 	gdev_list_for_each(next, &phys->sched_com_list, list_entry_com) {
@@ -89,27 +90,25 @@ device_switched:
 	return next;
 }
 
-static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
+static void gdev_vsched_crod_replenish_compute(struct gdev_device *gdev)
 {
-	struct gdev_time credit, threshold;
+	struct gdev_time credit, zero;
 
-	gdev_time_us(&credit, gdev->period * gdev->com_bw / 100);
-	gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
-	/* when the credit exceeds the threshold, all credits taken away. */
-	gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
-	if (gdev_time_gt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
-	/* when the credit exceeds the threshold in negative, even it. */
-	threshold.neg = 1;
-	if (gdev_time_lt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
+	gdev_time_us(&zero, 0);
+	gdev_lock(&gdev->sched_com_lock);
+	if (!gdev_list_empty(&gdev->sched_com_list) || 
+		gdev_time_eq(&gdev->credit_com, &zero)) {
+		gdev_time_us(&credit, gdev->period * gdev->com_bw / 100);
+		gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
+	}
+	gdev_unlock(&gdev->sched_com_lock);
 }
 
 /**
  * the Xen Credit scheduler implementation.
  */
-struct gdev_vsched_policy gdev_vsched_credit = {
-	.schedule_compute = gdev_vsched_credit_schedule_compute,
-	.select_next_compute = gdev_vsched_credit_select_next_compute,
-	.replenish_compute = gdev_vsched_credit_replenish_compute,
+struct gdev_vsched_policy gdev_vsched_crod = {
+	.schedule_compute = gdev_vsched_crod_schedule_compute,
+	.select_next_compute = gdev_vsched_crod_select_next_compute,
+	.replenish_compute = gdev_vsched_crod_replenish_compute,
 };

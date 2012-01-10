@@ -146,10 +146,15 @@ static void __gdev_dequeue_compute(struct gdev_sched_entity *se)
  * scheduling policy files.
  */
 #include "gdev_vsched_credit.c"
+#include "gdev_vsched_crod.c"
 
-#define GDEV_VSCHED_POLICY_CREDIT
-#ifdef GDEV_VSCHED_POLICY_CREDIT
+//#define GDEV_VSCHED_POLICY_CREDIT
+#define GDEV_VSCHED_POLICY_CROD
+
+#if defined(GDEV_VSCHED_POLICY_CREDIT)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_credit;
+#elif defined(GDEV_VSCHED_POLICY_CROD)
+struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_crod;
 #endif
 
 /**

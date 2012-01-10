@@ -150,9 +150,9 @@ static inline int gdev_time_ge(struct gdev_time *x, struct gdev_time *y)
 static inline int gdev_time_lt(struct gdev_time *x, struct gdev_time *y)
 {
 	if (!x->neg && y->neg)
-		return true;
-	else if (x->neg && !y->neg)
 		return false;
+	else if (x->neg && !y->neg)
+		return true;
 	else if (x->neg && y->neg)
 		return (x->sec == y->sec) ? (x->usec > y->usec) : (x->sec > y->sec);
 	else
