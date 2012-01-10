@@ -52,8 +52,7 @@ static inline void gdev_list_add_next(struct gdev_list *entry, struct gdev_list 
 	struct gdev_list *next = pos->next;
 
 	entry->next = next;
-	if (next)
-		next->prev = entry;
+	next->prev = entry;
 	entry->prev = pos;
 	pos->next = entry;
 }
@@ -63,8 +62,7 @@ static inline void gdev_list_add_prev(struct gdev_list *entry, struct gdev_list 
 	struct gdev_list *prev = pos->prev;
 
 	entry->prev = prev;
-	if (prev)
-		prev->next = entry;
+	prev->next = entry;
 	entry->next = pos;
 	pos->prev = entry;
 }
@@ -85,23 +83,20 @@ static inline void gdev_list_del(struct gdev_list *entry)
 	struct gdev_list *prev = entry->prev;
 
 	/* if prev is null, @entry points to the head, hence something wrong. */
-	if (prev) {
-		prev->next = next;
-		if (next)
-			next->prev = prev;
-		entry->next = entry->prev = NULL;
-	}
+	prev->next = next;
+	next->prev = prev;
+	entry->next = entry->prev = entry;
 }
 
 static inline int gdev_list_empty(struct gdev_list *entry)
 {
-	return entry->next == entry->prev;
+	return (entry->next == entry->prev) && (entry->next == entry);
 }
 
 static inline struct gdev_list *gdev_list_head(struct gdev_list *head)
 {
 	/* head->next is the actual head of the list. */
-	return head ? head->next : NULL;
+	return (head && !gdev_list_empty(head)) ? head->next : NULL;
 }
 
 static inline void *gdev_list_container(struct gdev_list *entry)

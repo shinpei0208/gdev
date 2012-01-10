@@ -36,7 +36,7 @@ static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
 
 resched:
 	gdev_lock(&phys->sched_com_lock);
-	if (phys->se_com_current && phys->se_com_current != se) {
+	if (phys->current_com && phys->current_com != gdev) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
 		__gdev_enqueue_compute(gdev, se);
@@ -50,7 +50,7 @@ resched:
 		goto resched;
 	}
 	else {
-		phys->se_com_current = se;
+		phys->current_com = (void *)gdev;
 		gdev_unlock(&phys->sched_com_lock);
 	}
 }
@@ -59,47 +59,31 @@ static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_de
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
-	struct gdev_sched_entity *se;
-	struct gdev_time now, zero;
+	struct gdev_time zero;
 
 	if (!phys)
 		return gdev;
 
-	/* account for the computation time. */
-	se = gdev->se_com_current;
-	gdev_time_stamp(&now);
-	gdev_time_sub(&gdev->credit_com, &now, &se->last_tick_com);
-
-	/* select the next device. */
 	gdev_lock(&phys->sched_com_lock);
 
 	/* if the credit is exhausted, reinsert the device. */
 	gdev_time_us(&zero, 0);
 	if (gdev_time_le(&gdev->credit_com, &zero)) {
 		gdev_list_del(&gdev->list_entry_com);
-		gdev_list_add(&gdev->list_entry_com, &phys->sched_com_list);
+		gdev_list_add_tail(&gdev->list_entry_com, &phys->sched_com_list);
 	}
 
 	gdev_list_for_each(next, &phys->sched_com_list, list_entry_com) {
-		/* if the current device is found first as an available device, break
-		   the search loop. note that gdev->sched_com_lock is alreay locked. */
-		if (next == gdev)
-			goto device_not_switched;
-		else {
-			gdev_lock_nested(&next->sched_com_lock);
-			if (!gdev_list_empty(&next->sched_com_list)) {
-				/* unlock the current device. the next device will be 
-				   unlocked after this function returns. */
-				gdev_unlock_nested(&gdev->sched_com_lock);
-				goto device_switched;
-			}
+		gdev_lock_nested(&next->sched_com_lock);
+		if (!gdev_list_empty(&next->sched_com_list)) {
 			gdev_unlock_nested(&next->sched_com_lock);
+			goto device_switched;
 		}
+		gdev_unlock_nested(&next->sched_com_lock);
 	}
-device_not_switched:
-	next = gdev;
+	next = NULL;
 device_switched:
-	phys->se_com_current = NULL; /* null clear */
+	phys->current_com = (void*)next; /* could be null */
 	gdev_unlock(&phys->sched_com_lock);
 
 	return next;
@@ -113,9 +97,12 @@ static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
 	gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
 	/* when the credit exceeds the threshold, all credits taken away. */
 	gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
-	if (gdev_time_gt(&gdev->credit_com, &threshold)) {
+	if (gdev_time_gt(&gdev->credit_com, &threshold))
 		gdev_time_us(&gdev->credit_com, 0);
-	}
+	/* when the credit exceeds the threshold in negative, even it. */
+	threshold.neg = 1;
+	if (gdev_time_lt(&gdev->credit_com, &threshold))
+		gdev_time_us(&gdev->credit_com, 0);
 }
 
 static struct gdev_vsched_policy gdev_vsched_credit = {

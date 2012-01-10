@@ -165,7 +165,7 @@ resched:
 
 	/* local compute scheduler. */
 	gdev_lock(&gdev->sched_com_lock);
-	if (gdev->se_com_current && gdev->se_com_current != se) {
+	if (gdev->current_com && gdev->current_com != se) {
 		/* enqueue the scheduling entity to the compute queue. */
 		__gdev_enqueue_compute(gdev, se);
 		gdev_unlock(&gdev->sched_com_lock);
@@ -183,7 +183,7 @@ resched:
 			gdev_time_stamp(&se->last_tick_com);
 		}
 		se->launch_instances++;
-		gdev->se_com_current = se;
+		gdev->current_com = (void*)se;
 		gdev_unlock(&gdev->sched_com_lock);
 	}
 }
@@ -194,11 +194,12 @@ resched:
  */
 void gdev_select_next_compute(struct gdev_device *gdev)
 {
-	struct gdev_sched_entity *se, *next;
+	struct gdev_sched_entity *se;
+	struct gdev_device *next;
 	struct gdev_time now, exec;
 
 	gdev_lock(&gdev->sched_com_lock);
-	se = gdev->se_com_current;
+	se = (struct gdev_sched_entity *)gdev->current_com;
 	if (!se) {
 		gdev_unlock(&gdev->sched_com_lock);
 		GDEV_PRINT("Invalid scheduling entity on Gdev#%d\n", gdev->id);
@@ -207,30 +208,50 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 
 	/* record the end time (update on multiple launches too). */
 	gdev_time_stamp(&now);
-	/* account for the execution time. */
+	/* aquire the execution time. */
 	gdev_time_sub(&exec, &now, &se->last_tick_com);
 
 	se->launch_instances--;
 	if (se->launch_instances == 0) {
-		/* select the next device to be scheduled. */
-		gdev = gdev_vsched->select_next_compute(gdev);
-		
-		/* select the next context to be scheduled. */
-		next = gdev_list_container(gdev_list_head(&gdev->sched_com_list));
-		/* remove it from the waiting list. */
-		if (next)
-			__gdev_dequeue_compute(next);
-		gdev->se_com_current = NULL; /* null clear once. */
+		/* account for the credit. */
+		gdev_time_sub(&gdev->credit_com, &gdev->credit_com, &exec);
+		/* accumulate the computation time. */
+		gdev->com_time += gdev_time_to_us(&exec);
+
+		/* select the next context to be scheduled.
+		   now don't reference the previous entity by se. */
+		se = gdev_list_container(gdev_list_head(&gdev->sched_com_list));
+		/* setting the next entity here prevents lower-priority contexts 
+		   arriving in gdev_schedule_compute() from being dispatched onto
+		   the device. note that se = NULL could happen. */
+		gdev->current_com = (void*)se; 
 		gdev_unlock(&gdev->sched_com_lock);
 
-		/* wake up the next context! */
-		if (next) {
-			/* could be enforced when awakened. */
-			gdev_sched_wakeup(next->task);
-		}
+		printk("gdev%d->credit_com = %s%lu\n", gdev->id, 
+			   gdev->credit_com.neg ? "-" : "",
+			   gdev_time_to_us(&gdev->credit_com));
 
-		/* accumulate the computation time on the device. */
-		gdev->com_time += gdev_time_to_us(&exec);
+		/* select the next device to be scheduled. */
+		next = gdev_vsched->select_next_compute(gdev);
+		if (!next)
+			return;
+
+		gdev_lock(&next->sched_com_lock);
+		/* if the virtual device needs to be switched, change the next
+		   scheduling entity to be scheduled also needs to be changed. */
+		if (next != gdev)
+			se = gdev_list_container(gdev_list_head(&next->sched_com_list));
+
+		/* now remove the scheduling entity from the waiting list, and wake 
+		   up the corresponding task. */
+		if (se) {
+			__gdev_dequeue_compute(se);
+			gdev_unlock(&next->sched_com_lock);
+
+			gdev_sched_wakeup(se->task); 
+		}
+		else
+			gdev_unlock(&next->sched_com_lock);
 	}
 	else
 		gdev_unlock(&gdev->sched_com_lock);

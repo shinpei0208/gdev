@@ -3,9 +3,9 @@
 int main(int argc, char *argv[])
 {
 	int id = -1;
+	int i, n;
 	char fname[256], s[8];
 	FILE *fp;
-	int i, n;
 
 	if (argc > 1)
 		id = atoi(argv[1]);
@@ -16,14 +16,14 @@ int main(int argc, char *argv[])
 			if (!(fp = fopen(fname, "r")))
 				return -1;
 			fgets(s, 8, fp);
-			printf("Compute %s %\n", s);
+			printf("Compute %03d %\n", atoi(s));
 			fclose(fp);
 
 			sprintf(fname, "/proc/gdev/vd%d/memory_bandwidth_used", id);
 			if (!(fp = fopen(fname, "r")))
 				return -1;
 			fgets(s, 8, fp);
-			printf("Memory  %s %\n", s);
+			printf("Memory  %03d %\n", atoi(s));
 			fclose(fp);
 
 			sleep(1);
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 				if (!(fp = fopen(fname, "r")))
 					return -1;
 				fgets(s, 8, fp);
-				printf("    %s ", s);
+				printf("  %03d ", atoi(s));
 				fclose(fp);
 			}
 			printf("%\n");
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 				if (!(fp = fopen(fname, "r")))
 					return -1;
 				fgets(s, 8, fp);
-				printf("    %s ", s);
+				printf("  %03d ", atoi(s));
 				fclose(fp);
 			}
 			printf("%\n");
