@@ -49,16 +49,6 @@
  */
 static dev_t dev;
 static struct cdev *cdevs; /* character devices for virtual devices */
-static int VCOUNT_LIST[GDEV_PHYSICAL_DEVICE_MAX_COUNT] = {
-	GDEV0_VIRTUAL_DEVICE_COUNT,
-	GDEV1_VIRTUAL_DEVICE_COUNT,
-	GDEV2_VIRTUAL_DEVICE_COUNT,
-	GDEV3_VIRTUAL_DEVICE_COUNT,
-	GDEV4_VIRTUAL_DEVICE_COUNT,
-	GDEV5_VIRTUAL_DEVICE_COUNT,
-	GDEV6_VIRTUAL_DEVICE_COUNT,
-	GDEV7_VIRTUAL_DEVICE_COUNT,
-};
 
 /**
  * pointers to callback functions.
@@ -258,13 +248,14 @@ void gdev_sched_sleep(void)
 	schedule();
 }
 
-void gdev_sched_wakeup(void *task)
+int gdev_sched_wakeup(void *task)
 {
-retry:
 	if (!wake_up_process(task)) {
-		GDEV_PRINT("Failed to wake up process, try again...\n");
-		goto retry;
+		schedule_timeout_interruptible(1);
+		if (!wake_up_process(task))
+			return -EINVAL;
 	}
+	return 0;
 }
 
 void gdev_lock_init(struct gdev_lock *p)

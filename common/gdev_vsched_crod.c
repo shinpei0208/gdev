@@ -43,6 +43,8 @@ resched:
 		gdev_unlock_nested(&gdev->sched_com_lock);
 		gdev_unlock(&phys->sched_com_lock);
 
+		GDEV_PRINT("Gdev#%d Sleep\n", gdev->id);
+
 		/* now the corresponding task will be suspended until some other tasks
 		   will awaken it upon completions of their compute launches. */
 		gdev_sched_sleep();
@@ -52,6 +54,7 @@ resched:
 	else {
 		phys->current_com = (void *)gdev;
 		gdev_unlock(&phys->sched_com_lock);
+		GDEV_PRINT("Gdev#%d Run\n", gdev->id);
 	}
 }
 

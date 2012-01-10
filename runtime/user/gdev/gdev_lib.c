@@ -48,8 +48,9 @@ void gdev_sched_sleep(void)
 {
 }
 
-void gdev_sched_wakeup(void *task)
+int gdev_sched_wakeup(void *task)
 {
+	return 0;
 }
 
 void gdev_lock_init(struct gdev_lock *p)

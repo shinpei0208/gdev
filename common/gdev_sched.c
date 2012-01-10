@@ -148,8 +148,8 @@ static void __gdev_dequeue_compute(struct gdev_sched_entity *se)
 #include "gdev_vsched_credit.c"
 #include "gdev_vsched_crod.c"
 
-//#define GDEV_VSCHED_POLICY_CREDIT
-#define GDEV_VSCHED_POLICY_CROD
+#define GDEV_VSCHED_POLICY_CREDIT
+//#define GDEV_VSCHED_POLICY_CROD
 
 #if defined(GDEV_VSCHED_POLICY_CREDIT)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_credit;
@@ -170,7 +170,7 @@ resched:
 
 	/* local compute scheduler. */
 	gdev_lock(&gdev->sched_com_lock);
-	if (gdev->current_com && gdev->current_com != se) {
+	if ((gdev->current_com && gdev->current_com != se) || se->launch_instances >= GDEV_INSTANCES_LIMIT) {
 		/* enqueue the scheduling entity to the compute queue. */
 		__gdev_enqueue_compute(gdev, se);
 		gdev_unlock(&gdev->sched_com_lock);
@@ -217,6 +217,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 	gdev_time_sub(&exec, &now, &se->last_tick_com);
 
 	se->launch_instances--;
+	printk("Gdev#%d instances %d\n", gdev->id, se->launch_instances);
 	if (se->launch_instances == 0) {
 		/* account for the credit. */
 		gdev_time_sub(&gdev->credit_com, &gdev->credit_com, &exec);
@@ -253,7 +254,9 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 			__gdev_dequeue_compute(se);
 			gdev_unlock(&next->sched_com_lock);
 
-			gdev_sched_wakeup(se->task); 
+			while (gdev_sched_wakeup(se->task) < 0) {
+				GDEV_PRINT("Failed to wake up context %d\n", se->ctx->cid);
+			}
 		}
 		else
 			gdev_unlock(&next->sched_com_lock);

@@ -42,7 +42,6 @@
 
 #define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
 
-#define GDEV_PHYSICAL_DEVICE_MAX_COUNT 8 /* # of physical devices */
 #define GDEV0_VIRTUAL_DEVICE_COUNT 4 /* # of virtual devices */
 #define GDEV1_VIRTUAL_DEVICE_COUNT 0 /* # of virtual devices */
 #define GDEV2_VIRTUAL_DEVICE_COUNT 0 /* # of virtual devices */
