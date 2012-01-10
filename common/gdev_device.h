@@ -34,6 +34,11 @@
 #include "gdev_system.h"
 
 /**
+ * maximum number of physical devices that Gdev supports
+ */
+#define GDEV_PHYSICAL_DEVICE_MAX_COUNT 8
+
+/**
  * generic subchannel definitions
  */
 #define GDEV_SUBCH_LAUNCH 1
@@ -91,5 +96,6 @@ extern int gdev_count;
 extern int gdev_vcount;
 extern struct gdev_device *gdevs;
 extern struct gdev_device *gdev_vds;
+extern int VCOUNT_LIST[GDEV_PHYSICAL_DEVICE_MAX_COUNT];
 
 #endif

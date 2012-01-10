@@ -90,6 +90,50 @@ void gdev_nvidia_mem_list_del(struct gdev_mem *mem)
 	}
 }
 
+/* lock the memory object so that none can change data while tranferring.
+   if there are no shared memory users, no need to lock. */
+void gdev_mem_lock(struct gdev_mem *mem)
+{
+	if (mem->shm) {
+		gdev_mutex_lock(&mem->shm->mutex);
+	}
+}
+
+/* unlock the memory object so that none can change data while tranferring.
+   if there are no shared memory users, no need to lock. */
+void gdev_mem_unlock(struct gdev_mem *mem)
+{
+	if (mem->shm) {
+		gdev_mutex_unlock(&mem->shm->mutex);
+	}
+}
+
+/* lock all the memory objects associated with @vas. */
+void gdev_mem_lock_all(struct gdev_vas *vas)
+{
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+
+	gdev_mutex_lock(&gdev->shm_mutex);
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_mem_lock(mem);
+	}
+	gdev_mutex_unlock(&gdev->shm_mutex);
+}
+
+/* unlock all the memory objects associated with @vas. */
+void gdev_mem_unlock_all(struct gdev_vas *vas)
+{
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_mem *mem;
+
+	gdev_mutex_lock(&gdev->shm_mutex);
+	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		gdev_mem_unlock(mem);
+	}
+	gdev_mutex_unlock(&gdev->shm_mutex);
+}
+
 /* allocate a new memory object. */
 struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
@@ -204,50 +248,6 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	}
 
 	return mem;
-}
-
-/* lock the memory object so that none can change data while tranferring.
-   if there are no shared memory users, no need to lock. */
-void gdev_mem_lock(struct gdev_mem *mem)
-{
-	if (mem->shm) {
-		gdev_mutex_lock(&mem->shm->mutex);
-	}
-}
-
-/* unlock the memory object so that none can change data while tranferring.
-   if there are no shared memory users, no need to lock. */
-void gdev_mem_unlock(struct gdev_mem *mem)
-{
-	if (mem->shm) {
-		gdev_mutex_unlock(&mem->shm->mutex);
-	}
-}
-
-/* lock all the memory objects associated with @vas. */
-void gdev_mem_lock_all(struct gdev_vas *vas)
-{
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_mem *mem;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_mem_lock(mem);
-	}
-	gdev_mutex_unlock(&gdev->shm_mutex);
-}
-
-/* unlock all the memory objects associated with @vas. */
-void gdev_mem_unlock_all(struct gdev_vas *vas)
-{
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_mem *mem;
-
-	gdev_mutex_lock(&gdev->shm_mutex);
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-		gdev_mem_unlock(mem);
-	}
-	gdev_mutex_unlock(&gdev->shm_mutex);
 }
 
 /* get host DMA buffer. */

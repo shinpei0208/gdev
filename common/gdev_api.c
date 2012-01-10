@@ -583,6 +583,8 @@ struct gdev_handle *gopen(int minor)
 		goto fail_open;
 	}
 
+	gdev_global_lock(gdev);
+
 	/* create a new virual address space (VAS) object. */
 	vas = gdev_vas_new(gdev, GDEV_VAS_SIZE, h);
 	if (!vas) {
@@ -610,6 +612,8 @@ struct gdev_handle *gopen(int minor)
 		GDEV_PRINT("Failed to allocate scheduling entity\n");
 		goto fail_se;
 	}
+
+	gdev_global_unlock(gdev);
 	
 	/* save the objects to the handle. */
 	h->se = se;
@@ -630,6 +634,7 @@ fail_dma:
 fail_ctx:
 	gdev_vas_free(vas);
 fail_vas:
+	gdev_global_unlock(gdev);
 	gdev_dev_close(gdev);
 fail_open:
 	return NULL;
@@ -657,8 +662,10 @@ int gclose(struct gdev_handle *h)
 	gdev_mem_gc(h->vas);
 
 	/* free the objects. */
+	gdev_global_lock(h->gdev);
 	gdev_ctx_free(h->ctx);
 	gdev_vas_free(h->vas);
+	gdev_global_unlock(h->gdev);
 	gdev_dev_close(h->gdev);
 
 	GDEV_PRINT("Closed gdev%d\n", h->dev_id);

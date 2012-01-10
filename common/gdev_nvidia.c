@@ -124,3 +124,42 @@ int gdev_ctx_get_cid(struct gdev_ctx *ctx)
 {
 	return ctx->cid;
 }
+
+/* lock the device globally. */
+void gdev_global_lock(struct gdev_device *gdev)
+{
+	struct gdev_device *phys = gdev->parent;
+	
+	if (phys) {
+		int physid = phys->id;
+		int i, j = 0;
+		for (i = 0; i < physid; i++)
+			j += VCOUNT_LIST[i];
+		for (i = j; i < j + VCOUNT_LIST[physid]; i++) {
+			gdev_mutex_lock(&gdev_vds[i].shm_mutex);
+		}
+	}
+	else {
+		gdev_mutex_lock(&gdev->shm_mutex);
+	}
+}
+
+/* unlock the device globally. */
+void gdev_global_unlock(struct gdev_device *gdev)
+{
+	struct gdev_device *phys = gdev->parent;
+
+	if (phys) {
+		int physid = phys->id;
+		int i, j = 0;
+		for (i = 0; i < physid; i++)
+			j += VCOUNT_LIST[i];
+		for (i = j + VCOUNT_LIST[physid] - 1; i >= j ; i--) {
+			gdev_mutex_unlock(&gdev_vds[i].shm_mutex);
+		}
+	}
+	else {
+		gdev_mutex_unlock(&gdev->shm_mutex);
+	}
+}
+

@@ -51,7 +51,7 @@ void gdev_sched_destroy_scheduler(struct gdev_device *gdev);
 void *gdev_sched_get_current_task(void);
 int gdev_sched_get_static_prio(void *task);
 void gdev_sched_sleep(void);
-void gdev_sched_wakeup(void *task);
+int gdev_sched_wakeup(void *task);
 void gdev_lock_init(gdev_lock_t *p);
 void gdev_lock(gdev_lock_t *p);
 void gdev_unlock(gdev_lock_t *p);

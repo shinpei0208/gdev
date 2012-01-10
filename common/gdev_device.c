@@ -36,6 +36,17 @@ int gdev_vcount = 0; /* # of virtual devices. */
 struct gdev_device *gdevs = NULL; /* physical devices */
 struct gdev_device *gdev_vds = NULL; /* virtual devices */
 
+int VCOUNT_LIST[GDEV_PHYSICAL_DEVICE_MAX_COUNT] = {
+	GDEV0_VIRTUAL_DEVICE_COUNT,
+	GDEV1_VIRTUAL_DEVICE_COUNT,
+	GDEV2_VIRTUAL_DEVICE_COUNT,
+	GDEV3_VIRTUAL_DEVICE_COUNT,
+	GDEV4_VIRTUAL_DEVICE_COUNT,
+	GDEV5_VIRTUAL_DEVICE_COUNT,
+	GDEV6_VIRTUAL_DEVICE_COUNT,
+	GDEV7_VIRTUAL_DEVICE_COUNT,
+};
+
 void __gdev_init_device(struct gdev_device *gdev, int id)
 {
 	gdev->id = id;
