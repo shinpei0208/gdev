@@ -69,11 +69,10 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 		se = sched_entity_ptr[cid];
 		gdev = se->gdev;
 		switch (subc) {
-		case GDEV_SUBCH_LAUNCH:
+		case GDEV_SUBCH_COMPUTE:
 			wake_up_process(gdev->sched_com_thread);
 			break;
 		case GDEV_SUBCH_MEMCPY:
-		case GDEV_SUBCH_MEMCPY_ASYNC:
 			wake_up_process(gdev->sched_mem_thread);
 			break;
 		default:
@@ -161,6 +160,7 @@ static int __gdev_credit_mem_thread(void *__data)
 {
 	struct gdev_device *gdev = (struct gdev_device*)__data;
 	struct timer_list timer;
+	unsigned long elapsed = 0;
 
 	GDEV_PRINT("Gdev#%d memory reserve running\n", gdev->id);
 
@@ -171,6 +171,14 @@ static int __gdev_credit_mem_thread(void *__data)
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
+		elapsed += gdev->period;
+		if (elapsed >= GDEV_UPDATE_INTERVAL) {
+			gdev->mem_bw_used = gdev->mem_time * 100 / GDEV_UPDATE_INTERVAL;
+			if (gdev->mem_bw_used > 100)
+				gdev->mem_bw_used = 100;
+			gdev->mem_time = 0;
+			elapsed = 0;
+		}
 	}
 
 	local_irq_enable();

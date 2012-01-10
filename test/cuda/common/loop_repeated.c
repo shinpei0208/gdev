@@ -25,7 +25,7 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-int cuda_test_loop_repeated(unsigned int n, int count, int id, char *path)
+int cuda_test_loop_repeated(unsigned int n, int sec, int id, char *path)
 {
 	int i, j, idx;
 	CUresult res;
@@ -37,12 +37,14 @@ int cuda_test_loop_repeated(unsigned int n, int count, int id, char *path)
 	unsigned int *data = (unsigned int *) malloc (n * sizeof(unsigned int));
 	int block_x, block_y, grid_x, grid_y;
 	char fname[256];
-	struct timeval tv;
+	struct timeval tv_start, tv_now, tv;
 
 	block_x = 1;
 	block_y = 1;
 	grid_x = 1;
 	grid_y = 1;
+
+	gettimeofday(&tv_start, NULL);
 
 	res = cuInit(0);
 	if (res != CUDA_SUCCESS) {
@@ -90,6 +92,8 @@ int cuda_test_loop_repeated(unsigned int n, int count, int id, char *path)
 		return -1;
 	}
 
+repeat:
+	usleep((tv.tv_usec % 10) * 100);
 	res = cuMemcpyHtoD(d_data, data, n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD failed: res = %lu\n", (unsigned long)res);
@@ -123,24 +127,24 @@ int cuda_test_loop_repeated(unsigned int n, int count, int id, char *path)
 		return -1;
 	}
 
-repeat:
-	usleep(50);
 	res = cuLaunchGrid(function, grid_x, grid_y);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 	cuCtxSynchronize();
-	gettimeofday(&tv, NULL);
-	printf("%lu:%lu\n", tv.tv_sec, tv.tv_usec);
-	count--;
-	if (count)
-		goto repeat;
 
 	res = cuMemcpyDtoH(data, d_data, n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH failed: res = %lu\n", (unsigned long)res);
 		return -1;
+	}
+
+	gettimeofday(&tv_now, NULL);
+	tvsub(&tv_now, &tv_start, &tv);
+	printf("%lu:%lu\n", tv.tv_sec, tv.tv_usec);
+	if (tv.tv_sec < sec) {
+		goto repeat;
 	}
 
 	res = cuMemFree(d_data);

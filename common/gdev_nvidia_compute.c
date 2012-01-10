@@ -29,25 +29,6 @@
 #include "gdev_api.h"
 #include "gdev_device.h"
 
-/**
- * memcpy functions prototypes
- */
-static uint32_t gdev_memcpy_sync
-(struct gdev_ctx *, uint64_t, uint64_t, uint32_t, uint32_t);
-static uint32_t gdev_memcpy_async
-(struct gdev_ctx *, uint64_t, uint64_t, uint32_t, uint32_t);
-
-/**
- * pointers to memcpy functions.
- * gdev_memcpy_func[0] is synchronous memcpy.
- * gdev_memcpy_func[1] is asynchrounous memcpy.
- */
-static uint32_t (*gdev_memcpy_func[2])
-(struct gdev_ctx*, uint64_t, uint64_t, uint32_t, uint32_t) = {
-	gdev_memcpy_sync,
-	gdev_memcpy_async
-};
-
 /* set up the architecture-dependent compute engine. */
 int gdev_compute_setup(struct gdev_device *gdev)
 {
@@ -105,60 +86,28 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	return seq;
 }
 
-/* synchrounously copy data of @size from @src_addr to @dst_addr. */
-static uint32_t gdev_memcpy_sync
-(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
- uint32_t seq)
+/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
+uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_compute *compute = gdev->compute;
-
-	compute->membar(ctx);
-	/* it's important to emit a fence *before* memcpy():
-	   the EXEC method of the PCOPY and M2MF engines is associated with
-	   the QUERY method, i.e., if QUERY is set, the sequence will be 
-	   written to the specified address when the data are transfered. */
-	compute->fence_reset(ctx, seq);
-	compute->fence_write(ctx, GDEV_SUBCH_M2MF, seq);
-	compute->memcpy(ctx, dst_addr, src_addr, size);
-
-	return seq;
-}
-
-/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
-static uint32_t gdev_memcpy_async
-(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
- uint32_t seq)
-{
-	struct gdev_vas *vas = ctx->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
-
-	compute->membar(ctx);
-	/* it's important to emit a fence *before* memcpy():
-	   the EXEC method of the PCOPY and M2MF engines is associated with
-	   the QUERY method, i.e., if QUERY is set, the sequence will be 
-	   written to the specified address when the data are transfered. */
-	compute->fence_reset(ctx, seq);
-	compute->fence_write(ctx, GDEV_SUBCH_PCOPY0, seq);
-	compute->memcpy_async(ctx, dst_addr, src_addr, size);
-
-	return seq;
-}
-
-/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
-uint32_t gdev_memcpy
-(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size, 
- int async)
-{
 	uint32_t seq;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
 		ctx->fence.seq = 1;
 	seq = ctx->fence.seq;
 
-	return gdev_memcpy_func[async](ctx, dst_addr, src_addr, size, seq);
+	compute->membar(ctx);
+	/* it's important to emit a fence *before* memcpy():
+	   the EXEC method of the PCOPY and M2MF engines is associated with
+	   the QUERY method, i.e., if QUERY is set, the sequence will be 
+	   written to the specified address when the data are transfered. */
+	compute->fence_reset(ctx, seq);
+	compute->fence_write(ctx, GDEV_SUBCH_MEMCPY, seq);
+	compute->memcpy(ctx, dst_addr, src_addr, size);
+
+	return seq;
 }
 
 /* read 32-bit value from @addr. */

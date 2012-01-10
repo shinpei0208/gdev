@@ -61,6 +61,7 @@ struct gdev_ioctl_dma {
 	uint64_t src_addr;
 	uint64_t dst_addr;
 	uint64_t size;
+	uint32_t *id;
 };
 
 struct gdev_ioctl_launch {

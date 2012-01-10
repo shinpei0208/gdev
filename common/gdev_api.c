@@ -108,10 +108,7 @@ static int __f_ctu(void *dst, const void *src, uint32_t size)
  * copy host buffer to device memory with pipelining.
  * @host_copy is either memcpy() or copy_from_user().
  */
-static int __gmemcpy_to_device_p
-(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, 
- int async, uint32_t ch_size, int p_count, gdev_mem_t **bmem,
- int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_to_device_p(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t ch_size, int p_count, gdev_mem_t **bmem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	uint64_t rest_size = size;
 	uint64_t offset;
@@ -136,12 +133,11 @@ static int __gmemcpy_to_device_p
 			/* HtoH */
 			if (fence[i])
 				gdev_poll(ctx, fence[i], NULL);
-			ret = host_copy(dma_buf[i], src_buf + offset, dma_size);
+			ret = host_copy(dma_buf[i], src_buf+offset, dma_size);
 			if (ret)
 				goto end;
 			/* HtoD */
-			fence[i] = gdev_memcpy(ctx, dst_addr + offset, dma_addr[i], 
-								   dma_size, async);
+			fence[i] = gdev_memcpy(ctx, dst_addr+offset, dma_addr[i], dma_size);
 			if (rest_size == 0) {
 				/* wait for the last fence, and go out! */
 				gdev_poll(ctx, fence[i], NULL);
@@ -159,10 +155,7 @@ end:
  * copy host buffer to device memory without pipelining.
  * @host_copy is either memcpy() or copy_from_user().
  */
-static int __gmemcpy_to_device_np
-(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, 
- int async, uint32_t ch_size, gdev_mem_t **bmem, 
- int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_to_device_np(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t ch_size, gdev_mem_t **bmem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	uint64_t rest_size = size;
 	uint64_t offset;
@@ -182,8 +175,7 @@ static int __gmemcpy_to_device_np
 		ret = host_copy(dma_buf[0], src_buf + offset, dma_size);
 		if (ret)
 			goto end;
-		fence = gdev_memcpy(ctx, dst_addr + offset, dma_addr[0], 
-							dma_size, async);
+		fence = gdev_memcpy(ctx, dst_addr + offset, dma_addr[0], dma_size);
 		gdev_poll(ctx, fence, NULL);
 		rest_size -= dma_size;
 		offset += dma_size;
@@ -196,15 +188,16 @@ end:
 /**
  * copy host DMA buffer to device memory.
  */
-static int __gmemcpy_dma_to_device
-(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint64_t size, 
- int async)
+static int __gmemcpy_dma_to_device(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint64_t size, uint32_t *id)
 {
 	uint32_t fence;
 
 	/* we don't break data into chunks if copying directly from dma memory. */
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, async);
-	gdev_poll(ctx, fence, NULL);
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
+	if (!id)
+		gdev_poll(ctx, fence, NULL);
+	else
+		*id = fence;
 	
 	return 0;
 }
@@ -212,10 +205,7 @@ static int __gmemcpy_dma_to_device
 /**
  * a wrapper function of __gmemcpy_to_device().
  */
-static int __gmemcpy_to_device_locked
-(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, 
- int async, uint32_t ch_size, int p_count, gdev_vas_t *vas, gdev_mem_t *mem, 
- gdev_mem_t **dma_mem, int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, uint32_t ch_size, int p_count, gdev_vas_t *vas, gdev_mem_t *mem, gdev_mem_t **dma_mem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	gdev_mem_t *hmem;
 	gdev_mem_t **bmem;
@@ -229,7 +219,7 @@ static int __gmemcpy_to_device_locked
 		ret = gdev_write(mem, dst_addr, src_buf, size);
 	}
 	else if ((hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA))) {
-		ret = __gmemcpy_dma_to_device(ctx, dst_addr, hmem->addr, size, async);
+		ret = __gmemcpy_dma_to_device(ctx, dst_addr, hmem->addr, size, id);
 	}
 	else {
 		/* prepare bounce buffer memory. */
@@ -243,11 +233,9 @@ static int __gmemcpy_to_device_locked
 
 		/* copy memory to device. */
 		if (p_count > 1 && size > ch_size)
-			ret = __gmemcpy_to_device_p(ctx, dst_addr, src_buf, size, async,
-										ch_size, p_count, bmem, host_copy);
+			ret = __gmemcpy_to_device_p(ctx, dst_addr, src_buf, size, ch_size, p_count, bmem, host_copy);
 		else
-			ret = __gmemcpy_to_device_np(ctx, dst_addr, src_buf, size, async,
-										 ch_size, bmem, host_copy);
+			ret = __gmemcpy_to_device_np(ctx, dst_addr, src_buf, size, ch_size, bmem, host_copy);
 
 		/* free bounce buffer memory, if necessary. */
 		if (!dma_mem)
@@ -260,9 +248,7 @@ static int __gmemcpy_to_device_locked
 /**
  * a wrapper function of gmemcpy_to_device().
  */
-static int __gmemcpy_to_device
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size,
- int async, int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
@@ -282,11 +268,15 @@ static int __gmemcpy_to_device
 
 	gdev_mem_lock(mem);
 	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
-	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, async, 
+	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, id, 
 									 ch_size, p_count, vas, mem, dma_mem, 
 									 host_copy);
 	gdev_mem_unlock(mem);
-	
+
+#ifndef GDEV_SCHEDULER_DISABLED
+	gdev_select_next_memory(h->gdev); /* memcpy needs to select next itself. */
+#endif
+
 	return ret;
 }
 
@@ -294,10 +284,7 @@ static int __gmemcpy_to_device
  * copy device memory to host buffer with pipelining.
  * host_copy() is either memcpy() or copy_to_user().
  */
-static int __gmemcpy_from_device_p
-(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, 
- int async, uint32_t ch_size, int p_count, gdev_mem_t **bmem,
- int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_from_device_p(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t ch_size, int p_count, gdev_mem_t **bmem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	uint64_t rest_size = size;
 	uint64_t offset;
@@ -318,7 +305,7 @@ static int __gmemcpy_from_device_p
 	dma_size = __min(rest_size, ch_size);
 	rest_size -= dma_size;
 	/* DtoH */
-	fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + 0, dma_size, async);
+	fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + 0, dma_size);
 	for (;;) {
 		for (i = 0; i < p_count; i++) {
 			if (rest_size == 0) {
@@ -332,11 +319,9 @@ static int __gmemcpy_from_device_p
 			offset += dma_size;
 			/* DtoH */
 			if (i + 1 == p_count)
-				fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + offset,
-									   dma_size, async);
+				fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
 			else
-				fence[i+1] = gdev_memcpy(ctx, dma_addr[i+1], src_addr + offset,
-										 dma_size, async);
+				fence[i+1] = gdev_memcpy(ctx, dma_addr[i+1], src_addr + offset, dma_size);
 			/* HtoH */
 			gdev_poll(ctx, fence[i], NULL);
 			ret = host_copy(dst_buf + offset - dma_size, dma_buf[i], dma_size);
@@ -353,10 +338,7 @@ end:
  * copy device memory to host buffer without pipelining.
  * host_copy() is either memcpy() or copy_to_user().
  */
-static int __gmemcpy_from_device_np
-(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, 
- int async, uint32_t ch_size, gdev_mem_t **bmem,
- int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_from_device_np(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t ch_size, gdev_mem_t **bmem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	uint64_t rest_size = size;
 	uint64_t offset;
@@ -373,10 +355,9 @@ static int __gmemcpy_from_device_np
 	offset = 0;
 	while (rest_size) {
 		dma_size = __min(rest_size, ch_size);
-		fence = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, 
-							dma_size, async);
+		fence = gdev_memcpy(ctx, dma_addr[0], src_addr+offset, dma_size);
 		gdev_poll(ctx, fence, NULL);
-		ret = host_copy(dst_buf + offset, dma_buf[0], dma_size);
+		ret = host_copy(dst_buf+offset, dma_buf[0], dma_size);
 		if (ret)
 			goto end;
 		rest_size -= dma_size;
@@ -390,15 +371,16 @@ end:
 /**
  * copy device memory to host DMA buffer.
  */
-static int __gmemcpy_dma_from_device
-(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint64_t size,
- int async)
+static int __gmemcpy_dma_from_device(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint64_t size, uint32_t *id)
 {
 	uint32_t fence;
 
 	/* we don't break data into chunks if copying directly from dma memory. */
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, async); 
-	gdev_poll(ctx, fence, NULL);
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
+	if (!id)
+		gdev_poll(ctx, fence, NULL);
+	else
+		*id = fence;
 
 	return 0;
 }
@@ -406,10 +388,7 @@ static int __gmemcpy_dma_from_device
 /**
  * a wrapper function of __gmemcpy_from_device().
  */
-static int __gmemcpy_from_device_locked
-(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, 
- int async, uint32_t ch_size, int p_count, gdev_vas_t *vas, gdev_mem_t *mem, 
- gdev_mem_t **dma_mem, int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id, uint32_t ch_size, int p_count, gdev_vas_t *vas, gdev_mem_t *mem, gdev_mem_t **dma_mem, int (*host_copy)(void*, const void*, uint32_t))
 {
 	gdev_mem_t *hmem;
 	gdev_mem_t **bmem;
@@ -423,7 +402,7 @@ static int __gmemcpy_from_device_locked
 		ret = gdev_read(mem, dst_buf, src_addr, size);
 	}
 	else if ((hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA))) {
-		ret = __gmemcpy_dma_from_device(ctx, hmem->addr, src_addr, size, async);
+		ret = __gmemcpy_dma_from_device(ctx, hmem->addr, src_addr, size, id);
 	}
 	else {
 		/* prepare bounce buffer memory. */
@@ -436,11 +415,9 @@ static int __gmemcpy_from_device_locked
 			bmem = dma_mem;
 
 		if (p_count > 1 && size > ch_size)
-			ret = __gmemcpy_from_device_p(ctx, dst_buf, src_addr, size, async,
-										  ch_size, p_count, bmem, host_copy);
+			ret = __gmemcpy_from_device_p(ctx, dst_buf, src_addr, size, ch_size, p_count, bmem, host_copy);
 		else
-			ret = __gmemcpy_from_device_np(ctx, dst_buf, src_addr, size, async,
-										   ch_size, bmem, host_copy);
+			ret = __gmemcpy_from_device_np(ctx, dst_buf, src_addr, size, ch_size, bmem, host_copy);
 
 		/* free bounce buffer memory, if necessary. */
 		if (!dma_mem)
@@ -453,9 +430,7 @@ static int __gmemcpy_from_device_locked
 /**
  * a wrapper function of gmemcpy_from_device().
  */
-static int __gmemcpy_from_device
-(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, 
- int async, int (*host_copy)(void*, const void*, uint32_t))
+static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
@@ -475,10 +450,14 @@ static int __gmemcpy_from_device
 
 	gdev_mem_lock(mem);
 	gdev_shm_retrieve_swap(ctx, mem); /* retrieve data swapped. */
-	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, async, 
+	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, id, 
 									   ch_size, p_count, vas, mem, dma_mem,
 									   host_copy);
 	gdev_mem_unlock(mem);
+
+#ifndef GDEV_SCHEDULER_DISABLED
+	gdev_select_next_memory(h->gdev); /* memcpy needs to select next itself. */
+#endif
 
 	return ret;
 }
@@ -486,8 +465,7 @@ static int __gmemcpy_from_device
 /**
  * this function must be used when saving data to host.
  */
-int gdev_callback_save_to_host
-(void *h, void* dst_buf, uint64_t src_addr, uint64_t size)
+int gdev_callback_save_to_host(void *h, void* dst_buf, uint64_t src_addr, uint64_t size)
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
@@ -496,21 +474,18 @@ int gdev_callback_save_to_host
 	uint32_t ch_size = ((struct gdev_handle*)h)->chunk_size;
 	int p_count = ((struct gdev_handle*)h)->pipeline_count;
 
-	return __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, 1, 
-										ch_size, p_count, vas, mem, dma_mem,
-										__f_memcpy);
+	return __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, NULL, ch_size, p_count, vas, mem, dma_mem, __f_memcpy);
 }
 
 /**
  * this function must be used when saving data to device.
  */
-int gdev_callback_save_to_device
-(void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+int gdev_callback_save_to_device(void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
 	uint32_t fence;
 
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, 0);
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
 	gdev_poll(ctx, fence, NULL);
 
 	return 0;
@@ -519,8 +494,7 @@ int gdev_callback_save_to_device
 /**
  * this function must be used when loading data from host.
  */
-int gdev_callback_load_from_host
-(void *h, uint64_t dst_addr, void *src_buf, uint64_t size)
+int gdev_callback_load_from_host(void *h, uint64_t dst_addr, void *src_buf, uint64_t size)
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
@@ -529,21 +503,18 @@ int gdev_callback_load_from_host
 	uint32_t ch_size = ((struct gdev_handle*)h)->chunk_size;
 	int p_count = ((struct gdev_handle*)h)->pipeline_count;
 
-	return __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, 1,
-									  ch_size, p_count, vas, mem, dma_mem,
-									  __f_memcpy);
+	return __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, NULL, ch_size, p_count, vas, mem, dma_mem, __f_memcpy);
 }
 
 /**
  * this function must be used when loading data from device.
  */
-int gdev_callback_load_from_device
-(void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+int gdev_callback_load_from_device(void *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
 	uint32_t fence;
 
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, 0);
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
 	gdev_poll(ctx, fence, NULL);
 
 	return 0;
@@ -685,22 +656,24 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	gdev->mem_used += size;
-
-	if (gdev->mem_used > gdev->mem_size) {
+	if (gdev->mem_used + size > gdev->mem_size) {
 		/* try to share memory with someone (only for device memory). 
 		   the shared memory must be freed in gdev_mem_free() when 
 		   unreferenced by all users. */
-		if (!(mem = gdev_mem_share(vas, size)))
+		if (!(mem = gdev_mem_share(vas, size))) {
+			GDEV_PRINT("Failed to share memory with victims\n");
 			goto fail;
+		}
 	}
 	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
 		goto fail;
 
+	/* size could have been rounded up. */
+	gdev->mem_used += gdev_mem_get_size(mem); 
+
 	return gdev_mem_get_addr(mem);
 
 fail:
-	gdev->mem_used -= size;
 	return 0;
 }
 
@@ -738,17 +711,17 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 
-	gdev->dma_mem_used += size;
-
-	if (gdev->dma_mem_used > gdev->dma_mem_size)
+	if (gdev->dma_mem_used + size > gdev->dma_mem_size)
 		goto fail;
 	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
 
+	/* size could have been rounded up. */
+	gdev->dma_mem_used += gdev_mem_get_size(mem); 
+
 	return gdev_mem_get_buf(mem);
 
 fail:
-	gdev->dma_mem_used -= size;
 	return 0;
 }
 
@@ -780,66 +753,54 @@ fail:
  * gmemcpy_to_device():
  * copy data from @buf to device memory at @addr.
  */
-int gmemcpy_to_device
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+int gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
-	/* async = false and host memcpy will use memcpy(). */
-	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 0, __f_memcpy);
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, NULL, __f_memcpy);
 }
 
 /**
  * gmemcpy_to_device_async():
  * asynchronously copy data from @buf to device memory at @addr.
  */
-int gmemcpy_to_device_async
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+int gmemcpy_to_device_async(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id)
 {
-	/* async = true and host memcpy will use memcpy(). */
-	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 1, __f_memcpy);
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, id, __f_memcpy);
 }
 
 /**
  * gmemcpy_user_to_device():
  * copy data from "user-space" @buf to device memory at @addr.
  */
-int gmemcpy_user_to_device
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+int gmemcpy_user_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
 {
-	/* async = false and host memcpy will use copy_from_user(). */
-	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 0, __f_cfu);
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, NULL, __f_cfu);
 }
 
 /**
  * gmemcpy_user_to_device_async():
  * asynchrounouly copy data from "user-space" @buf to device memory at @addr.
  */
-int gmemcpy_user_to_device_async
-(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+int gmemcpy_user_to_device_async(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id)
 {
-	/* async = true and host memcpy will use copy_from_user(). */
-	return __gmemcpy_to_device(h, dst_addr, src_buf, size, 1, __f_cfu);
+	return __gmemcpy_to_device(h, dst_addr, src_buf, size, id, __f_cfu);
 }
 
 /**
  * gmemcpy_from_device():
  * copy data from device memory at @addr to @buf.
  */
-int gmemcpy_from_device
-(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+int gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
-	/* async = false and host memcpy will use memcpy(). */
-	return __gmemcpy_from_device(h, dst_buf, src_addr, size, 0, __f_memcpy);
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size, NULL, __f_memcpy);
 }
 
 /**
  * gmemcpy_from_device_async():
  * asynchronously copy data from device memory at @addr to @buf.
  */
-int gmemcpy_from_device_async
-(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+int gmemcpy_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id)
 {
-	/* async = true and host memcpy will use memcpy(). */
-	return __gmemcpy_from_device(h, dst_buf, src_addr, size, 0, __f_memcpy);
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size, id, __f_memcpy);
 }
 
 /**
@@ -849,19 +810,16 @@ int gmemcpy_from_device_async
 int gmemcpy_user_from_device
 (struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
-	/* async = false and host memcpy will use copy_to_user(). */
-	return __gmemcpy_from_device(h, dst_buf, src_addr, size, 0, __f_ctu);
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size, NULL, __f_ctu);
 }
 
 /**
  * gmemcpy_user_from_device_async():
  * asynchronously copy data from device memory at @addr to "user-space" @buf.
  */
-int gmemcpy_user_from_device_async
-(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size)
+int gmemcpy_user_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id)
 {
-	/* async = true and host memcpy will use copy_to_user(). */
-	return __gmemcpy_from_device(h, dst_buf, src_addr, size, 1, __f_ctu);
+	return __gmemcpy_from_device(h, dst_buf, src_addr, size, id, __f_ctu);
 }
 
 /**
@@ -882,7 +840,7 @@ int gmemcpy_in_device
 
 	gdev_mem_lock(dst);
 	gdev_mem_lock(src);
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size, 0); 
+	fence = gdev_memcpy(ctx, dst_addr, src_addr, size); 
 	gdev_poll(ctx, fence, NULL);
 	gdev_mem_unlock(src);
 	gdev_mem_unlock(dst);

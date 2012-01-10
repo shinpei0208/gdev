@@ -44,7 +44,7 @@
  */
 #define GDEV_PERIOD_DEFAULT 100000 /*30000*/ /* microseconds */
 #define GDEV_CREDIT_INACTIVE_THRESHOLD GDEV_PERIOD_DEFAULT
-#define GDEV_UPDATE_INTERVAL (GDEV_PERIOD_DEFAULT * 30)
+#define GDEV_UPDATE_INTERVAL (GDEV_PERIOD_DEFAULT * 10)
 
 /**
  * scheduling properties.
@@ -69,6 +69,9 @@ struct gdev_vsched_policy {
 	void (*schedule_compute)(struct gdev_sched_entity *se);
 	struct gdev_device *(*select_next_compute)(struct gdev_device *gdev);
 	void (*replenish_compute)(struct gdev_device *gdev);
+	void (*schedule_memory)(struct gdev_sched_entity *se);
+	struct gdev_device *(*select_next_memory)(struct gdev_device *gdev);
+	void (*replenish_memory)(struct gdev_device *gdev);
 };
 
 int gdev_init_scheduler(struct gdev_device *gdev);

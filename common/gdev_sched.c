@@ -143,6 +143,33 @@ static void __gdev_dequeue_compute(struct gdev_sched_entity *se)
 }
 
 /**
+ * insert the scheduling entity to the priority-ordered memory list.
+ * gdev->sched_mem_lock must be locked.
+ */
+static void __gdev_enqueue_memory(struct gdev_device *gdev, struct gdev_sched_entity *se)
+{
+	struct gdev_sched_entity *p;
+
+	gdev_list_for_each (p, &gdev->sched_mem_list, list_entry_mem) {
+		if (se->prio > p->prio) {
+			gdev_list_add_prev(&se->list_entry_mem, &p->list_entry_mem);
+			break;
+		}
+	}
+	if (gdev_list_empty(&se->list_entry_mem))
+		gdev_list_add_tail(&se->list_entry_mem, &gdev->sched_mem_list);
+}
+
+/**
+ * delete the scheduling entity from the priority-ordered memory list.
+ * gdev->sched_mem_lock must be locked.
+ */
+static void __gdev_dequeue_memory(struct gdev_sched_entity *se)
+{
+	gdev_list_del(&se->list_entry_mem);
+}
+
+/**
  * scheduling policy files.
  */
 #include "gdev_vsched_credit.c"
@@ -217,7 +244,6 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 	gdev_time_sub(&exec, &now, &se->last_tick_com);
 
 	se->launch_instances--;
-	printk("Gdev#%d instances %d\n", gdev->id, se->launch_instances);
 	if (se->launch_instances == 0) {
 		/* account for the credit. */
 		gdev_time_sub(&gdev->credit_com, &gdev->credit_com, &exec);
@@ -266,21 +292,6 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 }
 
 /**
- * schedule memcpy-copy calls.
- */
-void gdev_schedule_memory(struct gdev_sched_entity *se)
-{
-}
-
-/**
- * schedule the next context of memory copy.
- * invoked upon the completion of preceding contexts.
- */
-void gdev_select_next_memory(struct gdev_device *gdev)
-{
-}
-
-/**
  * automatically replenish the credit of compute launches.
  */
 void gdev_replenish_credit_compute(struct gdev_device *gdev)
@@ -289,8 +300,116 @@ void gdev_replenish_credit_compute(struct gdev_device *gdev)
 }
 
 /**
+ * schedule memcpy-copy calls.
+ */
+void gdev_schedule_memory(struct gdev_sched_entity *se)
+{
+	struct gdev_device *gdev = se->gdev;
+
+resched:
+	/* algorithm-specific virtual device scheduler. */
+	gdev_vsched->schedule_memory(se);
+
+	/* local memory scheduler. */
+	gdev_lock(&gdev->sched_mem_lock);
+	if ((gdev->current_mem && gdev->current_mem != se) || se->memcpy_instances >= GDEV_INSTANCES_LIMIT) {
+		/* enqueue the scheduling entity to the memory queue. */
+		__gdev_enqueue_memory(gdev, se);
+		gdev_unlock(&gdev->sched_mem_lock);
+
+		/* now the corresponding task will be suspended until some other tasks
+		   will awaken it upon completions of their memory transfers. */
+		gdev_sched_sleep();
+
+		goto resched;
+	}
+	else {
+		/* now, let's get offloaded to the device! */
+		if (se->memcpy_instances == 0) {
+			/* record the start time. */
+			gdev_time_stamp(&se->last_tick_mem);
+		}
+		se->memcpy_instances++;
+		gdev->current_mem = (void*)se;
+		gdev_unlock(&gdev->sched_mem_lock);
+	}
+}
+
+/**
+ * schedule the next context of memory copy.
+ * invoked upon the completion of preceding contexts.
+ */
+void gdev_select_next_memory(struct gdev_device *gdev)
+{
+	struct gdev_sched_entity *se;
+	struct gdev_device *next;
+	struct gdev_time now, exec;
+
+	gdev_lock(&gdev->sched_mem_lock);
+	se = (struct gdev_sched_entity *)gdev->current_mem;
+	if (!se) {
+		gdev_unlock(&gdev->sched_mem_lock);
+		GDEV_PRINT("Invalid scheduling entity on Gdev#%d\n", gdev->id);
+		return;
+	}
+
+	/* record the end time (update on multiple launches too). */
+	gdev_time_stamp(&now);
+	/* aquire the execution time. */
+	gdev_time_sub(&exec, &now, &se->last_tick_mem);
+
+	se->memcpy_instances--;
+	if (se->memcpy_instances == 0) {
+		/* account for the credit. */
+		gdev_time_sub(&gdev->credit_mem, &gdev->credit_mem, &exec);
+		/* accumulate the memory transfer time. */
+		gdev->mem_time += gdev_time_to_us(&exec);
+
+		/* select the next context to be scheduled.
+		   now don't reference the previous entity by se. */
+		se = gdev_list_container(gdev_list_head(&gdev->sched_mem_list));
+		/* setting the next entity here prevents lower-priority contexts 
+		   arriving in gdev_schedule_memory() from being dispatched onto
+		   the device. note that se = NULL could happen. */
+		gdev->current_mem = (void*)se; 
+		gdev_unlock(&gdev->sched_mem_lock);
+
+		printk("gdev%d->credit_mem = %s%lu\n", gdev->id, 
+			   gdev->credit_mem.neg ? "-" : "",
+			   gdev_time_to_us(&gdev->credit_mem));
+
+		/* select the next device to be scheduled. */
+		next = gdev_vsched->select_next_memory(gdev);
+		if (!next)
+			return;
+
+		gdev_lock(&next->sched_mem_lock);
+		/* if the virtual device needs to be switched, change the next
+		   scheduling entity to be scheduled also needs to be changed. */
+		if (next != gdev)
+			se = gdev_list_container(gdev_list_head(&next->sched_mem_list));
+
+		/* now remove the scheduling entity from the waiting list, and wake 
+		   up the corresponding task. */
+		if (se) {
+			__gdev_dequeue_memory(se);
+			gdev_unlock(&next->sched_mem_lock);
+
+			while (gdev_sched_wakeup(se->task) < 0) {
+				GDEV_PRINT("Failed to wake up context %d\n", se->ctx->cid);
+			}
+		}
+		else
+			gdev_unlock(&next->sched_mem_lock);
+	}
+	else
+		gdev_unlock(&gdev->sched_mem_lock);
+}
+
+/**
  * automatically replenish the credit of memory copies.
  */
 void gdev_replenish_credit_memory(struct gdev_device *gdev)
 {
+	gdev_vsched->replenish_memory(gdev);
 }
