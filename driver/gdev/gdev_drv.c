@@ -47,8 +47,18 @@
 /**
  * global variables.
  */
-dev_t dev;
-struct cdev *cdevs; /* character devices for virtual devices */
+static dev_t dev;
+static struct cdev *cdevs; /* character devices for virtual devices */
+static int VCOUNT_LIST[GDEV_PHYSICAL_DEVICE_MAX_COUNT] = {
+	GDEV0_VIRTUAL_DEVICE_COUNT,
+	GDEV1_VIRTUAL_DEVICE_COUNT,
+	GDEV2_VIRTUAL_DEVICE_COUNT,
+	GDEV3_VIRTUAL_DEVICE_COUNT,
+	GDEV4_VIRTUAL_DEVICE_COUNT,
+	GDEV5_VIRTUAL_DEVICE_COUNT,
+	GDEV6_VIRTUAL_DEVICE_COUNT,
+	GDEV7_VIRTUAL_DEVICE_COUNT,
+};
 
 /**
  * pointers to callback functions.
@@ -60,6 +70,10 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 	struct gdev_device *gdev;
 	struct gdev_sched_entity *se;
 	int cid = (int)data;
+
+#ifdef GDEV_SCHEDULER_DISABLED
+	return;
+#endif
 
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
 		se = sched_entity_ptr[cid];
@@ -90,9 +104,7 @@ static int __gdev_sched_com_thread(void *__data)
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-#ifndef GDEV_SCHEDULER_DISABLED
 		gdev_select_next_compute(gdev);
-#endif
 	}
 
 	return 0;
@@ -108,9 +120,7 @@ static int __gdev_sched_mem_thread(void *__data)
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-#ifndef GDEV_SCHEDULER_DISABLED
 		gdev_select_next_memory(gdev);
-#endif
 	}
 
 	return 0;
@@ -133,10 +143,8 @@ static int __gdev_credit_com_thread(void *__data)
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
-#ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_compute(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
-#endif
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 		elapsed += gdev->period;
@@ -169,10 +177,8 @@ static int __gdev_credit_mem_thread(void *__data)
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
 	while (!kthread_should_stop()) {
-#ifndef GDEV_SCHEDULER_DISABLED
 		gdev_replenish_credit_memory(gdev);
 		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
-#endif
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 	}
@@ -254,8 +260,11 @@ void gdev_sched_sleep(void)
 
 void gdev_sched_wakeup(void *task)
 {
-	if (!wake_up_process(task))
-		GDEV_PRINT("Failed to wake up process\n");
+retry:
+	if (!wake_up_process(task)) {
+		GDEV_PRINT("Failed to wake up process, try again...\n");
+		goto retry;
+	}
 }
 
 void gdev_lock_init(struct gdev_lock *p)
@@ -313,24 +322,32 @@ void gdev_mutex_unlock(struct gdev_mutex *p)
  */
 int gdev_minor_init(struct drm_device *drm)
 {
-	int id = drm->primary->index;
+	int i = 0, j = 0;
+	int physid = drm->primary->index;
 
-	if (id >= gdev_count) {
-		GDEV_PRINT("Could not find device %d\n", id);
+	if (physid >= gdev_count) {
+		GDEV_PRINT("Could not find device %d\n", physid);
 		return -EINVAL;
 	}
 
 	/* initialize the physical device. */
-	gdev_init_device(&gdevs[id], id, drm);
+	gdev_init_device(&gdevs[physid], physid, drm);
 
-	/* initialize the virtual device. 
-	   when Gdev first loaded, one-to-one map physical and virtual device. */
-	gdev_init_virtual_device(&gdev_vds[id], id, &gdevs[id]);
+	for (i = 0; i < physid; i++)
+		j += VCOUNT_LIST[i];
 
+	for (i = j; i < j + VCOUNT_LIST[physid]; i++) {
+		/* initialize the virtual device. when Gdev first loaded, one-to-one
+		   map physical and virtual device. */
+		if (i == j) /* the first virtual device in a physical device */
+			gdev_init_virtual_device(&gdev_vds[i], i, 100, &gdevs[physid]);
+		else
+			gdev_init_virtual_device(&gdev_vds[i], i, 0, &gdevs[physid]);
 #ifndef GDEV_SCHEDULER_DISABLED
-	/* initialize the local scheduler for the virtual device. */
-	gdev_init_scheduler(&gdev_vds[id]);
+		/* initialize the local scheduler for each virtual device. */
+		gdev_init_scheduler(&gdev_vds[i]);
 #endif
+	}
 
 	return 0;
 }
@@ -340,23 +357,23 @@ int gdev_minor_init(struct drm_device *drm)
  */
 int gdev_minor_exit(struct drm_device *drm)
 {
-	int id = drm->primary->index;
+	int physid = drm->primary->index;
 	int i;
 
-	if (gdevs[id].users) {
-		GDEV_PRINT("Device %d has %d users\n", id, gdevs[id].users);
+	if (gdevs[physid].users) {
+		GDEV_PRINT("Device %d has %d users\n", physid, gdevs[physid].users);
 	}
 
-	if (id < gdev_count) {
+	if (physid < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
-			if (gdev_vds[i].parent == &gdevs[id]) {
+			if (gdev_vds[i].parent == &gdevs[physid]) {
 #ifndef GDEV_SCHEDULER_DISABLED
 				gdev_exit_scheduler(&gdev_vds[i]);
 #endif
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
-		gdev_exit_device(&gdevs[id]);
+		gdev_exit_device(&gdevs[physid]);
 	}
 	
 	return 0;
@@ -364,7 +381,7 @@ int gdev_minor_exit(struct drm_device *drm)
 
 int gdev_major_init(struct pci_driver *pdriver)
 {
-	int i, ret;
+	int i, major, ret;
 	struct pci_dev *pdev = NULL;
 	const struct pci_device_id *pid;
 
@@ -372,22 +389,19 @@ int gdev_major_init(struct pci_driver *pdriver)
 
 	/* count how many physical devices are installed. */
 	gdev_count = 0;
+	gdev_vcount = 0;
 	for (i = 0; pdriver->id_table[i].vendor != 0; i++) {
 		pid = &pdriver->id_table[i];
-		while ((pdev =
-				pci_get_subsys(pid->vendor, pid->device, pid->subvendor,
-							   pid->subdevice, pdev)) != NULL) {
+		while ((pdev = pci_get_subsys(pid->vendor, pid->device, pid->subvendor, pid->subdevice, pdev)) != NULL) {
 			if ((pdev->class & pid->class_mask) != pid->class)
 				continue;
-			
-			gdev_count++;
+	
+			gdev_vcount += VCOUNT_LIST[gdev_count]; /* virtual device count */
+			gdev_count++; /* physical device count */
 		}
 	}
 
 	GDEV_PRINT("Found %d GPU physical device(s).\n", gdev_count);
-
-	/* virtual device count. */
-	gdev_vcount = GDEV_VIRTUAL_DEVICE_COUNT;
 	GDEV_PRINT("Configured %d GPU virtual device(s).\n", gdev_vcount);
 
 	/* allocate vdev_count character devices. */
@@ -413,9 +427,11 @@ int gdev_major_init(struct pci_driver *pdriver)
 	}
 
 	/* register character devices. */
+	major = MAJOR(dev);
 	for (i = 0; i < gdev_vcount; i++) {
 		cdev_init(&cdevs[i], &gdev_fops);
-		if ((ret = cdev_add(&cdevs[i], dev, 1))){
+		cdevs[i].owner = THIS_MODULE;
+		if ((ret = cdev_add(&cdevs[i], MKDEV(major, i), 1))){
 			GDEV_PRINT("Failed to register virtual device %d\n", i);
 			goto fail_cdevs_add;
 		}

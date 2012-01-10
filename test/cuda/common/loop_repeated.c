@@ -25,7 +25,7 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-int cuda_test_loop(unsigned int n, int count, char *path)
+int cuda_test_loop_repeated(unsigned int n, int count, int id, char *path)
 {
 	int i, j, idx;
 	CUresult res;
@@ -50,7 +50,7 @@ int cuda_test_loop(unsigned int n, int count, char *path)
 		return -1;
 	}
 
-	res = cuDeviceGet(&dev, 0);
+	res = cuDeviceGet(&dev, id);
 	if (res != CUDA_SUCCESS) {
 		printf("cuDeviceGet failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -124,7 +124,7 @@ int cuda_test_loop(unsigned int n, int count, char *path)
 	}
 
 repeat:
-	usleep(10);
+	usleep(50);
 	res = cuLaunchGrid(function, grid_x, grid_y);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);

@@ -568,8 +568,10 @@ struct gdev_handle *gopen(int minor)
 	gdev_ctx_t *ctx;
 	gdev_mem_t **dma_mem;
 
-	if (!(h = MALLOC(sizeof(*h))))
+	if (!(h = MALLOC(sizeof(*h)))) {
+		GDEV_PRINT("Failed to allocate device handle\n");
 		return NULL;
+	}
 
 	h->pipeline_count = GDEV_PIPELINE_DEFAULT_COUNT;
 	h->chunk_size = GDEV_CHUNK_DEFAULT_SIZE;
@@ -617,7 +619,7 @@ struct gdev_handle *gopen(int minor)
 	h->gdev = gdev;
 	h->dev_id = minor;
 
-	GDEV_DPRINT("Opened gdev%d\n", minor);
+	GDEV_PRINT("Opened gdev%d\n", minor);
 
 	return h;
 
@@ -659,7 +661,7 @@ int gclose(struct gdev_handle *h)
 	gdev_vas_free(h->vas);
 	gdev_dev_close(h->gdev);
 
-	GDEV_DPRINT("Closed gdev%d\n", h->dev_id);
+	GDEV_PRINT("Closed gdev%d\n", h->dev_id);
 
 	FREE(h);
 

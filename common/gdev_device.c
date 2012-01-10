@@ -47,17 +47,17 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev->chipset = 0;
 	gdev->com_bw = 100;
 	gdev->mem_bw = 100;
+	gdev->mem_sh = 100;
 	gdev->com_bw_used = 0;
 	gdev->mem_bw_used = 0;
-	gdev->mem_sh = 100;
 	gdev->period = 0;
 	gdev->com_time = 0;
 	gdev->mem_time = 0;
 	gdev->swap = NULL;
 	gdev->sched_com_thread = NULL;
 	gdev->sched_mem_thread = NULL;
-	gdev->se_com_current = NULL;
-	gdev->se_mem_current = NULL;
+	gdev->current_com = NULL;
+	gdev->current_mem = NULL;
 	gdev->parent = NULL;
 	gdev->priv = NULL;
 	gdev_time_us(&gdev->credit_com, 0);
@@ -103,15 +103,18 @@ void gdev_exit_device(struct gdev_device *gdev)
 }
 
 /* initialize the virtual device information. */
-int gdev_init_virtual_device(struct gdev_device *gdev, int id, struct gdev_device *phys)
+int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t weight, struct gdev_device *phys)
 {
 	__gdev_init_device(gdev, id);
 	gdev->period = GDEV_PERIOD_DEFAULT;
 	gdev->parent = phys;
 	gdev->priv = phys->priv;
 	gdev->compute = phys->compute;
-	gdev->mem_size = phys->mem_size;
-	gdev->dma_mem_size = phys->dma_mem_size;
+	gdev->mem_size = phys->mem_size * weight / 100;
+	gdev->dma_mem_size = phys->dma_mem_size * weight / 100;
+	gdev->com_bw = weight;
+	gdev->mem_bw = weight;
+	gdev->mem_sh = weight;
 	gdev->chipset = phys->chipset;
 
 	/* create the swap memory object, if configured, for the virtual device. */

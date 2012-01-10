@@ -46,7 +46,7 @@ static int gdev_open(struct inode *inode, struct file *filp)
 {
 	int minor;
 	Ghandle handle;
-	
+
 	if ((minor = __get_minor(filp)) < 0) {
 		GDEV_PRINT("Could not find device.\n");
 		return -EINVAL;

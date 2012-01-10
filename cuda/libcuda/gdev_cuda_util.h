@@ -55,15 +55,15 @@ typedef FILE file_t;
 
 static inline int __gdev_get_device_count(void)
 {
-	char fname[64] = "/proc/gdev/device_count";
+	char fname[256] = "/proc/gdev/virtual_device_count";
 	char buf[16];
 	int minor = 0;
 	FILE *fp;
 
-	if (!(fp = FOPEN(fname)))
+	if (!(fp = fopen(fname, "r")))
 		return 0;
-	FREAD(buf, 15, fp);
-	FCLOSE(fp);
+	fgets(buf, 16, fp);
+	fclose(fp);
 
 	sscanf(buf, "%d", &minor);
 

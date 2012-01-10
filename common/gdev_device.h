@@ -65,8 +65,8 @@ struct gdev_device {
 	void *compute; /* private set of compute functions */
 	void *sched_com_thread; /* compute scheduler thread */
 	void *sched_mem_thread; /* memory scheduler thread */
-	struct gdev_sched_entity *se_com_current; /* compute scheduling entity */
-	struct gdev_sched_entity *se_mem_current; /* memory scheduling entity */
+	void *current_com; /* current compute execution entity */
+	void *current_mem; /* current memory transfer entity */
 	struct gdev_device *parent; /* only for virtual devices */
 	struct gdev_list list_entry_com; /* entry to active compute list */
 	struct gdev_list list_entry_mem; /* entry to active memory list */
@@ -84,7 +84,7 @@ struct gdev_device {
 int gdev_init_device(struct gdev_device *gdev, int id, void *priv);
 void gdev_exit_device(struct gdev_device *gdev);
 
-int gdev_init_virtual_device(struct gdev_device *gdev, int id, struct gdev_device *parent);
+int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t weight, struct gdev_device *parent);
 void gdev_exit_virtual_device(struct gdev_device*);
 
 extern int gdev_count;
