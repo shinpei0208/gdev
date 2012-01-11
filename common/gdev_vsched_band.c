@@ -26,7 +26,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-static void __gdev_vsched_band_yield_chance(struct gdev_device *gdev)
+#define GDEV_VSCHED_BAND_SELECT_CHANCES 1
+
+static void __gdev_vsched_band_yield_chance(void)
 {
 	struct gdev_time time_wait, time_now;
 	gdev_time_stamp(&time_now);
@@ -47,8 +49,9 @@ static void gdev_vsched_band_schedule_compute(struct gdev_sched_entity *se)
 		return;
 
 resched:
-	if (gdev_time_lez(&gdev->credit_com) && gdev->com_bw_used > gdev->com_bw)
-		__gdev_vsched_band_yield_chance(gdev);
+	if (gdev_time_lez(&gdev->credit_com) && gdev->com_bw_used > gdev->com_bw) {
+		__gdev_vsched_band_yield_chance();
+	}
 
 	gdev_lock(&phys->sched_com_lock);
 
@@ -75,10 +78,12 @@ static struct gdev_device *gdev_vsched_band_select_next_compute(struct gdev_devi
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
+	int chances = GDEV_VSCHED_BAND_SELECT_CHANCES;
 
 	if (!phys)
 		return gdev;
 
+retry:
 	gdev_lock(&phys->sched_com_lock);
 
 	/* if the credit is exhausted, reinsert the device. */
@@ -99,6 +104,14 @@ static struct gdev_device *gdev_vsched_band_select_next_compute(struct gdev_devi
 device_switched:
 	phys->current_com = (void*)next; /* could be null */
 	gdev_unlock(&phys->sched_com_lock);
+		
+	if (next && next != gdev && next->com_bw_used > next->com_bw) {
+		phys->current_com = NULL;
+		__gdev_vsched_band_yield_chance();
+		chances--;
+		if (chances)
+			goto retry;
+	}
 
 	return next;
 }
@@ -129,7 +142,7 @@ static void gdev_vsched_band_schedule_memory(struct gdev_sched_entity *se)
 
 resched:
 	if (gdev_time_lez(&gdev->credit_mem) && gdev->mem_bw_used > gdev->mem_bw)
-		__gdev_vsched_band_yield_chance(gdev);
+		__gdev_vsched_band_yield_chance();
 
 	gdev_lock(&phys->sched_mem_lock);
 	if (phys->current_mem && phys->current_mem != gdev) {
@@ -155,10 +168,12 @@ static struct gdev_device *gdev_vsched_band_select_next_memory(struct gdev_devic
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
+	int chances = GDEV_VSCHED_BAND_SELECT_CHANCES;
 
 	if (!phys)
 		return gdev;
 
+retry:
 	gdev_lock(&phys->sched_mem_lock);
 
 	/* if the credit is exhausted, reinsert the device. */
@@ -179,6 +194,13 @@ static struct gdev_device *gdev_vsched_band_select_next_memory(struct gdev_devic
 device_switched:
 	phys->current_mem = (void*)next; /* could be null */
 	gdev_unlock(&phys->sched_mem_lock);
+
+	if (next && next != gdev && next->mem_bw_used > next->mem_bw) {
+		__gdev_vsched_band_yield_chance();
+		chances--;
+		if (chances)
+			goto retry;
+	}
 
 	return next;
 }

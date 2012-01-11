@@ -29,7 +29,7 @@
 #include "gdev_device.h"
 #include "gdev_sched.h"
 
-#define GDEV_SHM_SEGMENT_COUNT 128 /* hardcoded */
+#define GDEV_SHM_SEGMENT_COUNT 512 /* hardcoded */
 static struct gdev_mem *gdev_shm_owners[GDEV_SHM_SEGMENT_COUNT] = {
 	[0 ... GDEV_SHM_SEGMENT_COUNT - 1] = NULL
 };
@@ -123,23 +123,34 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 
 	if (id < 0) {
 		/* @size could be resized (aligned by page size) */
-		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map)))
+		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map))) {
+			GDEV_PRINT("Failed to allocate memory\n");
 			goto fail_mem_alloc;
+		}
 		gdev_nvidia_mem_init(mem, vas, addr, size, map, GDEV_MEM_DEVICE);
 		/* register the new shared memory segment. */
 		for (i = 0; i < GDEV_SHM_SEGMENT_COUNT; i++) {
 			if (!gdev_shm_owners[i]) {
 				gdev_shm_owners[i] = mem;
 				id = i;
-				if (!(shm = MALLOC(sizeof(*shm))))
+				if (!(shm = MALLOC(sizeof(*shm)))) {
+					GDEV_PRINT("Failed to allocate heap\n");
 					goto fail_shm_malloc;
+				}
 				__gdev_shm_init(mem, shm);
 				gdev_list_add(&shm->list_entry, &gdev->shm_list);
 				shm->key = key;
 				shm->id = id;
+				if (id < 0) {
+					GDEV_PRINT("Allocated new shared memory segment %d\n", id);
+				}
 				break;
 			}
 		}
+	}
+
+	if (id < 0) {
+		GDEV_PRINT("No space in shared memory segments\n");
 	}
 
 	return id;

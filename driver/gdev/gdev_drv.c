@@ -146,10 +146,10 @@ static int __gdev_credit_com_thread(void *__data)
 		gdev_lock(&gdev->sched_com_lock);
 		gdev_time_stamp(&now);
 		gdev_time_sub(&elapse, &now, &last);
+		gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
+		if (gdev->com_bw_used > 100)
+			gdev->com_bw_used = 100;
 		if (gdev_time_ge(&elapse, &interval)) {
-			gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
-			if (gdev->com_bw_used > 100)
-				gdev->com_bw_used = 100;
 			gdev->com_time = 0;
 			gdev_time_stamp(&last);
 		}
@@ -191,10 +191,10 @@ static int __gdev_credit_mem_thread(void *__data)
 		gdev_lock(&gdev->sched_mem_lock);
 		gdev_time_stamp(&now);
 		gdev_time_sub(&elapse, &now, &last);
+		gdev->mem_bw_used = gdev->mem_time * 100 / gdev_time_to_us(&elapse);
+		if (gdev->mem_bw_used > 100)
+			gdev->mem_bw_used = 100;
 		if (gdev_time_ge(&elapse, &interval)) {
-			gdev->mem_bw_used = gdev->mem_time * 100 / gdev_time_to_us(&elapse);
-			if (gdev->mem_bw_used > 100)
-				gdev->mem_bw_used = 100;
 			gdev->mem_time = 0;
 			gdev_time_stamp(&last);
 		}
