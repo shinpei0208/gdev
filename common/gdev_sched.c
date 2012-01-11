@@ -286,6 +286,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 
 			if (gdev_sched_wakeup(se->task) < 0) {
 				GDEV_PRINT("Failed to wake up context %d\n", se->ctx->cid);
+				GDEV_PRINT("Perhaps context %d is already up\n", se->ctx->cid);
 			}
 		}
 		else
