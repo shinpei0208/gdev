@@ -106,6 +106,8 @@ static int gdev_ioctl
 		return gdev_ioctl_glaunch(handle, arg);
 	case GDEV_IOCTL_GSYNC:
 		return gdev_ioctl_gsync(handle, arg);
+	case GDEV_IOCTL_GBARRIER:
+		return gdev_ioctl_gbarrier(handle, arg);
 	case GDEV_IOCTL_GQUERY:
 		return gdev_ioctl_gquery(handle, arg);
 	case GDEV_IOCTL_GTUNE:

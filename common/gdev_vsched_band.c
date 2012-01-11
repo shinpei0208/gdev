@@ -26,7 +26,19 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
+static void __gdev_vsched_band_yield_chance(struct gdev_device *gdev)
+{
+	struct gdev_time time_wait, time_now;
+	gdev_time_stamp(&time_now);
+	gdev_time_us(&time_wait, 500);
+	gdev_time_add(&time_wait, &time_wait, &time_now);
+	while (gdev_time_lt(&time_now, &time_wait)) {
+		SCHED_YIELD();
+		gdev_time_stamp(&time_now);
+	}
+}
+
+static void gdev_vsched_band_schedule_compute(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
 	struct gdev_device *phys = gdev->parent;
@@ -35,6 +47,9 @@ static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
 		return;
 
 resched:
+	if (gdev_time_lez(&gdev->credit_com) && gdev->com_bw_used > gdev->com_bw)
+		__gdev_vsched_band_yield_chance(gdev);
+
 	gdev_lock(&phys->sched_com_lock);
 
 	if (phys->current_com && phys->current_com != gdev) {
@@ -56,7 +71,7 @@ resched:
 	}
 }
 
-static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_device *gdev)
+static struct gdev_device *gdev_vsched_band_select_next_compute(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
@@ -67,7 +82,7 @@ static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_de
 	gdev_lock(&phys->sched_com_lock);
 
 	/* if the credit is exhausted, reinsert the device. */
-	if (gdev_time_lez(&gdev->credit_com)) {
+	if (gdev_time_lez(&gdev->credit_com) && gdev->com_bw_used > gdev->com_bw) {
 		gdev_list_del(&gdev->list_entry_com);
 		gdev_list_add_tail(&gdev->list_entry_com, &phys->sched_com_list);
 	}
@@ -88,7 +103,7 @@ device_switched:
 	return next;
 }
 
-static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
+static void gdev_vsched_band_replenish_compute(struct gdev_device *gdev)
 {
 	struct gdev_time credit, threshold;
 
@@ -104,7 +119,7 @@ static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
 		gdev_time_us(&gdev->credit_com, 0);
 }
 
-static void gdev_vsched_credit_schedule_memory(struct gdev_sched_entity *se)
+static void gdev_vsched_band_schedule_memory(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
 	struct gdev_device *phys = gdev->parent;
@@ -113,6 +128,9 @@ static void gdev_vsched_credit_schedule_memory(struct gdev_sched_entity *se)
 		return;
 
 resched:
+	if (gdev_time_lez(&gdev->credit_mem) && gdev->mem_bw_used > gdev->mem_bw)
+		__gdev_vsched_band_yield_chance(gdev);
+
 	gdev_lock(&phys->sched_mem_lock);
 	if (phys->current_mem && phys->current_mem != gdev) {
 		/* insert the scheduling entity to its local priority-ordered list. */
@@ -133,7 +151,7 @@ resched:
 	}
 }
 
-static struct gdev_device *gdev_vsched_credit_select_next_memory(struct gdev_device *gdev)
+static struct gdev_device *gdev_vsched_band_select_next_memory(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
@@ -144,7 +162,7 @@ static struct gdev_device *gdev_vsched_credit_select_next_memory(struct gdev_dev
 	gdev_lock(&phys->sched_mem_lock);
 
 	/* if the credit is exhausted, reinsert the device. */
-	if (gdev_time_lez(&gdev->credit_mem)) {
+	if (gdev_time_lez(&gdev->credit_mem) && gdev->mem_bw_used > gdev->mem_bw) {
 		gdev_list_del(&gdev->list_entry_mem);
 		gdev_list_add_tail(&gdev->list_entry_mem, &phys->sched_mem_list);
 	}
@@ -165,7 +183,7 @@ device_switched:
 	return next;
 }
 
-static void gdev_vsched_credit_replenish_memory(struct gdev_device *gdev)
+static void gdev_vsched_band_replenish_memory(struct gdev_device *gdev)
 {
 	struct gdev_time credit, threshold;
 
@@ -182,13 +200,13 @@ static void gdev_vsched_credit_replenish_memory(struct gdev_device *gdev)
 }
 
 /**
- * the Xen Credit scheduler implementation.
+ * Bandwidth-aware non-preemptive device (Band) scheduler implementation
  */
-struct gdev_vsched_policy gdev_vsched_credit = {
-	.schedule_compute = gdev_vsched_credit_schedule_compute,
-	.select_next_compute = gdev_vsched_credit_select_next_compute,
-	.replenish_compute = gdev_vsched_credit_replenish_compute,
-	.schedule_memory = gdev_vsched_credit_schedule_memory,
-	.select_next_memory = gdev_vsched_credit_select_next_memory,
-	.replenish_memory = gdev_vsched_credit_replenish_memory,
+struct gdev_vsched_policy gdev_vsched_band = {
+	.schedule_compute = gdev_vsched_band_schedule_compute,
+	.select_next_compute = gdev_vsched_band_select_next_compute,
+	.replenish_compute = gdev_vsched_band_replenish_compute,
+	.schedule_memory = gdev_vsched_band_schedule_memory,
+	.select_next_memory = gdev_vsched_band_select_next_memory,
+	.replenish_memory = gdev_vsched_band_replenish_memory,
 };

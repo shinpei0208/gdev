@@ -157,8 +157,6 @@ fail_mem_alloc:
 int gdev_shm_destroy_mark(struct gdev_device *gdev, struct gdev_mem *owner)
 {
 	gdev_mutex_lock(&owner->shm->mutex);
-	/* delete the current owner. */
-	gdev_list_del(&owner->list_entry_shm);
 	/* find the new owner (could be NULL). */
 	gdev_shm_owners[owner->shm->id] = 
 		gdev_list_container(gdev_list_head(&owner->shm->mem_list));

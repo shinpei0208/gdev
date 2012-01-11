@@ -206,10 +206,12 @@ void gdev_mem_free(struct gdev_mem *mem)
 /* garbage collection: free all memory left in heap. */
 void gdev_mem_gc(struct gdev_vas *vas)
 {
+#ifdef GDEV_GARBAGE_COLLECTION_SUPPORT
 	struct gdev_mem *mem;
 
 	/* device memory. */
 	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+		GDEV_PRINT("Garbage Collect 0x%llx\n", mem->addr);
 		gdev_mem_free(mem);
 	}
 
@@ -217,6 +219,7 @@ void gdev_mem_gc(struct gdev_vas *vas)
 	gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
 		gdev_mem_free(mem);
 	}
+#endif
 }
 
 /* look up the memory object allocated at the specified address. */

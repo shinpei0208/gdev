@@ -172,16 +172,24 @@ static void __gdev_dequeue_memory(struct gdev_sched_entity *se)
 /**
  * scheduling policy files.
  */
+#include "gdev_vsched_band.c"
 #include "gdev_vsched_credit.c"
-#include "gdev_vsched_crod.c"
+#include "gdev_vsched_cnods.c"
+#include "gdev_vsched_fifo.c"
 
-#define GDEV_VSCHED_POLICY_CREDIT
-//#define GDEV_VSCHED_POLICY_CROD
+#define GDEV_VSCHED_POLICY_BAND
+//#define GDEV_VSCHED_POLICY_CREDIT
+//#define GDEV_VSCHED_POLICY_CNODS
+//#define GDEV_VSCHED_POLICY_FIFO
 
-#if defined(GDEV_VSCHED_POLICY_CREDIT)
+#if defined(GDEV_VSCHED_POLICY_BAND)
+struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_band;
+#elif defined(GDEV_VSCHED_POLICY_CREDIT)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_credit;
-#elif defined(GDEV_VSCHED_POLICY_CROD)
-struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_crod;
+#elif defined(GDEV_VSCHED_POLICY_CNODS)
+struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_cnods;
+#elif defined(GDEV_VSCHED_POLICY_FIFO)
+struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_fifo;
 #endif
 
 /**
@@ -259,10 +267,6 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 		gdev->current_com = (void*)se; 
 		gdev_unlock(&gdev->sched_com_lock);
 
-		printk("gdev%d->credit_com = %s%lu\n", gdev->id, 
-			   gdev->credit_com.neg ? "-" : "",
-			   gdev_time_to_us(&gdev->credit_com));
-
 		/* select the next device to be scheduled. */
 		next = gdev_vsched->select_next_compute(gdev);
 		if (!next)
@@ -280,7 +284,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 			__gdev_dequeue_compute(se);
 			gdev_unlock(&next->sched_com_lock);
 
-			while (gdev_sched_wakeup(se->task) < 0) {
+			if (gdev_sched_wakeup(se->task) < 0) {
 				GDEV_PRINT("Failed to wake up context %d\n", se->ctx->cid);
 			}
 		}
@@ -305,6 +309,11 @@ void gdev_replenish_credit_compute(struct gdev_device *gdev)
 void gdev_schedule_memory(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
+
+#ifndef GDEV_SCHED_MRQ
+	gdev_schedule_compute(se);
+	return;
+#endif
 
 resched:
 	/* algorithm-specific virtual device scheduler. */
@@ -345,6 +354,11 @@ void gdev_select_next_memory(struct gdev_device *gdev)
 	struct gdev_device *next;
 	struct gdev_time now, exec;
 
+#ifndef GDEV_SCHED_MRQ
+	gdev_select_next_compute(gdev);
+	return;
+#endif
+
 	gdev_lock(&gdev->sched_mem_lock);
 	se = (struct gdev_sched_entity *)gdev->current_mem;
 	if (!se) {
@@ -373,10 +387,6 @@ void gdev_select_next_memory(struct gdev_device *gdev)
 		   the device. note that se = NULL could happen. */
 		gdev->current_mem = (void*)se; 
 		gdev_unlock(&gdev->sched_mem_lock);
-
-		printk("gdev%d->credit_mem = %s%lu\n", gdev->id, 
-			   gdev->credit_mem.neg ? "-" : "",
-			   gdev_time_to_us(&gdev->credit_mem));
 
 		/* select the next device to be scheduled. */
 		next = gdev_vsched->select_next_memory(gdev);
@@ -411,5 +421,7 @@ void gdev_select_next_memory(struct gdev_device *gdev)
  */
 void gdev_replenish_credit_memory(struct gdev_device *gdev)
 {
+#ifdef GDEV_SCHED_MRQ
 	gdev_vsched->replenish_memory(gdev);
+#endif
 }

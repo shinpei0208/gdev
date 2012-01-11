@@ -52,6 +52,7 @@ void gdev_write32(gdev_mem_t *mem, uint64_t addr, uint32_t val);
 int gdev_read(gdev_mem_t *mem, void *buf, uint64_t addr, uint32_t size);
 int gdev_write(gdev_mem_t *mem, uint64_t addr, const void *buf, uint32_t size);
 int gdev_poll(gdev_ctx_t *ctx, uint32_t seq, struct gdev_time *timeout);
+int gdev_barrier(struct gdev_ctx *ctx);
 int gdev_query(struct gdev_device *gdev, uint32_t type, uint64_t *result);
 
 /**

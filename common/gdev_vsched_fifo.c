@@ -26,7 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
+static void gdev_vsched_fifo_schedule_compute(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
 	struct gdev_device *phys = gdev->parent;
@@ -36,7 +36,6 @@ static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
 
 resched:
 	gdev_lock(&phys->sched_com_lock);
-
 	if (phys->current_com && phys->current_com != gdev) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
@@ -56,7 +55,7 @@ resched:
 	}
 }
 
-static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_device *gdev)
+static struct gdev_device *gdev_vsched_fifo_select_next_compute(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
@@ -66,11 +65,8 @@ static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_de
 
 	gdev_lock(&phys->sched_com_lock);
 
-	/* if the credit is exhausted, reinsert the device. */
-	if (gdev_time_lez(&gdev->credit_com)) {
-		gdev_list_del(&gdev->list_entry_com);
-		gdev_list_add_tail(&gdev->list_entry_com, &phys->sched_com_list);
-	}
+	gdev_list_del(&gdev->list_entry_com);
+	gdev_list_add_tail(&gdev->list_entry_com, &phys->sched_com_list);
 
 	gdev_list_for_each(next, &phys->sched_com_list, list_entry_com) {
 		gdev_lock_nested(&next->sched_com_lock);
@@ -88,23 +84,11 @@ device_switched:
 	return next;
 }
 
-static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
+static void gdev_vsched_fifo_replenish_compute(struct gdev_device *gdev)
 {
-	struct gdev_time credit, threshold;
-
-	gdev_time_us(&credit, gdev->period * gdev->com_bw / 100);
-	gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
-	/* when the credit exceeds the threshold, all credits taken away. */
-	gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
-	if (gdev_time_gt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
-	/* when the credit exceeds the threshold in negative, even it. */
-	threshold.neg = 1;
-	if (gdev_time_lt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
 }
 
-static void gdev_vsched_credit_schedule_memory(struct gdev_sched_entity *se)
+static void gdev_vsched_fifo_schedule_memory(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
 	struct gdev_device *phys = gdev->parent;
@@ -133,7 +117,7 @@ resched:
 	}
 }
 
-static struct gdev_device *gdev_vsched_credit_select_next_memory(struct gdev_device *gdev)
+static struct gdev_device *gdev_vsched_fifo_select_next_memory(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	struct gdev_device *next;
@@ -143,11 +127,8 @@ static struct gdev_device *gdev_vsched_credit_select_next_memory(struct gdev_dev
 
 	gdev_lock(&phys->sched_mem_lock);
 
-	/* if the credit is exhausted, reinsert the device. */
-	if (gdev_time_lez(&gdev->credit_mem)) {
-		gdev_list_del(&gdev->list_entry_mem);
-		gdev_list_add_tail(&gdev->list_entry_mem, &phys->sched_mem_list);
-	}
+	gdev_list_del(&gdev->list_entry_mem);
+	gdev_list_add_tail(&gdev->list_entry_mem, &phys->sched_mem_list);
 
 	gdev_list_for_each(next, &phys->sched_mem_list, list_entry_mem) {
 		gdev_lock_nested(&next->sched_mem_lock);
@@ -165,30 +146,18 @@ device_switched:
 	return next;
 }
 
-static void gdev_vsched_credit_replenish_memory(struct gdev_device *gdev)
+static void gdev_vsched_fifo_replenish_memory(struct gdev_device *gdev)
 {
-	struct gdev_time credit, threshold;
-
-	gdev_time_us(&credit, gdev->period * gdev->mem_bw / 100);
-	gdev_time_add(&gdev->credit_mem, &gdev->credit_mem, &credit);
-	/* when the credit exceeds the threshold, all credits taken away. */
-	gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
-	if (gdev_time_gt(&gdev->credit_mem, &threshold))
-		gdev_time_us(&gdev->credit_mem, 0);
-	/* when the credit exceeds the threshold in negative, even it. */
-	threshold.neg = 1;
-	if (gdev_time_lt(&gdev->credit_mem, &threshold))
-		gdev_time_us(&gdev->credit_mem, 0);
 }
 
 /**
- * the Xen Credit scheduler implementation.
+ * the Xen Null scheduler implementation.
  */
-struct gdev_vsched_policy gdev_vsched_credit = {
-	.schedule_compute = gdev_vsched_credit_schedule_compute,
-	.select_next_compute = gdev_vsched_credit_select_next_compute,
-	.replenish_compute = gdev_vsched_credit_replenish_compute,
-	.schedule_memory = gdev_vsched_credit_schedule_memory,
-	.select_next_memory = gdev_vsched_credit_select_next_memory,
-	.replenish_memory = gdev_vsched_credit_replenish_memory,
+struct gdev_vsched_policy gdev_vsched_fifo = {
+	.schedule_compute = gdev_vsched_fifo_schedule_compute,
+	.select_next_compute = gdev_vsched_fifo_select_next_compute,
+	.replenish_compute = gdev_vsched_fifo_replenish_compute,
+	.schedule_memory = gdev_vsched_fifo_schedule_memory,
+	.select_next_memory = gdev_vsched_fifo_select_next_memory,
+	.replenish_memory = gdev_vsched_fifo_replenish_memory,
 };

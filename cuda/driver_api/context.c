@@ -340,6 +340,9 @@ CUresult cuCtxSynchronize(void)
 		FREE(l);
 	}
 
+	if (gbarrier(handle))
+		return CUDA_ERROR_UNKNOWN;
+
 	return CUDA_SUCCESS;
 }
 

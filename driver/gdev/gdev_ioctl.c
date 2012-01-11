@@ -312,6 +312,11 @@ int gdev_ioctl_gsync(Ghandle handle, unsigned long arg)
 	return gsync(handle, sync.id, &timeout);
 }
 
+int gdev_ioctl_gbarrier(Ghandle handle, unsigned long arg)
+{
+	return gbarrier(handle);
+}
+
 int gdev_ioctl_gquery(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_query q;

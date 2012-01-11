@@ -35,6 +35,10 @@
 #include "gdev_system.h"
 #include "gdev_time.h"
 
+#ifdef GDEV_SCHED_MRQ
+#define GDEV_NVIDIA_MEMCPY_PCOPY
+#endif
+
 #define GDEV_SUBCH_NV_COMPUTE GDEV_SUBCH_COMPUTE
 #ifndef GDEV_NVIDIA_MEMCPY_PCOPY
 #define GDEV_SUBCH_NV_M2MF GDEV_SUBCH_MEMCPY

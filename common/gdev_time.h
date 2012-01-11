@@ -118,10 +118,16 @@ static inline void gdev_time_clear(struct gdev_time *t)
 }
 
 
-/* x == y. */
+/* x == y */
 static inline int gdev_time_eq(struct gdev_time *x, struct gdev_time *y)
 {
-	return (x->sec == y->sec) && (x->usec && y->usec);
+	return (x->sec == y->sec) && (x->usec == y->usec);
+}
+
+/* p == 0 */
+static inline int gdev_time_eqz(struct gdev_time *p)
+{
+	return (p->sec == 0) && (p->usec == 0);
 }
 
 /* x > y */
@@ -137,6 +143,12 @@ static inline int gdev_time_gt(struct gdev_time *x, struct gdev_time *y)
 		return (x->sec == y->sec) ? (x->usec > y->usec) : (x->sec > y->sec);
 }
 
+/* p > 0 */
+static inline int gdev_time_gtz(struct gdev_time *p)
+{
+	return (!p->neg) && ((p->sec > 0) || (p->usec > 0));
+}
+
 /* x >= y */
 static inline int gdev_time_ge(struct gdev_time *x, struct gdev_time *y)
 {
@@ -144,6 +156,12 @@ static inline int gdev_time_ge(struct gdev_time *x, struct gdev_time *y)
 		return true;
 	else
 		return gdev_time_gt(x, y);
+}
+
+/* p >= 0 */
+static inline int gdev_time_gez(struct gdev_time *p)
+{
+	return gdev_time_gtz(p) || gdev_time_eqz(p);
 }
 
 /* x < y */
@@ -159,6 +177,12 @@ static inline int gdev_time_lt(struct gdev_time *x, struct gdev_time *y)
 		return (x->sec == y->sec) ? (x->usec < y->usec) : (x->sec < y->sec);
 }
 
+/* p < 0 */
+static inline int gdev_time_ltz(struct gdev_time *p)
+{
+	return p->neg;
+}
+
 /* x <= y */
 static inline int gdev_time_le(struct gdev_time *x, struct gdev_time *y)
 {
@@ -166,6 +190,12 @@ static inline int gdev_time_le(struct gdev_time *x, struct gdev_time *y)
 		return true;
 	else
 		return gdev_time_lt(x, y);
+}
+
+/* p <= 0 */
+static inline int gdev_time_lez(struct gdev_time *p)
+{
+	return gdev_time_ltz(p) || gdev_time_eqz(p);
 }
 
 /* ret = x + y (x and y must be positive) */

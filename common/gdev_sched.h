@@ -33,6 +33,13 @@
 #include "gdev_time.h"
 
 /**
+ * Queueing methods:
+ * SGQ: Single Device Queue
+ * MRQ: Multiple Resource Queues
+ */
+#define GDEV_SCHED_SGQ /*GDEV_SCHED_MRQ */
+
+/**
  * priority levels.
  */
 #define GDEV_PRIO_MAX 40
@@ -42,9 +49,9 @@
 /**
  * virtual device period/threshold.
  */
-#define GDEV_PERIOD_DEFAULT 100000 /*30000*/ /* microseconds */
+#define GDEV_PERIOD_DEFAULT 30000 /* microseconds */
 #define GDEV_CREDIT_INACTIVE_THRESHOLD GDEV_PERIOD_DEFAULT
-#define GDEV_UPDATE_INTERVAL (GDEV_PERIOD_DEFAULT * 10)
+#define GDEV_UPDATE_INTERVAL 1000000
 
 /**
  * scheduling properties.
