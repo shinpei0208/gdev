@@ -143,7 +143,7 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 	struct gdev_compute *compute = gdev->compute;
 
 	gdev_time_stamp(&time_start);
-	gdev_time_ms(&time_relax, 100); /* relax polling when 100 ms elapsed. */
+	gdev_time_ms(&time_relax, 1000); /* relax polling when 1000 ms elapsed. */
 
 	while (seq != compute->fence_read(ctx, seq)) {
 		gdev_time_stamp(&time_now);
@@ -158,6 +158,21 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 	}
 
 	compute->fence_reset(ctx, seq);
+
+	return 0;
+}
+
+/* barrier memory by blocking. */
+int gdev_barrier(struct gdev_ctx *ctx)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+	uint32_t seq = 0; /* 0 is a special sequence for barrier. */
+
+	compute->membar(ctx);
+	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
+	while (seq != compute->fence_read(ctx, seq));
 
 	return 0;
 }

@@ -124,26 +124,36 @@ static void __gdev_credit_handler(unsigned long __data)
 static int __gdev_credit_com_thread(void *__data)
 {
 	struct gdev_device *gdev = (struct gdev_device*)__data;
+	struct gdev_time now, last, elapse, interval;
 	struct timer_list timer;
-	unsigned long elapsed = 0;
+	unsigned long effective_jiffies;
 
 	GDEV_PRINT("Gdev#%d compute reserve running\n", gdev->id);
 
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
+	gdev_time_us(&interval, GDEV_UPDATE_INTERVAL);
+	gdev_time_stamp(&last);
+	effective_jiffies = jiffies;
+
 	while (!kthread_should_stop()) {
 		gdev_replenish_credit_compute(gdev);
-		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
+		mod_timer(&timer, effective_jiffies + usecs_to_jiffies(gdev->period));
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-		elapsed += gdev->period;
-		if (elapsed >= GDEV_UPDATE_INTERVAL) {
-			gdev->com_bw_used = gdev->com_time * 100 / GDEV_UPDATE_INTERVAL;
+		effective_jiffies = jiffies;
+
+		gdev_lock(&gdev->sched_com_lock);
+		gdev_time_stamp(&now);
+		gdev_time_sub(&elapse, &now, &last);
+		if (gdev_time_ge(&elapse, &interval)) {
+			gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
 			if (gdev->com_bw_used > 100)
 				gdev->com_bw_used = 100;
 			gdev->com_time = 0;
-			elapsed = 0;
+			gdev_time_stamp(&last);
 		}
+		gdev_unlock(&gdev->sched_com_lock);
 	}
 
 	local_irq_enable();
@@ -159,26 +169,36 @@ static int __gdev_credit_com_thread(void *__data)
 static int __gdev_credit_mem_thread(void *__data)
 {
 	struct gdev_device *gdev = (struct gdev_device*)__data;
+	struct gdev_time now, last, elapse, interval;
 	struct timer_list timer;
-	unsigned long elapsed = 0;
+	unsigned long effective_jiffies;
 
 	GDEV_PRINT("Gdev#%d memory reserve running\n", gdev->id);
 
 	setup_timer_on_stack(&timer, __gdev_credit_handler, (unsigned long)current);
 
+	gdev_time_us(&interval, GDEV_UPDATE_INTERVAL);
+	gdev_time_stamp(&last);
+	effective_jiffies = jiffies;
+
 	while (!kthread_should_stop()) {
 		gdev_replenish_credit_memory(gdev);
-		mod_timer(&timer, jiffies + usecs_to_jiffies(gdev->period));
+		mod_timer(&timer, effective_jiffies + usecs_to_jiffies(gdev->period));
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-		elapsed += gdev->period;
-		if (elapsed >= GDEV_UPDATE_INTERVAL) {
-			gdev->mem_bw_used = gdev->mem_time * 100 / GDEV_UPDATE_INTERVAL;
+		effective_jiffies = jiffies;
+
+		gdev_lock(&gdev->sched_mem_lock);
+		gdev_time_stamp(&now);
+		gdev_time_sub(&elapse, &now, &last);
+		if (gdev_time_ge(&elapse, &interval)) {
+			gdev->mem_bw_used = gdev->mem_time * 100 / gdev_time_to_us(&elapse);
 			if (gdev->mem_bw_used > 100)
 				gdev->mem_bw_used = 100;
 			gdev->mem_time = 0;
-			elapsed = 0;
+			gdev_time_stamp(&last);
 		}
+		gdev_unlock(&gdev->sched_mem_lock);
 	}
 
 	local_irq_enable();

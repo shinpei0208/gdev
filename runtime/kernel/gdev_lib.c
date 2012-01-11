@@ -252,6 +252,12 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 	return ioctl(fd, GDEV_IOCTL_GSYNC, &sync);
 }
 
+int gbarrier(struct gdev_handle *h)
+{
+	int fd = h->fd;
+	return ioctl(fd, GDEV_IOCTL_GBARRIER, NULL);
+}
+
 int gquery(struct gdev_handle *h, uint32_t type, uint64_t *result)
 {
 	struct gdev_ioctl_query q;

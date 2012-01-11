@@ -93,7 +93,7 @@ int cuda_test_loop_repeated(unsigned int n, int sec, int id, char *path)
 	}
 
 repeat:
-	usleep((tv.tv_usec % 10) * 100);
+	usleep(100);
 	res = cuMemcpyHtoD(d_data, data, n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD failed: res = %lu\n", (unsigned long)res);
@@ -126,7 +126,7 @@ repeat:
 		printf("cuParamSetSize failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-
+	
 	res = cuLaunchGrid(function, grid_x, grid_y);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);

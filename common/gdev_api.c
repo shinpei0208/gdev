@@ -881,6 +881,15 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 }
 
 /**
+ * gbarrier():
+ * explicitly barrier the memory.
+ */
+int gbarrier(struct gdev_handle *h)
+{
+	return gdev_barrier(h->ctx);
+}
+
+/**
  * gquery():
  * query the device-specific information.
  */
