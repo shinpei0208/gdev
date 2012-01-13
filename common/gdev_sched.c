@@ -174,20 +174,16 @@ static void __gdev_dequeue_memory(struct gdev_sched_entity *se)
  */
 #include "gdev_vsched_band.c"
 #include "gdev_vsched_credit.c"
-#include "gdev_vsched_cnods.c"
 #include "gdev_vsched_fifo.c"
 
 #define GDEV_VSCHED_POLICY_BAND
 //#define GDEV_VSCHED_POLICY_CREDIT
-//#define GDEV_VSCHED_POLICY_CNODS
 //#define GDEV_VSCHED_POLICY_FIFO
 
 #if defined(GDEV_VSCHED_POLICY_BAND)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_band;
 #elif defined(GDEV_VSCHED_POLICY_CREDIT)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_credit;
-#elif defined(GDEV_VSCHED_POLICY_CNODS)
-struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_cnods;
 #elif defined(GDEV_VSCHED_POLICY_FIFO)
 struct gdev_vsched_policy *gdev_vsched = &gdev_vsched_fifo;
 #endif
