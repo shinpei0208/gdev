@@ -28,11 +28,32 @@
 
 #define GDEV_VSCHED_BAND_SELECT_CHANCES 1
 
+static int __gdev_is_alone(struct gdev_device *gdev)
+{
+	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *p;
+	int alone = 1;
+
+	if (!phys)
+		return alone;
+
+	gdev_lock(&phys->sched_com_lock);
+	gdev_list_for_each(p, &phys->sched_com_list, list_entry_com) {
+		if ((p != gdev) && p->users) {
+			alone = 0;
+			break;
+		}
+	}
+	gdev_unlock(&phys->sched_com_lock);
+
+	return alone;
+}
+
 static void __gdev_vsched_band_yield_chance(void)
 {
 	struct gdev_time time_wait, time_now;
 	gdev_time_stamp(&time_now);
-	gdev_time_us(&time_wait, 500);
+	gdev_time_us(&time_wait, 500); /* 500 us */
 	gdev_time_add(&time_wait, &time_wait, &time_now);
 	while (gdev_time_lt(&time_now, &time_wait)) {
 		SCHED_YIELD();
@@ -49,13 +70,27 @@ static void gdev_vsched_band_schedule_compute(struct gdev_sched_entity *se)
 		return;
 
 resched:
-	if (gdev_time_lez(&gdev->credit_com) && gdev->com_bw_used > gdev->com_bw) {
-		__gdev_vsched_band_yield_chance();
+	if (gdev_time_lez(&gdev->credit_com) && (gdev->com_bw_used > gdev->com_bw)
+		&& !__gdev_is_alone(gdev)) {
+		gdev_lock(&phys->sched_com_lock);
+		if (phys->current_com == gdev) {
+			phys->current_com = NULL;
+			gdev_unlock(&phys->sched_com_lock);
+
+			__gdev_vsched_band_yield_chance();
+
+			gdev_lock(&phys->sched_com_lock);
+			if (phys->current_com == NULL)
+				phys->current_com = gdev;
+			gdev_unlock(&phys->sched_com_lock);
+		}
+		else
+			gdev_unlock(&phys->sched_com_lock);
 	}
 
 	gdev_lock(&phys->sched_com_lock);
 
-	if (phys->current_com && phys->current_com != gdev) {
+	if (phys->current_com && (phys->current_com != gdev)) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
 		__gdev_enqueue_compute(gdev, se);
@@ -103,15 +138,27 @@ retry:
 	next = NULL;
 device_switched:
 	phys->current_com = (void*)next; /* could be null */
-	gdev_unlock(&phys->sched_com_lock);
 		
-	if (next && next != gdev && next->com_bw_used > next->com_bw) {
+	if (next && (next != gdev) && (next->com_bw_used > next->com_bw)) {
 		phys->current_com = NULL;
+		gdev_unlock(&phys->sched_com_lock);
 		__gdev_vsched_band_yield_chance();
-		chances--;
-		if (chances)
-			goto retry;
+		gdev_lock(&phys->sched_com_lock);
+		if (phys->current_com == NULL) {
+			phys->current_com = (void*)next;
+			chances--;
+			if (chances) {
+				gdev_unlock(&phys->sched_com_lock);
+				goto retry;
+			}
+			else
+				gdev_unlock(&phys->sched_com_lock);
+		}
+		else
+			gdev_unlock(&phys->sched_com_lock);
 	}
+	else
+		gdev_unlock(&phys->sched_com_lock);
 
 	return next;
 }
@@ -141,8 +188,23 @@ static void gdev_vsched_band_schedule_memory(struct gdev_sched_entity *se)
 		return;
 
 resched:
-	if (gdev_time_lez(&gdev->credit_mem) && gdev->mem_bw_used > gdev->mem_bw)
-		__gdev_vsched_band_yield_chance();
+	if (gdev_time_lez(&gdev->credit_mem) && gdev->mem_bw_used > gdev->mem_bw
+		&& !__gdev_is_alone(gdev)) {
+		gdev_lock(&phys->sched_mem_lock);
+		if (phys->current_mem == gdev) {
+			phys->current_mem = NULL;
+			gdev_unlock(&phys->sched_mem_lock);
+
+			__gdev_vsched_band_yield_chance();
+
+			gdev_lock(&phys->sched_mem_lock);
+			if (phys->current_mem == NULL)
+				phys->current_mem = gdev;
+			gdev_unlock(&phys->sched_mem_lock);
+		}
+		else
+			gdev_unlock(&phys->sched_mem_lock);
+	}
 
 	gdev_lock(&phys->sched_mem_lock);
 	if (phys->current_mem && phys->current_mem != gdev) {
@@ -193,14 +255,27 @@ retry:
 	next = NULL;
 device_switched:
 	phys->current_mem = (void*)next; /* could be null */
-	gdev_unlock(&phys->sched_mem_lock);
 
 	if (next && next != gdev && next->mem_bw_used > next->mem_bw) {
+		phys->current_mem = NULL;
+		gdev_unlock(&phys->sched_mem_lock);
 		__gdev_vsched_band_yield_chance();
-		chances--;
-		if (chances)
-			goto retry;
+		gdev_lock(&phys->sched_mem_lock);
+		if (phys->current_mem == NULL) {
+			phys->current_mem = (void*)next;
+			chances--;
+			if (chances) {
+				gdev_unlock(&phys->sched_mem_lock);
+				goto retry;
+			}
+			else
+				gdev_unlock(&phys->sched_mem_lock);
+		}
+		else
+			gdev_unlock(&phys->sched_mem_lock);
 	}
+	else
+		gdev_unlock(&phys->sched_mem_lock);
 
 	return next;
 }
