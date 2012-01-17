@@ -298,6 +298,8 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	struct pscnv_mm_node *mm;
 	uint64_t raw_size = *size;
 
+	GDEV_DPRINT("Allocating memory of 0x%llx bytes\n", *size);
+
 	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
 		goto fail_mem;
 
@@ -322,6 +324,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 
 	/* private data. */
 	mem->bo = (void *) bo;
+	GDEV_DPRINT("Allocated memory of 0x%llx bytes at 0x%llx.\n", *size, *addr);
 
 	return mem;
 
@@ -429,8 +432,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 	/* private data. */
 	new->bo = (void *) bo;
 
-	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", 
-				*size, *addr);
+	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", *size, *addr);
 
 	return new;
 

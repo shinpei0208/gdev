@@ -78,11 +78,12 @@ void test_tasks(unsigned int size, int nr_tasks)
 	}
 	
 	void *param1[] = {&data_addr, &size, &n}; 
-	res = cuLaunchKernel(function, 1, 1, 1, 1, 1, 1, 0, 0, (void**)param1, 0);
+	//res = cuLaunchKernel(function, 1, 1, 1, 1, 1, 1, 0, 0, (void**)param1, 0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchKernel failed: res = %u\n", res);
 		exit(-1);
 	}
+	//cuCtxSynchronize();
 #endif
 
 	if (--nr_tasks) {
@@ -182,13 +183,14 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 
+#if 0
 	/* alloc big memory at the beginning. */
-	res = cuMemAlloc(&data_addr, 0x40000000); /* 1GB */
+	res = cuMemAlloc(&data_addr, 0x20000000); /* 512MB */
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc failed: res = %u\n", res);
 		exit(-1);
 	}
-	
+#endif	
 	gettimeofday(&tv_start, NULL);
 	pid = fork();
 	if (pid == 0) { /* child */
@@ -211,13 +213,14 @@ int main(int argc, char *argv[])
 		printf("cuMemFree failed: res = %u\n", (unsigned int)res);
 		exit(-1);
 	}
-	
+
+#if 0	
 	res = cuCtxDestroy(ctx);
 	if (res != CUDA_SUCCESS) {
 		printf("cuCtxDestroy failed: res = %u\n", (unsigned int)res);
 		exit(-1);
 	}
-	
+#endif
 	printf("Root parent finished\n");
 
 	return 0;

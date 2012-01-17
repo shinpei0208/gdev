@@ -554,8 +554,6 @@ struct gdev_handle *gopen(int minor)
 		goto fail_open;
 	}
 
-	gdev_global_lock(gdev);
-
 	/* create a new virual address space (VAS) object. */
 	vas = gdev_vas_new(gdev, GDEV_VAS_SIZE, h);
 	if (!vas) {
@@ -583,8 +581,6 @@ struct gdev_handle *gopen(int minor)
 		GDEV_PRINT("Failed to allocate scheduling entity\n");
 		goto fail_se;
 	}
-
-	gdev_global_unlock(gdev);
 	
 	/* save the objects to the handle. */
 	h->se = se;
@@ -605,7 +601,6 @@ fail_dma:
 fail_ctx:
 	gdev_vas_free(vas);
 fail_vas:
-	gdev_global_unlock(gdev);
 	gdev_dev_close(gdev);
 fail_open:
 	return NULL;
@@ -633,10 +628,8 @@ int gclose(struct gdev_handle *h)
 	gdev_mem_gc(h->vas);
 
 	/* free the objects. */
-	gdev_global_lock(h->gdev);
 	gdev_ctx_free(h->ctx);
 	gdev_vas_free(h->vas);
-	gdev_global_unlock(h->gdev);
 	gdev_dev_close(h->gdev);
 
 	GDEV_PRINT("Closed gdev%d\n", h->dev_id);
@@ -665,8 +658,12 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 			goto fail;
 		}
 	}
-	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE)))
-		goto fail;
+	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DEVICE))) {
+		if (!(mem = gdev_mem_share(vas, size))) {
+			GDEV_PRINT("Failed to share memory with victims\n");
+			goto fail;
+		}
+	}
 
 	/* size could have been rounded up. */
 	gdev->mem_used += gdev_mem_get_size(mem); 
