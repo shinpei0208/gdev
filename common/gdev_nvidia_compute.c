@@ -143,7 +143,7 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 	struct gdev_compute *compute = gdev->compute;
 
 	gdev_time_stamp(&time_start);
-	gdev_time_ms(&time_relax, 1000); /* relax polling when 1000 ms elapsed. */
+	gdev_time_ms(&time_relax, 100); /* relax polling when 100 ms elapsed. */
 
 	while (seq != compute->fence_read(ctx, seq)) {
 		gdev_time_stamp(&time_now);

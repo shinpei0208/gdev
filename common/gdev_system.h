@@ -66,9 +66,7 @@ void gdev_mutex_unlock(gdev_mutex_t *p);
 #ifdef __KERNEL__ /* OS functions */
 #define GDEV_PRINT(fmt, arg...) printk("[gdev] " fmt, ##arg)
 #ifdef GDEV_DEBUG_PRINT
-#define GDEV_DPRINT(fmt, arg...)					\
-	if (GDEV_DEBUG_PRINT)							\
-		printk("[gdev:debug] " fmt, ##arg)
+#define GDEV_DPRINT(fmt, arg...) printk("[gdev:debug] " fmt, ##arg)
 #else
 #define GDEV_DPRINT(fmt, arg...)
 #endif

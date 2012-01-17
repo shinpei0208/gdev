@@ -271,8 +271,10 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 		gdev_lock(&next->sched_com_lock);
 		/* if the virtual device needs to be switched, change the next
 		   scheduling entity to be scheduled also needs to be changed. */
-		if (next != gdev)
+		if (next != gdev) {
+			gdev->current_com = NULL;
 			se = gdev_list_container(gdev_list_head(&next->sched_com_list));
+		}
 
 		/* now remove the scheduling entity from the waiting list, and wake 
 		   up the corresponding task. */
