@@ -98,7 +98,7 @@ resched:
 		gdev_unlock_nested(&gdev->sched_com_lock);
 		gdev_unlock(&phys->sched_com_lock);
 
-		printk("Gdev#%d Ctx#%d Sleep\n", gdev->id, se->ctx->cid);
+		//printk("Gdev#%d Ctx#%d Sleep\n", gdev->id, se->ctx->cid);
 
 		/* now the corresponding task will be suspended until some other tasks
 		   will awaken it upon completions of their compute launches. */
@@ -110,7 +110,7 @@ resched:
 		phys->current_com = (void *)gdev;
 		gdev_unlock(&phys->sched_com_lock);
 
-		printk("Gdev#%d Ctx#%d Run\n", gdev->id, se->ctx->cid);
+		//printk("Gdev#%d Ctx#%d Run\n", gdev->id, se->ctx->cid);
 	}
 }
 
@@ -123,7 +123,7 @@ static struct gdev_device *gdev_vsched_band_select_next_compute(struct gdev_devi
 	if (!phys)
 		return gdev;
 
-	printk("Gdev#%d Complete\n", gdev->id);
+	//printk("Gdev#%d Complete\n", gdev->id);
 retry:
 	gdev_lock(&phys->sched_com_lock);
 
@@ -137,12 +137,12 @@ retry:
 		gdev_lock_nested(&next->sched_com_lock);
 		if (!gdev_list_empty(&next->sched_com_list)) {
 			gdev_unlock_nested(&next->sched_com_lock);
-			printk("Gdev#%d Selected\n", next->id);
+			//printk("Gdev#%d Selected\n", next->id);
 			goto device_switched;
 		}
 		gdev_unlock_nested(&next->sched_com_lock);
 	}
-	printk("Nothing Selected\n");
+	//printk("Nothing Selected\n");
 	next = NULL;
 device_switched:
 	phys->current_com = (void*)next; /* could be null */
@@ -157,7 +157,7 @@ device_switched:
 			chances--;
 			if (chances) {
 				gdev_unlock(&phys->sched_com_lock);
-				printk("Try again\n");
+				//printk("Try again\n");
 				goto retry;
 			}
 			else
