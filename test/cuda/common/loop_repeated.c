@@ -92,13 +92,18 @@ int cuda_test_loop_repeated(unsigned int n, int sec, int id, char *path)
 		return -1;
 	}
 
-repeat:
 	usleep(100);
 	res = cuMemcpyHtoD(d_data, data, n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
+
+	static int counter = 0;
+repeat:
+	usleep(100);
+	counter++;
+	usleep(10 * (rand() % 10));
 
 	/* set kernel parameters */
 	res = cuParamSeti(function, 0, d_data);	
@@ -116,7 +121,7 @@ repeat:
 		printf("cuParamSeti failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 12, n);
+	res = cuParamSeti(function, 12, (n - (rand() % 1000)));
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -134,17 +139,18 @@ repeat:
 	}
 	cuCtxSynchronize();
 
-	res = cuMemcpyDtoH(data, d_data, n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyDtoH failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
 
 	gettimeofday(&tv_now, NULL);
 	tvsub(&tv_now, &tv_start, &tv);
 	printf("%lu:%lu\n", tv.tv_sec, tv.tv_usec);
 	if (tv.tv_sec < sec) {
 		goto repeat;
+	}
+
+	res = cuMemcpyDtoH(data, d_data, n * sizeof(unsigned int));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemcpyDtoH failed: res = %lu\n", (unsigned long)res);
+		return -1;
 	}
 
 	res = cuMemFree(d_data);
