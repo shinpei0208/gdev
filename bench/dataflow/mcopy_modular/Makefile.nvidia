@@ -1,0 +1,14 @@
+# Makefile
+TREE_TARGET	= mcopy_tree
+RECT_TARGET	= mcopy_rect
+CC	= gcc
+NVCC	= nvcc -arch sm_20 -cubin
+LIBS	= -lcuda
+CFLAGS	= -I /usr/local/cuda/include -g
+
+all:
+	gcc -o $(RECT_TARGET) $(CFLAGS) $(LIBS) mcopy_rect.c mcopy.c
+	gcc -o $(TREE_TARGET) $(CFLAGS) $(LIBS) mcopy_tree.c mcopy.c
+
+clean:
+	rm -f $(TREE_TARGET) $(RECT_TARGET) ./*~
