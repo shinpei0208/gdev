@@ -62,7 +62,8 @@ static inline int __gdev_get_device_count(void)
 
 	if (!(fp = fopen(fname, "r")))
 		return 0;
-	fgets(buf, 16, fp);
+	if (!fgets(buf, 16, fp))
+		sprintf(buf, "0");
 	fclose(fp);
 
 	sscanf(buf, "%d", &minor);
