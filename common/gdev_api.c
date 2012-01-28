@@ -262,10 +262,10 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	if (!mem)
 		return -ENOENT;
 
-#ifndef GDEV_SCHEDULER_DISABLED
+	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
-#endif
 
+	/* memcopy operation needs to be protected by the lock. */
 	gdev_mem_lock(mem);
 	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
 	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, id, 
@@ -273,9 +273,8 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 									 host_copy);
 	gdev_mem_unlock(mem);
 
-#ifndef GDEV_SCHEDULER_DISABLED
-	gdev_select_next_memory(h->gdev); /* memcpy needs to select next itself. */
-#endif
+	/* select the next context by itself, since memcpy is sychronous. */
+	gdev_select_next_memory(h->gdev);
 
 	return ret;
 }
@@ -444,10 +443,10 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 	if (!mem)
 		return -ENOENT;
 
-#ifndef GDEV_SCHEDULER_DISABLED
+	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
-#endif
 
+	/* memcpy operation needs to be protected by the lock. */
 	gdev_mem_lock(mem);
 	gdev_shm_retrieve_swap(ctx, mem); /* retrieve data swapped. */
 	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, id, 
@@ -455,9 +454,8 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 									   host_copy);
 	gdev_mem_unlock(mem);
 
-#ifndef GDEV_SCHEDULER_DISABLED
-	gdev_select_next_memory(h->gdev); /* memcpy needs to select next itself. */
-#endif
+	/* select the next context by itself, since memcpy is synchronous. */
+	gdev_select_next_memory(h->gdev);
 
 	return ret;
 }
@@ -855,9 +853,8 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 	gdev_ctx_t *ctx = h->ctx;
 	struct gdev_sched_entity *se = h->se;
 
-#ifndef GDEV_SCHEDULER_DISABLED
+	/* decide if the context needs to stall or not. */
 	gdev_schedule_compute(se);
-#endif
 
 	gdev_mem_lock_all(vas);
 	gdev_shm_retrieve_swap_all(ctx, vas); /* get all data swapped back! */

@@ -52,7 +52,6 @@ cd $(TOPDIR)/runtime
 mkdir build
 cd build
 ../configure # if you want user-space runtime, specify --target=user
-cp $(SOMEWHERE)/gdev_nvidia_nvc0_user.o gdev_nvidia_nvc0.o # a missing file
 make
 sudo make install
 
@@ -62,7 +61,6 @@ cd $(TOPDIR)/driver
 mkdir build
 cd build
 ../configure
-cp $(SOMEWHERE)/gdev_nvidia_nvc0_kernel.o gdev_nvidia_nvc0.o # a missing file
 make
 sudo init 3
 cd $(TOPDIR)/driver/build
@@ -73,9 +71,9 @@ export PATH="/usr/local/gdev/bin:$PATH"
 
 4. Gdev API test
 
-cd $(TOPDIR)/test/user/matrixadd
+cd $(TOPDIR)/test/gdev/user/matrixadd
 make
-./user_test 3 # a[3] + b[3] = c[3]
+./user_test 256 # a[256] + b[256] = c[256]
 
 5. CUDA Driver API
 
@@ -98,6 +96,6 @@ sudo make install
 
 6. CUDA Driver API test (user-space)
 
-cd $(TOPDIR)/test/cuda/matrixmul
+cd $(TOPDIR)/test/cuda/user/matrixadd
 make
-./user_test 3 # a[3] x b[3] = c[3]
+./user_test 256 # a[256] x b[256] = c[256]
