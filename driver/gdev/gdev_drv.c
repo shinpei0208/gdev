@@ -61,22 +61,20 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 	struct gdev_sched_entity *se;
 	int cid = (int)data;
 
-#ifdef GDEV_SCHEDULER_DISABLED
-	return;
-#endif
-
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
 		se = sched_entity_ptr[cid];
-		gdev = se->gdev;
-		switch (subc) {
-		case GDEV_SUBCH_COMPUTE:
-			wake_up_process(gdev->sched_com_thread);
-			break;
-		case GDEV_SUBCH_MEMCPY:
-			wake_up_process(gdev->sched_mem_thread);
-			break;
-		default:
-			GDEV_PRINT("Unknown subchannel %d\n", subc);
+		if (se) {
+			gdev = se->gdev;
+			switch (subc) {
+			case GDEV_SUBCH_COMPUTE:
+				wake_up_process(gdev->sched_com_thread);
+				break;
+			case GDEV_SUBCH_MEMCPY:
+				wake_up_process(gdev->sched_mem_thread);
+				break;
+			default:
+				GDEV_PRINT("Unknown subchannel %d\n", subc);
+			}
 		}
 	}
 	else
@@ -362,10 +360,9 @@ int gdev_minor_init(struct drm_device *drm)
 			gdev_init_virtual_device(&gdev_vds[i], i, 100, &gdevs[physid]);
 		else
 			gdev_init_virtual_device(&gdev_vds[i], i, 0, &gdevs[physid]);
-#ifndef GDEV_SCHEDULER_DISABLED
+
 		/* initialize the local scheduler for each virtual device. */
 		gdev_init_scheduler(&gdev_vds[i]);
-#endif
 	}
 
 	return 0;
@@ -386,9 +383,7 @@ int gdev_minor_exit(struct drm_device *drm)
 	if (physid < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[physid]) {
-#ifndef GDEV_SCHEDULER_DISABLED
 				gdev_exit_scheduler(&gdev_vds[i]);
-#endif
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
