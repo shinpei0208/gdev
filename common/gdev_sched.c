@@ -51,18 +51,22 @@ void gdev_sched_entity_destroy(struct gdev_sched_entity *se)
 }
 void gdev_schedule_compute(struct gdev_sched_entity *se)
 {
+	gdev_access_start(gdev);
 }
 void gdev_select_next_compute(struct gdev_device *gdev)
 {
+	gdev_access_end(gdev);
 }
 void gdev_replenish_credit_compute(struct gdev_device *gdev)
 {
 }
 void gdev_schedule_memory(struct gdev_sched_entity *se)
 {
+	gdev_access_start(gdev);
 }
 void gdev_select_next_memory(struct gdev_device *gdev)
 {
+	gdev_access_end(gdev);
 }
 void gdev_replenish_credit_memory(struct gdev_device *gdev)
 {
@@ -258,6 +262,8 @@ resched:
 		gdev->current_com = (void*)se;
 		gdev_unlock(&gdev->sched_com_lock);
 	}
+
+	gdev_access_start(gdev);
 }
 
 /**
@@ -269,6 +275,8 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 	struct gdev_sched_entity *se;
 	struct gdev_device *next;
 	struct gdev_time now, exec;
+
+	gdev_access_end(gdev);
 
 	gdev_lock(&gdev->sched_com_lock);
 	se = (struct gdev_sched_entity *)gdev->current_com;
@@ -377,6 +385,8 @@ resched:
 		gdev->current_mem = (void*)se;
 		gdev_unlock(&gdev->sched_mem_lock);
 	}
+
+	gdev_access_start(gdev);
 }
 
 /**
@@ -393,6 +403,8 @@ void gdev_select_next_memory(struct gdev_device *gdev)
 	gdev_select_next_compute(gdev);
 	return;
 #endif
+
+	gdev_access_end(gdev);
 
 	gdev_lock(&gdev->sched_mem_lock);
 	se = (struct gdev_sched_entity *)gdev->current_mem;
