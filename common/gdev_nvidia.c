@@ -125,41 +125,89 @@ int gdev_ctx_get_cid(struct gdev_ctx *ctx)
 	return ctx->cid;
 }
 
-/* lock the device globally. */
-void gdev_global_lock(struct gdev_device *gdev)
+/* set the flag to block any access to the device. */
+void gdev_block_start(struct gdev_device *gdev)
+{
+	struct gdev_device *phys = gdev->parent;
+
+	/* we have to spin while some context is accessing the GPU. */
+retry:
+	if (phys) {
+		gdev_lock(&phys->global_lock);
+		if (phys->accessed) {
+			gdev_unlock(&phys->global_lock);
+			goto retry;
+		}
+		phys->blocked = 1;
+		gdev_unlock(&phys->global_lock);
+	}
+	else {
+		gdev_lock(&gdev->global_lock);
+		if (gdev->accessed) {
+			gdev_unlock(&gdev->global_lock);
+			goto retry;
+		}
+		gdev->blocked = 1;
+		gdev_unlock(&gdev->global_lock);
+	}
+}
+
+/* clear the flag to unlock any access to the device. */
+void gdev_block_end(struct gdev_device *gdev)
+{
+	struct gdev_device *phys = gdev->parent;
+
+	if (phys) {
+		gdev_lock(&phys->global_lock);
+		phys->blocked = 0;
+		gdev_unlock(&phys->global_lock);
+	}
+	else {
+		gdev_lock(&gdev->global_lock);
+		gdev->blocked = 0;
+		gdev_unlock(&gdev->global_lock);
+	}
+}
+
+/* increment the counter for # of contexts accessing the device. */
+void gdev_access_start(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 	
+retry:
 	if (phys) {
-		int physid = phys->id;
-		int i, j = 0;
-		for (i = 0; i < physid; i++)
-			j += VCOUNT_LIST[i];
-		for (i = j; i < j + VCOUNT_LIST[physid]; i++) {
-			gdev_mutex_lock(&gdev_vds[i].shm_mutex);
+		gdev_lock(&phys->global_lock);
+		if (phys->blocked) {
+			gdev_unlock(&phys->global_lock);
+			goto retry;
 		}
+		phys->accessed++;
+		gdev_unlock(&phys->global_lock);
 	}
 	else {
-		gdev_mutex_lock(&gdev->shm_mutex);
+		gdev_lock(&gdev->global_lock);
+		if (gdev->blocked) {
+			gdev_unlock(&gdev->global_lock);
+			goto retry;
+		}
+		gdev->accessed++;
+		gdev_unlock(&gdev->global_lock);
 	}
 }
 
-/* unlock the device globally. */
-void gdev_global_unlock(struct gdev_device *gdev)
+/* decrement the counter for # of contexts accessing the device. */
+void gdev_access_end(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 
 	if (phys) {
-		int physid = phys->id;
-		int i, j = 0;
-		for (i = 0; i < physid; i++)
-			j += VCOUNT_LIST[i];
-		for (i = j + VCOUNT_LIST[physid] - 1; i >= j ; i--) {
-			gdev_mutex_unlock(&gdev_vds[i].shm_mutex);
-		}
+		gdev_lock(&phys->global_lock);
+		phys->accessed--;
+		gdev_unlock(&phys->global_lock);
 	}
 	else {
-		gdev_mutex_unlock(&gdev->shm_mutex);
+		gdev_lock(&gdev->global_lock);
+		gdev->accessed--;
+		gdev_unlock(&gdev->global_lock);
 	}
 }
-

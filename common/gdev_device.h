@@ -50,6 +50,8 @@
 struct gdev_device {
 	int id; /* device ID */
 	int users; /* the number of threads/processes using the device */
+	int accessed; /* indicate if any process is on the device */
+	int blocked; /* incidate if a process is allowed to access the device */
 	uint32_t chipset;
 	uint64_t mem_size;
 	uint64_t mem_used;
@@ -81,6 +83,7 @@ struct gdev_device {
 	gdev_lock_t sched_com_lock;
 	gdev_lock_t sched_mem_lock;
 	gdev_lock_t vas_lock;
+	gdev_lock_t global_lock;
 	gdev_mutex_t shm_mutex;
 	gdev_mem_t *swap; /* reserved swap memory space */
 };

@@ -250,6 +250,7 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
  */
 static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
@@ -265,8 +266,8 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
 
-	/* memcopy operation needs to be protected by the lock. */
 	gdev_mem_lock(mem);
+
 	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
 	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, id, 
 									 ch_size, p_count, vas, mem, dma_mem, 
@@ -274,7 +275,7 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	gdev_mem_unlock(mem);
 
 	/* select the next context by itself, since memcpy is sychronous. */
-	gdev_select_next_memory(h->gdev);
+	gdev_select_next_memory(gdev);
 
 	return ret;
 }
@@ -431,6 +432,7 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
  */
 static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
+	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
@@ -446,16 +448,17 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
 
-	/* memcpy operation needs to be protected by the lock. */
 	gdev_mem_lock(mem);
+
 	gdev_shm_retrieve_swap(ctx, mem); /* retrieve data swapped. */
 	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, id, 
 									   ch_size, p_count, vas, mem, dma_mem,
 									   host_copy);
+
 	gdev_mem_unlock(mem);
 
 	/* select the next context by itself, since memcpy is synchronous. */
-	gdev_select_next_memory(h->gdev);
+	gdev_select_next_memory(gdev);
 
 	return ret;
 }
@@ -552,6 +555,9 @@ struct gdev_handle *gopen(int minor)
 		goto fail_open;
 	}
 
+	/* none can access GPU while someone is opening device. */
+	gdev_block_start(gdev);
+
 	/* create a new virual address space (VAS) object. */
 	vas = gdev_vas_new(gdev, GDEV_VAS_SIZE, h);
 	if (!vas) {
@@ -580,6 +586,9 @@ struct gdev_handle *gopen(int minor)
 		goto fail_se;
 	}
 	
+	/* now other users can access the GPU. */
+	gdev_block_end(gdev);
+
 	/* save the objects to the handle. */
 	h->se = se;
 	h->dma_mem = dma_mem;
@@ -599,6 +608,7 @@ fail_dma:
 fail_ctx:
 	gdev_vas_free(vas);
 fail_vas:
+	gdev_block_end(gdev);
 	gdev_dev_close(gdev);
 fail_open:
 	return NULL;
@@ -824,6 +834,8 @@ int gmemcpy_user_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_
 int gmemcpy_in_device
 (struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
+	struct gdev_device *gdev = h->gdev;
+	struct gdev_sched_entity *se = h->se;
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *dst = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
@@ -833,12 +845,20 @@ int gmemcpy_in_device
 	if (!dst || !src)
 		return -ENOENT;
 
+	/* decide if the context needs to stall or not. */
+	gdev_schedule_memory(se);
+
 	gdev_mem_lock(dst);
 	gdev_mem_lock(src);
+
 	fence = gdev_memcpy(ctx, dst_addr, src_addr, size); 
 	gdev_poll(ctx, fence, NULL);
+
 	gdev_mem_unlock(src);
 	gdev_mem_unlock(dst);
+
+	/* select the next context by itself, since memcpy is synchronous. */
+	gdev_select_next_memory(gdev);
 
 	return 0;
 }
@@ -849,16 +869,18 @@ int gmemcpy_in_device
  */
 int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
+	struct gdev_sched_entity *se = h->se;
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
-	struct gdev_sched_entity *se = h->se;
 
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_compute(se);
 
 	gdev_mem_lock_all(vas);
+
 	gdev_shm_retrieve_swap_all(ctx, vas); /* get all data swapped back! */
 	*id = gdev_launch(ctx, kernel);
+
 	gdev_mem_unlock_all(vas);
 
 	return 0;

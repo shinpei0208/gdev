@@ -51,6 +51,8 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 {
 	gdev->id = id;
 	gdev->users = 0;
+	gdev->accessed = 0;
+	gdev->blocked = 0;
 	gdev->mem_size = 0;
 	gdev->mem_used = 0;
 	gdev->dma_mem_size = 0;
@@ -80,6 +82,7 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev_lock_init(&gdev->sched_com_lock);
 	gdev_lock_init(&gdev->sched_mem_lock);
 	gdev_lock_init(&gdev->vas_lock);
+	gdev_lock_init(&gdev->global_lock);
 	gdev_mutex_init(&gdev->shm_mutex);
 }
 
