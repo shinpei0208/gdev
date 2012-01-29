@@ -346,7 +346,6 @@ int gdev_minor_init(struct drm_device *drm)
 	/* initialize the physical device. */
 	gdev_init_device(&gdevs[physid], physid, drm);
 
-#ifndef GDEV_SCHED_DISABLED
 	for (i = 0; i < physid; i++)
 		j += VCOUNT_LIST[i];
 
@@ -361,7 +360,6 @@ int gdev_minor_init(struct drm_device *drm)
 		/* initialize the local scheduler for each virtual device. */
 		gdev_init_scheduler(&gdev_vds[i]);
 	}
-#endif
 
 	return 0;
 }
@@ -371,22 +369,20 @@ int gdev_minor_init(struct drm_device *drm)
  */
 int gdev_minor_exit(struct drm_device *drm)
 {
-	int physid = drm->primary->index;
 	int i;
+	int physid = drm->primary->index;
 
 	if (gdevs[physid].users) {
 		GDEV_PRINT("Device %d has %d users\n", physid, gdevs[physid].users);
 	}
 
 	if (physid < gdev_count) {
-#ifndef GDEV_SCHED_DISABLED
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[physid]) {
 				gdev_exit_scheduler(&gdev_vds[i]);
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
-#endif
 		gdev_exit_device(&gdevs[physid]);
 	}
 	
@@ -457,10 +453,8 @@ int gdev_major_init(struct pci_driver *pdriver)
 		goto fail_proc_create;
 	}
 
-#ifndef GDEV_SCHED_DISABLED
 	/* set interrupt handler. */
 	gdev_callback_notify = __gdev_notify_handler;
-#endif
 
 	return 0;
 
