@@ -34,10 +34,10 @@
 
 /**
  * Queueing methods:
- * SGQ: Single Device Queue
+ * SDQ: Single Device Queue
  * MRQ: Multiple Resource Queues
  */
-#define GDEV_SCHED_SGQ /*GDEV_SCHED_MRQ */
+#define GDEV_SCHED_SDQ /*GDEV_SCHED_MRQ */
 
 /**
  * priority levels.
