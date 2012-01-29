@@ -80,8 +80,10 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	compute->launch(ctx, kern);
 	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
 
+#ifndef GDEV_SCHED_DISABLED
 	/* set an interrupt to be caused when compute done. */
 	compute->notify_intr(ctx);
+#endif
 	
 	return seq;
 }
