@@ -34,44 +34,6 @@ struct gdev_sched_entity *sched_entity_ptr[GDEV_CONTEXT_MAX_COUNT] = {
 	[0 ... GDEV_CONTEXT_MAX_COUNT-1] = NULL
 };
 
-#ifdef GDEV_SCHED_DISABLED
-int gdev_init_scheduler(struct gdev_device *gdev)
-{
-	return 0;
-}
-void gdev_exit_scheduler(struct gdev_device *gdev)
-{
-}
-struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gdev_ctx_t *ctx)
-{
-	return NULL;
-}
-void gdev_sched_entity_destroy(struct gdev_sched_entity *se)
-{
-}
-void gdev_schedule_compute(struct gdev_sched_entity *se)
-{
-	gdev_access_start(gdev);
-}
-void gdev_select_next_compute(struct gdev_device *gdev)
-{
-	gdev_access_end(gdev);
-}
-void gdev_replenish_credit_compute(struct gdev_device *gdev)
-{
-}
-void gdev_schedule_memory(struct gdev_sched_entity *se)
-{
-	gdev_access_start(gdev);
-}
-void gdev_select_next_memory(struct gdev_device *gdev)
-{
-	gdev_access_end(gdev);
-}
-void gdev_replenish_credit_memory(struct gdev_device *gdev)
-{
-}
-#else
 /**
  * initialize the local scheduler for the device.
  */
@@ -473,4 +435,3 @@ void gdev_replenish_credit_memory(struct gdev_device *gdev)
 #endif
 }
 
-#endif /* GDEV_SCHED_DISABLED */

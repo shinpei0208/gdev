@@ -58,23 +58,19 @@ void (*gdev_callback_notify)(int subc, uint32_t data);
 static void __gdev_notify_handler(int subc, uint32_t data)
 {
 	struct gdev_device *gdev;
-	struct gdev_sched_entity *se;
 	int cid = (int)data;
 
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
-		se = sched_entity_ptr[cid];
-		if (se) {
-			gdev = se->gdev;
-			switch (subc) {
-			case GDEV_SUBCH_COMPUTE:
-				wake_up_process(gdev->sched_com_thread);
-				break;
-			case GDEV_SUBCH_MEMCPY:
-				wake_up_process(gdev->sched_mem_thread);
-				break;
-			default:
-				GDEV_PRINT("Unknown subchannel %d\n", subc);
-			}
+		gdev = sched_entity_ptr[cid]->gdev;
+		switch (subc) {
+		case GDEV_SUBCH_COMPUTE:
+			wake_up_process(gdev->sched_com_thread);
+			break;
+		case GDEV_SUBCH_MEMCPY:
+			wake_up_process(gdev->sched_mem_thread);
+			break;
+		default:
+			GDEV_PRINT("Unknown subchannel %d\n", subc);
 		}
 	}
 	else
@@ -350,6 +346,7 @@ int gdev_minor_init(struct drm_device *drm)
 	/* initialize the physical device. */
 	gdev_init_device(&gdevs[physid], physid, drm);
 
+#ifndef GDEV_SCHED_DISABLED
 	for (i = 0; i < physid; i++)
 		j += VCOUNT_LIST[i];
 
@@ -364,6 +361,7 @@ int gdev_minor_init(struct drm_device *drm)
 		/* initialize the local scheduler for each virtual device. */
 		gdev_init_scheduler(&gdev_vds[i]);
 	}
+#endif
 
 	return 0;
 }
@@ -381,12 +379,14 @@ int gdev_minor_exit(struct drm_device *drm)
 	}
 
 	if (physid < gdev_count) {
+#ifndef GDEV_SCHED_DISABLED
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[physid]) {
 				gdev_exit_scheduler(&gdev_vds[i]);
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
+#endif
 		gdev_exit_device(&gdevs[physid]);
 	}
 	
@@ -457,8 +457,10 @@ int gdev_major_init(struct pci_driver *pdriver)
 		goto fail_proc_create;
 	}
 
+#ifndef GDEV_SCHED_DISABLED
 	/* set interrupt handler. */
 	gdev_callback_notify = __gdev_notify_handler;
+#endif
 
 	return 0;
 

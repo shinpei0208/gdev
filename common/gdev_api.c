@@ -250,12 +250,14 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
  */
 static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
+#ifndef GDEV_SCHED_DISABLED
+	struct gdev_sched_entity *se = h->se;
 	struct gdev_device *gdev = h->gdev;
+#endif
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
-	struct gdev_sched_entity *se = h->se;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
@@ -263,8 +265,10 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	if (!mem)
 		return -ENOENT;
 
+#ifndef GDEV_SCHED_DISABLED
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
+#endif
 
 	gdev_mem_lock(mem);
 
@@ -274,8 +278,10 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 									 host_copy);
 	gdev_mem_unlock(mem);
 
+#ifndef GDEV_SCHED_DISABLED
 	/* select the next context by itself, since memcpy is sychronous. */
 	gdev_select_next_memory(gdev);
+#endif
 
 	return ret;
 }
@@ -432,12 +438,14 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
  */
 static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id, int (*host_copy)(void*, const void*, uint32_t))
 {
+#ifndef GDEV_SCHED_DISABLED
+	struct gdev_sched_entity *se = h->se;
 	struct gdev_device *gdev = h->gdev;
+#endif
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
-	struct gdev_sched_entity *se = h->se;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
@@ -445,8 +453,10 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 	if (!mem)
 		return -ENOENT;
 
+#ifndef GDEV_SCHED_DISABLED
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
+#endif
 
 	gdev_mem_lock(mem);
 
@@ -457,8 +467,10 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 
 	gdev_mem_unlock(mem);
 
+#ifndef GDEV_SCHED_DISABLED
 	/* select the next context by itself, since memcpy is synchronous. */
 	gdev_select_next_memory(gdev);
+#endif
 
 	return ret;
 }
@@ -533,12 +545,12 @@ int gdev_callback_load_from_device(void *h, uint64_t dst_addr, uint64_t src_addr
  */
 struct gdev_handle *gopen(int minor)
 {
-	struct gdev_handle *h;
-	struct gdev_device *gdev;
-	struct gdev_sched_entity *se;
-	gdev_vas_t *vas;
-	gdev_ctx_t *ctx;
-	gdev_mem_t **dma_mem;
+	struct gdev_handle *h = NULL;
+	struct gdev_device *gdev = NULL;
+	struct gdev_sched_entity *se = NULL;
+	gdev_vas_t *vas = NULL;
+	gdev_ctx_t *ctx = NULL;
+	gdev_mem_t **dma_mem = NULL;
 
 	if (!(h = MALLOC(sizeof(*h)))) {
 		GDEV_PRINT("Failed to allocate device handle\n");
@@ -579,12 +591,14 @@ struct gdev_handle *gopen(int minor)
 		goto fail_dma;
 	}
 
+#ifndef GDEV_SCHED_DISABLED
 	/* allocate a scheduling entity. */
 	se = gdev_sched_entity_create(gdev, ctx);
 	if (!se) {
 		GDEV_PRINT("Failed to allocate scheduling entity\n");
 		goto fail_se;
 	}
+#endif
 	
 	/* now other users can access the GPU. */
 	gdev_block_end(gdev);
@@ -601,8 +615,10 @@ struct gdev_handle *gopen(int minor)
 
 	return h;
 
+#ifndef GDEV_SCHED_DISABLED
 fail_se:
 	__free_dma(dma_mem, h->pipeline_count);
+#endif
 fail_dma:
 	gdev_ctx_free(ctx);
 fail_ctx:
@@ -622,11 +638,15 @@ int gclose(struct gdev_handle *h)
 {
 	if (!h)
 		return -ENOENT;
-	if (!h->gdev || !h->ctx || !h->vas || !h->se)
+	if (!h->gdev || !h->ctx || !h->vas)
 		return -ENOENT;
 
+#ifndef GDEV_SCHED_DISABLED
+	if (!h->se)
+		return -ENOENT;
 	/* free the scheduling entity. */
 	gdev_sched_entity_destroy(h->se);
+#endif
 	
 	/* free the bounce buffer. */
 	if (h->dma_mem)
@@ -834,8 +854,10 @@ int gmemcpy_user_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_
 int gmemcpy_in_device
 (struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
-	struct gdev_device *gdev = h->gdev;
+#ifndef GDEV_SCHED_DISABLED
 	struct gdev_sched_entity *se = h->se;
+	struct gdev_device *gdev = h->gdev;
+#endif
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *dst = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
@@ -845,8 +867,10 @@ int gmemcpy_in_device
 	if (!dst || !src)
 		return -ENOENT;
 
+#ifndef GDEV_SCHED_DISABLED
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_memory(se);
+#endif
 
 	gdev_mem_lock(dst);
 	gdev_mem_lock(src);
@@ -857,8 +881,10 @@ int gmemcpy_in_device
 	gdev_mem_unlock(src);
 	gdev_mem_unlock(dst);
 
+#ifndef GDEV_SCHED_DISABLED
 	/* select the next context by itself, since memcpy is synchronous. */
 	gdev_select_next_memory(gdev);
+#endif
 
 	return 0;
 }
@@ -869,12 +895,16 @@ int gmemcpy_in_device
  */
 int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 {
+#ifndef GDEV_SCHED_DISABLED
 	struct gdev_sched_entity *se = h->se;
+#endif
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
 
+#ifndef GDEV_SCHED_DISABLED
 	/* decide if the context needs to stall or not. */
 	gdev_schedule_compute(se);
+#endif
 
 	gdev_mem_lock_all(vas);
 
