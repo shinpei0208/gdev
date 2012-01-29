@@ -911,7 +911,7 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
 	gdev_shm_retrieve_swap_all(ctx, vas); /* get all data swapped back! */
 	*id = gdev_launch(ctx, kernel);
 
-	gdev_mem_unlock_all(vas);
+	gdev_mem_unlock_all(vas); /* this should be called when compute done... */
 
 	return 0;
 }

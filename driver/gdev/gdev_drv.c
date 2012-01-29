@@ -58,10 +58,12 @@ void (*gdev_callback_notify)(int subc, uint32_t data);
 static void __gdev_notify_handler(int subc, uint32_t data)
 {
 	struct gdev_device *gdev;
+	struct gdev_sched_entity *se;
 	int cid = (int)data;
 
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
-		gdev = sched_entity_ptr[cid]->gdev;
+		se = sched_entity_ptr[cid];
+		gdev = se->gdev;
 		switch (subc) {
 		case GDEV_SUBCH_COMPUTE:
 			wake_up_process(gdev->sched_com_thread);
