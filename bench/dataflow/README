@@ -1,0 +1,118 @@
+#
+# Microbenchmarks for CUDA dataflow programming
+# 
+# Copyright (C) Michael McThrow
+#
+# University of California, Santa Cruz
+# Systems Research Lab.
+#
+# All rights reserved.
+#
+
+DESCRIPTION
+-----------
+This directory contains subdirectories containing the source code and makefiles 
+of benchmarks.  These benchmarks are written using the Gdev API, which is based
+on the NVIDIA CUDA Driver API.
+
+There are three separate applications: matrix addition (madd), matrix copy 
+(mcopy), and matrix multiplication (mmult).  Each application has two variants:
+a binary tree variant (tree) and a rectangle variant (rect).  Both of these
+variants have a tree structure, where the nodes represent calls to the matrix
+operation module (addition, copying, or multiplication) and the branches
+represent inputs and outputs.  In all applications, the nodes represent binary
+operations.  For matrix addition and multiplication, the output branch of each
+node is the sum or the product of the input, respectively.  For matrix copy, the
+output branch of each node is that of the left input.  Each variant has three
+implementations: a modular implementation, a hand-coded implementation, and a
+shared memory implementation that uses Gdev shared memory (not to be confused
+with the shared memory system described in the CUDA documentation).  For each
+application, the names of the executables are the same no matter the
+implementation: e.g., in the mmult_modular directory, the executables are named
+mmult_rect and mmult_tree.
+
+In the binary tree variant, there are initially 64 matrices.  The leaf nodes
+of the binary tree each represent the first 32 operations, where the inputs are
+matrices A0, A1, A2, A3, ..., A62, A63, and the outputs are matrices B0, B1,
+..., B31 for each respective pair of input matrices.  The outputs are the inputs
+for the next level of the tree, and this pattern continues until there is only
+one output branch.  The resulting binary tree is known as a 6 x 32 graph since
+the depth of the graph is 6 and the width of the graph is 32.  Below is an
+example of a 4 x 4  binary tree: 
+
+A0     A1     A2     A3     A4     A5     A6     A7
+ \     /       \     /       \     /       \     /
+  \   /         \   /         \   /         \   /
+  /---\         /---\         /---\         /---\
+  |op |         |op |         |op |         |op |
+  \---/         \---/         \---/         \---/
+    |             |             |             |
+    B1            B2            B3            B4
+     \            /              \            /
+      \          /                \          /
+       \        /                  \        /
+        \      /                    \      /
+         \    /                      \    /
+         /----\                      /----\
+         | op |                      | op |
+         \----/                      \----/
+           |                           |
+           C1                          C2
+            \         /----\           /
+             \________| op |__________/
+                      \----/
+                         |
+                         |
+                         D1
+
+In the rectangle variant, there are initially 70 matrices.  The resulting
+graph is known as a 6 x 10 graph since there are 10 separate trees, and each
+tree has a depth of 6.  Below is an example of a 3 x 2 graph:
+
+A0     A1               |      A4     A5
+ \     /                |       \     /
+  \   /                 |        \   / 
+  /---\                 |        /---\
+  |op |                 |        |op |
+  \---/                 |        \---/
+    |       A2          |          |       A6
+    \       /           |          \       / 
+     \     /            |           \     /
+      /---\             |           /---\
+      |op |             |           |op |
+      \---/             |           \---/
+        |       A3      |             |       A7
+        \       /       |             \       /
+         \     /        |              \     /
+          /---\         |               /---\
+          |op |         |               |op |
+          \---/         |               \---/
+            |           |                 |
+            B0          |                 B1
+
+
+
+COMPILING AND RUNNING THE BENCHMARK APPLICATIONS
+------------------------------------------------
+To compile a benchmark application, enter the directory of the benchmark 
+and its implementation type (modular, handcoded, or shared memory) and type the
+following command:
+
+make
+
+After compiling the application, you can run the application by typing the
+following:
+
+./benchmark_name rows cols
+
+where benchmark_name is the name of the benchmark application, rows are the
+number of rows in the matrices being created, and cols are the number of columns
+in the matrices being created.  For example, to run the binary tree variant of
+the matrix addition benchmark that used matrices with 1024 rows and 1024
+columns, please type the following:
+
+./madd_tree 1024 1024
+
+Please note that the binary tree graph would still be a 6 x 32 graph; the
+arguments only affect the sizes of the matrices, not the dimensions of the
+graph.  (This is also true for the rectangle variants).
