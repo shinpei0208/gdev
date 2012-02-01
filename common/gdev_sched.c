@@ -41,8 +41,11 @@ int gdev_init_scheduler(struct gdev_device *gdev)
 {
 	struct gdev_device *phys = gdev->parent;
 
+	/* create scheduler threads. OS runtime and user-space runtime behave
+	   differently on this function call. */
 	gdev_sched_create_scheduler(gdev);
 
+	/* set up virtual GPU schedulers, if required. */
 	if (phys) {
 		gdev_lock(&phys->sched_com_lock);
 		gdev_list_init(&gdev->list_entry_com, (void*)gdev);
@@ -225,6 +228,8 @@ resched:
 		gdev_unlock(&gdev->sched_com_lock);
 	}
 
+	/* this function call will block any new contexts to be created during
+	   the busy period on the GPU. */
 	gdev_access_start(gdev);
 }
 
@@ -238,6 +243,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 	struct gdev_device *next;
 	struct gdev_time now, exec;
 
+	/* now new contexts are allowed to be created as the GPU is idling. */
 	gdev_access_end(gdev);
 
 	gdev_lock(&gdev->sched_com_lock);
