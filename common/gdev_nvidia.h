@@ -65,6 +65,13 @@
 #define GDEV_MEM_DMA 1
 
 /**
+ * some stupid distros have "memcpy" macros. we don't need it.
+ */
+#ifdef memcpy
+#undef memcpy
+#endif
+
+/**
  * Gdev shared memory information:
  */
 struct gdev_shm {
