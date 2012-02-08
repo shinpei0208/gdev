@@ -35,6 +35,9 @@
 #include "gdev_system.h"
 #include "gdev_time.h"
 
+/**
+ * MRQ requires compute and memcpy to be overlapped - hence PCOPY.
+ */
 #ifdef GDEV_SCHED_MRQ
 #define GDEV_NVIDIA_MEMCPY_PCOPY
 #endif
@@ -50,6 +53,12 @@
 #define GDEV_FENCE_BUF_SIZE 0x10000 /* 64KB */
 #define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */
 #define GDEV_FENCE_COUNT (GDEV_FENCE_BUF_SIZE / GDEV_FENCE_QUERY_SIZE)
+
+/**
+ * map host and device memory if the allocated size is small.
+ * it will help to reduce the cost of memcpy.
+ */
+#define GDEV_MEM_MAPPABLE_LIMIT 0x1000 /* small page size */
 
 /**
  * virutal address space available for user buffers.
@@ -177,7 +186,7 @@ struct gdev_mem {
 	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */
 	int type; /* device or host dma? */
-	void *map; /* memory-mapped buffer (for host only) */
+	void *map; /* memory-mapped buffer */
 };
 
 /**

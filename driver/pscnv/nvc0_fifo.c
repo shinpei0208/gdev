@@ -85,6 +85,7 @@ int nvc0_fifo_init(struct drm_device *dev)
 		kfree(res);
 		return -ENOMEM;
 	}
+
 	dev_priv->vm->map_kernel(res->playlist[0]);
 	dev_priv->vm->map_kernel(res->playlist[1]);
 	res->cur_playlist = 0;
