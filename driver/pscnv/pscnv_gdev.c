@@ -492,12 +492,18 @@ uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	uint64_t offset = addr - mem->addr;
 	uint32_t val;
 
-	mutex_lock(&vspace->lock);
-	dev_priv->vm->read32(vspace, bo, addr, &val);
-	mutex_unlock(&vspace->lock);
-	
+	if (mem->map) {
+		val = ioread32_native(mem->map + offset);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->read32(vspace, bo, addr, &val);
+		mutex_unlock(&vspace->lock);
+	}
+
 	return val;
 }
 
@@ -509,10 +515,16 @@ void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	uint64_t offset = addr - mem->addr;
 
-	mutex_lock(&vspace->lock);
-	dev_priv->vm->write32(vspace, bo, addr, val);
-	mutex_unlock(&vspace->lock);
+	if (mem->map) {
+		iowrite32_native(val, mem->map + offset);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->write32(vspace, bo, addr, val);
+		mutex_unlock(&vspace->lock);
+	}
 }
 
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
@@ -523,12 +535,19 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	uint64_t offset = addr - mem->addr;
 	int ret;
 
-	mutex_lock(&vspace->lock);
-	ret = dev_priv->vm->read(vspace, bo, addr, buf, size);
-	mutex_unlock(&vspace->lock);
-
+	if (mem->map) {
+		memcpy_fromio(buf, mem->map + offset, size);
+		return 0;
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		ret = dev_priv->vm->read(vspace, bo, addr, buf, size);
+		mutex_unlock(&vspace->lock);
+	}
+		
 	return ret;
 }
 
@@ -540,11 +559,18 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	uint64_t offset = addr - mem->addr;
 	int ret;
 
-	mutex_lock(&vspace->lock);
-	ret = dev_priv->vm->write(vspace, bo, addr, buf, size);
-	mutex_unlock(&vspace->lock);
+	if (mem->map) {
+		memcpy_toio(mem->map + offset, buf, size);
+		return 0;
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		ret = dev_priv->vm->write(vspace, bo, addr, buf, size);
+		mutex_unlock(&vspace->lock);
+	}
 
 	return ret;
 }
