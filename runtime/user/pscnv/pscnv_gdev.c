@@ -334,8 +334,12 @@ uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
 	uint32_t val;
+	uint64_t offset = addr - bo->vm_base;
 
-	pscnv_vm_read32(fd, vid, handle, addr, &val);
+	if (bo->map)
+		val = *(uint32_t*)(bo->map + offset);
+	else
+		pscnv_vm_read32(fd, vid, handle, addr, &val);
 
 	return val;
 }
@@ -346,8 +350,13 @@ void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 	int fd = bo->fd;
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
+	uint64_t offset = addr - bo->vm_base;
 
-	pscnv_vm_write32(fd, vid, handle, addr, val);
+	if (bo->map) {
+		*(uint32_t*)(bo->map + offset) = val;
+	}
+	else
+		pscnv_vm_write32(fd, vid, handle, addr, val);
 }
 
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
@@ -356,8 +365,14 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	int fd = bo->fd;
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
+	uint64_t offset = addr - bo->vm_base;
 
-	return pscnv_vm_read(fd, vid, handle, addr, buf, size);
+	if (bo->map) {
+		memcpy(buf, bo->map + offset, size);
+		return 0;
+	}
+	else
+		return pscnv_vm_read(fd, vid, handle, addr, buf, size);
 }
 
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
@@ -366,6 +381,12 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	int fd = bo->fd;
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
+	uint64_t offset = addr - bo->vm_base;
 
-	return pscnv_vm_write(fd, vid, handle, addr, buf, size);
+	if (bo->map) {
+		memcpy(bo->map + offset, buf, size);
+		return 0;
+	}
+	else
+		return pscnv_vm_write(fd, vid, handle, addr, buf, size);
 }
