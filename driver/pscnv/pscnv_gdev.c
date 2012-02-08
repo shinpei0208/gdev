@@ -293,10 +293,12 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	struct gdev_mem *mem;
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_bo *bo;
 	struct pscnv_mm_node *mm;
 	uint64_t raw_size = *size;
+	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
 
 	GDEV_DPRINT("Allocating memory of 0x%llx bytes\n", *size);
 
@@ -313,26 +315,38 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	/* address, size, and map. */
 	*addr = mm->start;
 	*size = bo->size;
-	if (flags & PSCNV_GEM_SYSRAM_SNOOP) {
-		if (bo->size > PAGE_SIZE)
-			*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
-		else
-			*map = kmap(bo->pages[0]);
+	*map = NULL;
+	if (flags & PSCNV_GEM_MAPPABLE) {
+		if (flags & PSCNV_GEM_SYSRAM_SNOOP) {
+			if (bo->size > PAGE_SIZE)
+				*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
+			else
+				*map = kmap(bo->pages[0]);
+		}
+		else {
+			if (dev_priv->vm->map_user(bo))
+				goto fail_map_user;
+			if (!(*map = ioremap(bar1_start + bo->map1->start, bo->size)))
+				goto fail_ioremap;
+		}
 	}
-	else
-		*map = NULL;
 
 	/* private data. */
 	mem->bo = (void *) bo;
-	GDEV_DPRINT("Allocated memory of 0x%llx bytes at 0x%llx.\n", *size, *addr);
+	GDEV_DPRINT("Allocated memory of 0x%llx bytes at 0x%llx\n", *size, *addr);
 
 	return mem;
 
+fail_ioremap:
+	GDEV_PRINT("Failed to map PCI BAR1\n");
+fail_map_user:
+	GDEV_PRINT("Failed to map host and device memory\n");
+	pscnv_vspace_unmap(vspace, mm->start);
 fail_map:
-	GDEV_PRINT("Failed to map VAS.\n");
+	GDEV_PRINT("Failed to map VAS\n");
 	pscnv_mem_free(bo);
 fail_bo:
-	GDEV_PRINT("Failed to allocate PSCNV buffer object.\n");
+	GDEV_PRINT("Failed to allocate PSCNV buffer object\n");
 	kfree(mem);
 fail_mem:
 	return NULL;
@@ -341,13 +355,20 @@ fail_mem:
 /* allocate a new device memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
+	uint32_t flags = PSCNV_GEM_VRAM_SMALL;
+
+	if (*size <= GDEV_MEM_MAPPABLE_LIMIT)
+		flags |= (PSCNV_GEM_CONTIG | PSCNV_GEM_MAPPABLE);
+
+	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_raw_mem_alloc(vas, addr, size, map, PSCNV_GEM_SYSRAM_SNOOP);
+	/* dma host memory is always mapped to user buffers. */
+	uint32_t flags = PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE;
+	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
 
 /* free the specified memory object. */
@@ -357,12 +378,23 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	struct pscnv_vspace *vspace = vas->pvas;
 	struct pscnv_bo *bo = mem->bo;
 
-	if (mem->map) {
-		if (bo->size > PAGE_SIZE)
-			vunmap(mem->map);
+	if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP) {
+		if (mem->map) {
+			if (bo->size > PAGE_SIZE)
+				vunmap(mem->map);
+			else
+				kunmap(mem->map);
+		}
 		else
-			kunmap(mem->map);
+			GDEV_PRINT("Error: host memory map is invalid\n");
 	}
+	else if (bo->flags & PSCNV_GEM_CONTIG) {
+		if (mem->map)
+			iounmap(mem->map);
+		else
+			GDEV_PRINT("Error: device memory map is invalid\n");
+	}
+
 	pscnv_vspace_unmap(vspace, mem->addr);
 	pscnv_mem_free(bo);
 	kfree(mem);
@@ -382,7 +414,7 @@ struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
 		return NULL;
 
 	if (!(bo = pscnv_mem_alloc(drm, size, PSCNV_GEM_VRAM_SMALL, 0, 0))) {
-		GDEV_PRINT("Failed to allocate PSCNV buffer object for swap memory.\n");
+		GDEV_PRINT("Failed to allocate PSCNV buffer object for swap memory\n");
 		kfree(mem);
 		return NULL;
 	}
@@ -432,7 +464,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 	/* private data. */
 	new->bo = (void *) bo;
 
-	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx.\n", *size, *addr);
+	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx\n", *size, *addr);
 
 	return new;
 

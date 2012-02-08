@@ -253,11 +253,9 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	return mem;
 }
 
-/* get host DMA buffer. */
+/* get host DMA buffer (could be memory-mapped buffer for device memory). */
 void *gdev_mem_get_buf(struct gdev_mem *mem)
 {
-	if (mem->type != GDEV_MEM_DMA)
-		return NULL;
 	return mem->map;
 }
 

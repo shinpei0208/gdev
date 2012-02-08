@@ -32,7 +32,6 @@
 #include <sys/unistd.h>
 
 #define GDEV_DEVICE_MAX_COUNT 32
-#define PSCNV_BO_FLAGS_HOST (PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE)
 
 /* query a piece of the device-specific information. */
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
@@ -199,8 +198,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	}
 
 	/* fence buffer. */
-	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_BO_FLAGS_HOST, 0, 
-						  GDEV_FENCE_BUF_SIZE, 0, &fence_bo))
+	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE, 0, GDEV_FENCE_BUF_SIZE, 0, &fence_bo))
 		goto fail_fence_alloc;
 	ctx->fence.bo = fence_bo;
 	ctx->fence.map = fence_bo->map;
@@ -208,8 +206,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.seq = 0;
 
 	/* interrupt buffer. */
-	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_GEM_VRAM_SMALL, 0, 
-						  8 /* 64 bits */, 0, &notify_bo))
+	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, PSCNV_GEM_VRAM_SMALL, 0, 8 /* 64 bits */, 0, &notify_bo))
 		goto fail_notify_alloc;
 	ctx->notify.bo = notify_bo;
 	ctx->notify.addr = notify_bo->vm_base;
@@ -239,7 +236,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static struct gdev_mem *__gdev_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
+static struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
 {
 	struct gdev_mem *mem;
 	struct pscnv_ib_chan *chan = vas->pvas;
@@ -255,7 +252,7 @@ static struct gdev_mem *__gdev_mem_alloc(struct gdev_vas *vas, uint64_t *addr, u
 	/* address, size, and map. */
 	*addr = bo->vm_base;
 	*size = bo->size;
-	if (flags & PSCNV_BO_FLAGS_HOST)
+	if (flags & PSCNV_GEM_MAPPABLE)
 		*map = bo->map;
 	else
 		*map = NULL;
@@ -275,13 +272,19 @@ fail_mem:
 /* allocate a new device memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_GEM_VRAM_SMALL);
+	uint32_t flags = PSCNV_GEM_VRAM_SMALL;
+
+	if (*size <= GDEV_MEM_MAPPABLE_LIMIT)
+		flags |= PSCNV_GEM_MAPPABLE;
+
+	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	return __gdev_mem_alloc(vas, addr, size, map, PSCNV_BO_FLAGS_HOST);
+	uint32_t flags = PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE;
+	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
 
 /* free the specified memory object. */
