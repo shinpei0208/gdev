@@ -70,8 +70,8 @@
 /**
  * memory types.
  */
-#define GDEV_MEM_DEVICE 0
-#define GDEV_MEM_DMA 1
+#define GDEV_MEM_DEVICE 0x01
+#define GDEV_MEM_DMA 0x02
 
 /**
  * some stupid distros have "memcpy" macros. we don't need it.
