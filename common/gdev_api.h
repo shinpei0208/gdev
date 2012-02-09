@@ -48,6 +48,8 @@ uint64_t gmalloc(Ghandle h, uint64_t size);
 uint64_t gfree(Ghandle h, uint64_t addr);
 void *gmalloc_dma(Ghandle h, uint64_t size);
 uint64_t gfree_dma(Ghandle h, void *buf);
+void *gmap(Ghandle h, uint64_t addr);
+int gunmap(Ghandle h, void *buf);
 int gmemcpy_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
 int gmemcpy_to_device_async(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id);
 int gmemcpy_user_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);

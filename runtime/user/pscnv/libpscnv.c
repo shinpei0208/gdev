@@ -312,3 +312,26 @@ int pscnv_vm_write(int fd, uint32_t vid, uint32_t handle, uint64_t addr, const v
 		return ret;
 	return 0;
 }
+
+int pscnv_vm_map(int fd, uint32_t vid, uint32_t handle, uint64_t *map_handle) {
+	int ret;
+	struct drm_pscnv_vm_map req;
+	req.vid = vid;
+	req.handle = handle;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_MAP, &req, sizeof(req));
+	if (ret)
+		return ret;
+	*map_handle = req.map_handle;
+	return 0;
+}
+
+int pscnv_vm_unmap(int fd, uint32_t vid, uint32_t handle) {
+	int ret;
+	struct drm_pscnv_vm_map req;
+	req.vid = vid;
+	req.handle = handle;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_VM_UNMAP, &req, sizeof(req));
+	if (ret)
+		return ret;
+	return 0;
+}

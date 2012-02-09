@@ -775,6 +775,52 @@ fail:
 }
 
 /**
+ * gmap():
+ * map device memory to host DMA memory.
+ */
+void *gmap(struct gdev_handle *h, uint64_t addr)
+{
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+	void *buf;
+	
+	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+		goto fail;
+
+	buf = gdev_mem_get_buf(mem);
+
+	/* if not mapped yet, map here. */
+	if (!buf) {
+		buf = gdev_mem_map(mem);
+	}
+
+	return buf;
+
+fail:
+	return NULL;
+}
+
+/**
+ * gunmap():
+ * unmap device memory from host DMA memory.
+ */
+int gunmap(struct gdev_handle *h, void *buf)
+{
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+	
+	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
+		goto fail;
+
+	gdev_mem_unmap(mem);
+
+	return 0;
+
+fail:
+	return -ENOENT;
+}
+
+/**
  * gmemcpy_to_device():
  * copy data from @buf to device memory at @addr.
  */

@@ -352,3 +352,66 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
 
 	return CUDA_SUCCESS;
 }
+
+/**
+ * Gdev extension: maps device memory to host memory.
+ *
+ * Parameters:
+ * dptr - Device pointer
+ * buf - Pointer to user buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemMap(CUdeviceptr dptr, void **buf)
+{
+	Ghandle handle;
+	uint64_t addr = dptr;
+	void *map;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!addr || !buf)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (!(map = gmap(handle, addr)))
+		return CUDA_ERROR_UNKNOWN;
+
+	*buf = map;
+
+	return CUDA_SUCCESS;
+}
+
+/**
+ * Gdev extension: unmaps device memory from host memory.
+ *
+ * Parameters:
+ * buf - User buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemUnmap(void *buf)
+{
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!buf)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (gunmap(handle, buf))
+		return CUDA_ERROR_UNKNOWN;
+
+	return CUDA_SUCCESS;
+}

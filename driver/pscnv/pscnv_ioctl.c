@@ -631,6 +631,71 @@ int pscnv_ioctl_vm_write(struct drm_device *dev, void *data, struct drm_file *fi
 	return ret;
 }
 
+int pscnv_ioctl_vm_map(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_pscnv_vm_map *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	int ret;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	/* map the buffer object to BAR1. */
+	ret = dev_priv->vm->map_user(bo);
+
+	pscnv_vspace_unref(vs);
+
+	/* this handle will be used by mmap(). */
+	req->map_handle = (uint64_t)req->handle << 32;
+
+	return ret;
+}
+
+int pscnv_ioctl_vm_unmap(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_pscnv_vm_map *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	if (dev_priv->vm_ok && bo->map1)
+		pscnv_vspace_unmap_node(bo->map1);
+
+	pscnv_vspace_unref(vs);
+
+	return 0;
+}
+
+
 #ifdef PSCNV_KAPI_DRM_IOCTL_DEF_DRV
 struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PSCNV_GETPARAM, pscnv_ioctl_getparam, DRM_UNLOCKED),
@@ -650,6 +715,8 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_WRITE32, pscnv_ioctl_vm_write32, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_READ, pscnv_ioctl_vm_read, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_MAP, pscnv_ioctl_vm_map, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_VM_UNMAP, pscnv_ioctl_vm_unmap, DRM_UNLOCKED),
 };
 #elif defined(PSCNV_KAPI_DRM_IOCTL_DEF)
 struct drm_ioctl_desc nouveau_ioctls[] = {
@@ -670,6 +737,8 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_WRITE32, pscnv_ioctl_vm_write32, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_READ, pscnv_ioctl_vm_read, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_MAP, pscnv_ioctl_vm_map, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_VM_UNMAP, pscnv_ioctl_vm_unmap, DRM_UNLOCKED),
 };
 #else
 #error "Unknown IOCTLDEF method."

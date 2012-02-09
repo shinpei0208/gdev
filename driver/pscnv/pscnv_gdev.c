@@ -339,6 +339,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 
 fail_ioremap:
 	GDEV_PRINT("Failed to map PCI BAR1\n");
+	pscnv_vspace_unmap_node(bo->map1);
 fail_map_user:
 	GDEV_PRINT("Failed to map host and device memory\n");
 	pscnv_vspace_unmap(vspace, mm->start);
@@ -574,3 +575,38 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 
 	return ret;
 }
+
+/* map device memory to host DMA memory. */
+void *gdev_raw_mem_map(struct gdev_mem *mem)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	struct pscnv_bo *bo = mem->bo;
+	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
+	void *map;
+
+	if (dev_priv->vm->map_user(bo))
+		goto fail_map_user;
+	if (!(map = ioremap(bar1_start + bo->map1->start, bo->size)))
+		goto fail_ioremap;
+
+	return map;
+
+fail_ioremap:
+	GDEV_PRINT("Failed to map PCI BAR1\n");
+	pscnv_vspace_unmap_node(bo->map1);
+fail_map_user:
+	GDEV_PRINT("Failed to map host and device memory\n");
+	return NULL;
+}
+
+/* unmap device memory from host DMA memory. */
+void gdev_raw_mem_unmap(struct gdev_mem *mem)
+{
+	struct pscnv_bo *bo = mem->bo;
+
+	pscnv_vspace_unmap_node(bo->map1);
+}
+

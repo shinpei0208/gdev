@@ -156,6 +156,12 @@ struct drm_pscnv_vm_rw {
 	const void *buf_wr; /* < */
 };
 
+struct drm_pscnv_vm_map {
+	uint32_t vid;         /* < */
+	uint32_t handle;      /* < */
+	uint64_t map_handle;  /* > < */
+};
+
 #define DRM_PSCNV_GETPARAM           0x00	/* get some information from the card */
 #define DRM_PSCNV_GEM_NEW            0x20	/* create a new BO */
 #define DRM_PSCNV_GEM_INFO           0x21	/* get info about a BO */
@@ -174,5 +180,7 @@ struct drm_pscnv_vm_rw {
 #define DRM_PSCNV_VM_WRITE32         0x2d	/* Write to virtual memory */
 #define DRM_PSCNV_VM_READ            0x2e	/* Read from virtual memory */
 #define DRM_PSCNV_VM_WRITE           0x2f	/* Write to virtual memory */
+#define DRM_PSCNV_VM_MAP             0x30	/* Map virtual memory */
+#define DRM_PSCNV_VM_UNMAP           0x31	/* Unmap virtual memory */
 
 #endif /* __PSCNV_DRM_H__ */
