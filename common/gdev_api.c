@@ -808,8 +808,9 @@ int gunmap(struct gdev_handle *h, void *buf)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
+	uint32_t type = GDEV_MEM_DEVICE | GDEV_MEM_DMA;
 	
-	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
+	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, type)))
 		goto fail;
 
 	gdev_mem_unmap(mem);

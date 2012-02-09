@@ -200,7 +200,7 @@ int cuda_test_madd(unsigned int n, char *path)
 			break;
 	}
 
-	//res = cuMemUnmap((void*)a_buf);
+	res = cuMemUnmap((void*)a_buf);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemUnmap (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -210,7 +210,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	//res = cuMemUnmap((void*)b_buf);
+	res = cuMemUnmap((void*)b_buf);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemUnmap (b) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -220,7 +220,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemFree (b) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	//res = cuMemUnmap((void*)c_buf);
+	res = cuMemUnmap((void*)c_buf);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemUnmap (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
