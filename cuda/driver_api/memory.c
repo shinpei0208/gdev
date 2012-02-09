@@ -364,7 +364,7 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemMap(CUdeviceptr dptr, void **buf)
+CUresult cuMemMap(void **buf, CUdeviceptr dptr)
 {
 	Ghandle handle;
 	uint64_t addr = dptr;
