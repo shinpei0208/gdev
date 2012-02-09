@@ -77,6 +77,8 @@ gdev_mem_t *gdev_mem_alloc(gdev_vas_t *vas, uint64_t size, int type);
 gdev_mem_t *gdev_mem_share(gdev_vas_t *vas, uint64_t size);
 void gdev_mem_free(gdev_mem_t *mem);
 void gdev_mem_gc(gdev_vas_t *vas);
+void *gdev_mem_map(gdev_mem_t *mem);
+void gdev_mem_unmap(gdev_mem_t *mem);
 gdev_mem_t *gdev_mem_lookup(gdev_vas_t *vas, uint64_t addr, int type);
 void *gdev_mem_get_buf(gdev_mem_t *mem);
 uint64_t gdev_mem_get_addr(gdev_mem_t *mem);

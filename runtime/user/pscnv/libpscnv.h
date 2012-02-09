@@ -49,6 +49,8 @@ int pscnv_vm_read32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32
 int pscnv_vm_write32(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint32_t val);
 int pscnv_vm_read(int fd, uint32_t vid, uint32_t handle, uint64_t addr, void *buf, uint32_t size);
 int pscnv_vm_write(int fd, uint32_t vid, uint32_t handle, uint64_t addr, const void *buf, uint32_t size);
+int pscnv_vm_map(int fd, uint32_t vid, uint32_t handle, uint64_t *map_handle);
+int pscnv_vm_unmap(int fd, uint32_t vid, uint32_t handle);
 
 #define pscnv_obj_gr_new pscnv_obj_eng_new
 

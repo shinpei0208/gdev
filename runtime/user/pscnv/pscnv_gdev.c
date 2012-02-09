@@ -390,3 +390,41 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	else
 		return pscnv_vm_write(fd, vid, handle, addr, buf, size);
 }
+
+/* map device memory to host DMA memory. */
+void *gdev_raw_mem_map(struct gdev_mem *mem)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+	uint32_t size = bo->size;
+	uint64_t map_handle;
+	void *map;
+
+	pscnv_vm_map(fd, vid, handle, &map_handle);
+
+	map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map_handle);
+	if ((void*)map == MAP_FAILED)
+		goto fail;
+
+	return map;
+
+fail:
+	pscnv_vm_unmap(fd, vid, handle);
+	return NULL;
+}
+
+/* unmap device memory from host DMA memory. */
+void gdev_raw_mem_unmap(struct gdev_mem *mem)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+	uint32_t size = bo->size;
+
+	munmap(mem->map, size);
+	pscnv_vm_unmap(fd, vid, handle);
+}
+

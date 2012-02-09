@@ -222,6 +222,18 @@ void gdev_mem_gc(struct gdev_vas *vas)
 #endif
 }
 
+/* map device memory to host DMA memory. */
+void *gdev_mem_map(struct gdev_mem *mem)
+{
+	return gdev_raw_mem_map(mem);
+}
+
+/* unmap device memory from host DMA memory. */
+void gdev_mem_unmap(struct gdev_mem *mem)
+{
+	gdev_raw_mem_unmap(mem);
+}
+
 /* look up the memory object allocated at the specified address. */
 struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 {
