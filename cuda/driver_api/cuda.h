@@ -762,7 +762,7 @@ CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int By
 CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount);
 CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream);
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
-CUresult cuMemMap(CUdeviceptr dptr, void **buf); /* Gdev extension */
+CUresult cuMemMap(void **buf, CUdeviceptr dptr); /* Gdev extension */
 CUresult cuMemUnmap(void *buf); /* Gdev extension */
 
 /* Inter-Process Communication (IPC) - Gdev extension */
