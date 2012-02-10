@@ -778,23 +778,17 @@ fail:
  * gmap():
  * map device memory to host DMA memory.
  */
-void *gmap(struct gdev_handle *h, uint64_t addr)
+void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	void *buf;
+	uint64_t offset;
 	
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 
-	buf = gdev_mem_get_buf(mem);
-
-	/* if not mapped yet, map here. */
-	if (!buf) {
-		buf = gdev_mem_map(mem);
-	}
-
-	return buf;
+	offset = addr - gdev_mem_get_addr(mem);
+	return gdev_mem_map(mem, offset, size);
 
 fail:
 	return NULL;

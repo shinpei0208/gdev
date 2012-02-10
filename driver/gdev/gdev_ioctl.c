@@ -97,6 +97,35 @@ int gdev_ioctl_gfree_dma(Ghandle handle, unsigned long arg)
 	return 0;
 }
 
+int gdev_ioctl_gmap(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_map m;
+
+	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
+		return -EFAULT;
+
+	if (!(m.buf = (uint64_t)gmap(handle, m.addr, m.size)))
+		return -ENOMEM;
+
+	if (copy_to_user((void __user *)arg, &m, sizeof(m)))
+		return -EFAULT;
+
+	return 0;
+}
+
+int gdev_ioctl_gunmap(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_map m;
+
+	if (copy_from_user(&m, (void __user *)arg, sizeof(m)))
+		return -EFAULT;
+
+	if (gunmap(handle, (void*)m.buf))
+		return -ENOENT;
+
+	return 0;
+}
+
 int gdev_ioctl_gmemcpy_to_device(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_dma dma;

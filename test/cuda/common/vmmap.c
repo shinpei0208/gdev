@@ -92,7 +92,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemAlloc (a) failed\n");
 		return -1;
 	}
-	res = cuMemMap((void**)&a_buf, a_dev);
+	res = cuMemMap((void**)&a_buf, a_dev, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemMap (a) failed\n");
 		return -1;
@@ -104,7 +104,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemAlloc (b) failed\n");
 		return -1;
 	}
-	res = cuMemMap((void**)&b_buf, b_dev);
+	res = cuMemMap((void**)&b_buf, b_dev, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemMap (b) failed\n");
 		return -1;
@@ -116,7 +116,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemAlloc (c) failed\n");
 		return -1;
 	}
-	res = cuMemMap((void**)&c_buf, c_dev);
+	res = cuMemMap((void**)&c_buf, c_dev, n*n * sizeof(unsigned int));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemMap (c) failed\n");
 		return -1;
