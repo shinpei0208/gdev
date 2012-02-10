@@ -765,6 +765,8 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
 /* Memory mapping - Gdev extension */
 CUresult cuMemMap(void **buf, CUdeviceptr dptr, unsigned int bytesize);
 CUresult cuMemUnmap(void *buf);
+/* Memory mapped address - Gdev extension */
+CUresult cuMemGetPhysAddr(unsigned long long *addr, void *p);
 
 /* Inter-Process Communication (IPC) - Gdev extension */
 CUresult cuShmGet(int *ptr, int key, size_t size, int flags);

@@ -421,3 +421,18 @@ int gdev_ioctl_gshmctl(Ghandle handle, unsigned long arg)
 	return gshmctl(handle, s.id, s.cmd, (void *)&ds);
 }
 
+int gdev_ioctl_gphysget(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_phys p;
+
+	if (copy_from_user(&p, (void __user *)arg, sizeof(p)))
+		return -EFAULT;
+
+	if (!(p.phys = gphysget(handle, (void *)p.addr)))
+		return -EINVAL;
+
+	if (copy_to_user((void __user *)arg, &p, sizeof(p)))
+		return -EFAULT;
+
+	return 0;
+}

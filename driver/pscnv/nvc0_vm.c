@@ -352,10 +352,8 @@ int nvc0_vm_map_kernel(struct pscnv_bo *bo) {
 	return pscnv_vspace_map(vme->bar3vm, bo, 0, dev_priv->ramin_size, 0, &bo->map3);
 }
 
-int nvc0_vm_read32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t *ptr)
+uint64_t nvc0_vm_phys_getaddr(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr)
 {
-	struct drm_device *dev = vs->dev;
-	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	int s = (bo->flags & PSCNV_GEM_MEMTYPE_MASK) != PSCNV_GEM_VRAM_LARGE;
 	uint32_t psh = s ? NVC0_SPAGE_SHIFT : NVC0_LPAGE_SHIFT;
 	unsigned int pde = NVC0_PDE(addr);
@@ -363,17 +361,25 @@ int nvc0_vm_read32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, 
 	uint64_t vm_block = pte << psh;
 	uint64_t offset = (addr & NVC0_VM_BLOCK_MASK) - vm_block;
 	struct nvc0_pgt *pt = nvc0_vspace_pgt(vs, pde);
+
+	return ((nv_rv32(pt->bo[s], pte * 8) >> 4) << 12) + offset;
+}
+
+int nvc0_vm_read32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t *ptr)
+{
+	struct drm_device *dev = vs->dev;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	uint32_t pmem = 0x700000;
 	uint64_t phys;
 	uint32_t val;
 
-	phys = ((nv_rv32(pt->bo[s], pte * 8) >> 4) << 12) + offset;
-
 	spin_lock(&dev_priv->pramin_lock);
+	phys = nvc0_vm_phys_getaddr(vs, bo, addr);
 	if (phys >> 16 != dev_priv->pramin_start) {
 		dev_priv->pramin_start = phys >> 16;
 		nv_wr32(dev, 0x1700, phys >> 16);
 	}
-	val = nv_rd32(dev, 0x700000 + (phys & 0xffff));
+	val = nv_rd32(dev, pmem + (phys & 0xffff));
 	spin_unlock(&dev_priv->pramin_lock);
 
 	*ptr = val;
@@ -385,23 +391,16 @@ int nvc0_vm_write32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr,
 {
 	struct drm_device *dev = vs->dev;
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
-	int s = (bo->flags & PSCNV_GEM_MEMTYPE_MASK) != PSCNV_GEM_VRAM_LARGE;
-	uint32_t psh = s ? NVC0_SPAGE_SHIFT : NVC0_LPAGE_SHIFT;
-	unsigned int pde = NVC0_PDE(addr);
-	unsigned int pte = (addr & NVC0_VM_BLOCK_MASK) >> psh;
-	uint64_t vm_block = pte << psh;
-	uint64_t offset = (addr & NVC0_VM_BLOCK_MASK) - vm_block;
-	struct nvc0_pgt *pt = nvc0_vspace_pgt(vs, pde);
+	uint32_t pmem = 0x700000;
 	uint64_t phys;
 
-	phys = ((nv_rv32(pt->bo[s], pte * 8) >> 4) << 12) + offset;
-
 	spin_lock(&dev_priv->pramin_lock);
+	phys = nvc0_vm_phys_getaddr(vs, bo, addr);
 	if ((phys >> 16) != dev_priv->pramin_start) {
 		dev_priv->pramin_start = phys >> 16;
 		nv_wr32(dev, 0x1700, phys >> 16);
 	}
-	nv_wr32(dev, 0x700000 + (phys & 0xffff), val);
+	nv_wr32(dev, pmem + (phys & 0xffff), val);
 	spin_unlock(&dev_priv->pramin_lock);
 
 	return 0;
@@ -411,40 +410,29 @@ int nvc0_vm_read(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, vo
 {
 	struct drm_device *dev = vs->dev;
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
-	int s = (bo->flags & PSCNV_GEM_MEMTYPE_MASK) != PSCNV_GEM_VRAM_LARGE;
-	uint32_t psh = s ? NVC0_SPAGE_SHIFT : NVC0_LPAGE_SHIFT;
-	unsigned int pde = NVC0_PDE(addr);
-	unsigned int pte = (addr & NVC0_VM_BLOCK_MASK) >> psh;
-	uint64_t vm_block = pte << psh;
-	uint64_t offset = (addr & NVC0_VM_BLOCK_MASK) - vm_block;
-	struct nvc0_pgt *pt = nvc0_vspace_pgt(vs, pde);
-	uint64_t phys;
+	uint32_t pmem = 0x700000;
 	uint32_t wsize;
-	int i;
+	uint64_t phys;
 
-	phys = ((nv_rv32(pt->bo[s], pte * 8) >> 4) << 12) + offset;
-
-	spin_lock(&dev_priv->pramin_lock);
 	do {
-		wsize = 0x10000;
+		spin_lock(&dev_priv->pramin_lock);
+		phys = nvc0_vm_phys_getaddr(vs, bo, addr);
+		wsize = PAGE_SIZE;
 		if (wsize > size)
 			wsize = size;
 		dev_priv->pramin_start = phys >> 16;
 		nv_wr32(dev, 0x1700, phys >> 16);
-		if (wsize > 0x1000) {
-			memcpy_fromio(buf, dev_priv->mmio + 0x700000 + (phys & 0xffff), size);
-		}
-		else {
-			for (i = 0; i < wsize / 4; i++) {
-				((uint32_t*)buf)[i] = 
-					nv_rd32(dev, 0x700000 + (phys & 0xffff) + i * 4);
-			}
-		}
+		memcpy_fromio(buf, dev_priv->mmio + pmem + (phys & 0xffff), size);
+		/*
+		 *int i;
+		 *for (i = 0; i < wsize / 4; i++)
+		 *((uint32_t*)buf)[i] = nv_rd32(dev, pmem + (phys & 0xffff) + i * 4);
+		 */
 		size -= wsize;
-		phys += wsize;
+		addr += wsize;
 		buf += wsize;
+		spin_unlock(&dev_priv->pramin_lock);
 	} while (size);
-	spin_unlock(&dev_priv->pramin_lock);
 
 	return 0;
 }
@@ -453,40 +441,29 @@ int nvc0_vm_write(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, c
 {
 	struct drm_device *dev = vs->dev;
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
-	int s = (bo->flags & PSCNV_GEM_MEMTYPE_MASK) != PSCNV_GEM_VRAM_LARGE;
-	uint32_t psh = s ? NVC0_SPAGE_SHIFT : NVC0_LPAGE_SHIFT;
-	unsigned int pde = NVC0_PDE(addr);
-	unsigned int pte = (addr & NVC0_VM_BLOCK_MASK) >> psh;
-	uint64_t vm_block = pte << psh;
-	uint64_t offset = (addr & NVC0_VM_BLOCK_MASK) - vm_block;
-	struct nvc0_pgt *pt = nvc0_vspace_pgt(vs, pde);
+	uint32_t pmem = 0x700000;
 	uint64_t phys;
 	uint32_t wsize;
-	int i;
 
-	phys = ((nv_rv32(pt->bo[s], pte * 8) >> 4) << 12) + offset;
-
-	spin_lock(&dev_priv->pramin_lock);
 	do {
-		wsize = 0x10000;
+		spin_lock(&dev_priv->pramin_lock);
+		phys = nvc0_vm_phys_getaddr(vs, bo, addr);
+		wsize = PAGE_SIZE;
 		if (wsize > size)
 			wsize = size;
 		dev_priv->pramin_start = phys >> 16;
 		nv_wr32(dev, 0x1700, phys >> 16);
-		if (wsize > 0x1000) {
-			memcpy_toio(dev_priv->mmio + 0x700000 + (phys & 0xffff), buf, wsize);
-		}
-		else {
-			for (i = 0; i < wsize / 4; i++) {
-				nv_wr32(dev, 0x700000 + (phys & 0xffff) + i * 4, 
-						((uint32_t*)buf)[i]);
-			}
-		}
+		memcpy_toio(dev_priv->mmio + pmem + (phys & 0xffff), buf, wsize);
+		/*
+		 *int i;
+		 *for (i = 0; i < wsize / 4; i++)
+		 *    nv_wr32(dev, pmem + (phys & 0xffff) + i * 4, ((uint32_t*)buf)[i]);
+		 */
 		size -= wsize;
-		phys += wsize;
+		addr += wsize;
 		buf += wsize;
+		spin_unlock(&dev_priv->pramin_lock);
 	} while (size);
-	spin_unlock(&dev_priv->pramin_lock);
 
 	return 0;
 }
@@ -509,6 +486,7 @@ nvc0_vm_init(struct drm_device *dev) {
 	vme->base.map_user = nvc0_vm_map_user;
 	vme->base.map_kernel = nvc0_vm_map_kernel;
 	vme->base.bar_flush = nv84_vm_bar_flush;
+	vme->base.phys_getaddr = nvc0_vm_phys_getaddr;
 	vme->base.read32 = nvc0_vm_read32;
 	vme->base.write32 = nvc0_vm_write32;
 	vme->base.read = nvc0_vm_read;

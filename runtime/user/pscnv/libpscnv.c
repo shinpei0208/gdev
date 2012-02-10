@@ -335,3 +335,17 @@ int pscnv_vm_unmap(int fd, uint32_t vid, uint32_t handle) {
 		return ret;
 	return 0;
 }
+
+int pscnv_phys_getaddr(int fd, uint32_t vid, uint32_t handle, uint64_t addr, uint64_t offset, uint64_t *phys) {
+	int ret;
+	struct drm_pscnv_phys_getaddr req;
+	req.vid = vid;
+	req.handle = handle;
+	req.addr = addr;
+	req.offset = offset;
+	ret = drmCommandWriteRead(fd, DRM_PSCNV_PHYS_GETADDR, &req, sizeof(req));
+	if (ret)
+		return ret;
+	*phys = req.phys;
+	return 0;
+}

@@ -34,9 +34,8 @@ int cuda_test_madd(unsigned int n, char *path)
 	CUfunction function;
 	CUmodule module;
 	CUdeviceptr a_dev, b_dev, c_dev;
-	unsigned int *a_buf;
-	unsigned int *b_buf;
-	unsigned int *c_buf;
+	unsigned int *a_buf, *b_buf, *c_buf;
+	unsigned long long int a_phys, b_phys, c_phys;
 	int block_x, block_y, grid_x, grid_y;
 	char fname[256];
 	int ret = 0;
@@ -97,6 +96,12 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemMap (a) failed\n");
 		return -1;
 	}
+	res = cuMemGetPhysAddr(&a_phys, (void*)a_buf);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemGetPhysAddress (a) failed\n");
+		return -1;
+	}
+	printf("a[]: Physical Address 0x%llx\n", a_phys);
 
 	/* b[] */
 	res = cuMemAlloc(&b_dev, n*n * sizeof(unsigned int));
@@ -109,6 +114,12 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemMap (b) failed\n");
 		return -1;
 	}
+	res = cuMemGetPhysAddr(&b_phys, (void*)b_buf);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemGetPhysAddress (b) failed\n");
+		return -1;
+	}
+	printf("b[]: Physical Address 0x%llx\n", b_phys);
 
 	/* c[] */
 	res = cuMemAlloc(&c_dev, n*n * sizeof(unsigned int));
@@ -121,6 +132,12 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuMemMap (c) failed\n");
 		return -1;
 	}
+	res = cuMemGetPhysAddr(&c_phys, (void*)c_buf);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemGetPhysAddress (c) failed\n");
+		return -1;
+	}
+	printf("c[]: Physical Address 0x%llx\n", c_phys);
 
 	/* initialize A[] & B[] */
 	for (i = 0; i < n; i++) {

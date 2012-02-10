@@ -485,6 +485,69 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 	kfree(mem);
 }
 
+/* map device memory to host DMA memory. */
+void *gdev_raw_mem_map(struct gdev_mem *mem)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	struct pscnv_bo *bo = mem->bo;
+	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
+	void *map;
+
+	if (dev_priv->vm->map_user(bo))
+		goto fail_map_user;
+	if (!(map = ioremap(bar1_start + bo->map1->start, bo->size)))
+		goto fail_ioremap;
+
+	bo->flags |= PSCNV_GEM_MAPPABLE;
+
+	return map;
+
+fail_ioremap:
+	GDEV_PRINT("Failed to map PCI BAR1\n");
+	pscnv_vspace_unmap_node(bo->map1);
+fail_map_user:
+	GDEV_PRINT("Failed to map host and device memory\n");
+
+	return NULL;
+}
+
+/* unmap device memory from host DMA memory. */
+void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
+{
+	struct pscnv_bo *bo = mem->bo;
+
+	iounmap(map);
+	pscnv_vspace_unmap_node(bo->map1);
+	bo->flags &= ~PSCNV_GEM_MAPPABLE;
+}
+
+/* get physical bus address. */
+uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
+{
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	struct pscnv_vspace *vspace = vas->pvas;
+	struct pscnv_bo *bo = mem->bo;
+	int page = offset / PAGE_SIZE;
+	uint32_t x = offset - page * PAGE_SIZE;
+	uint32_t flags = bo->flags;
+
+	if (flags & PSCNV_GEM_MAPPABLE) {
+		if (flags & PSCNV_GEM_SYSRAM_SNOOP)
+			return bo->dmapages[page] + x;
+		else
+			return pci_resource_start(drm->pdev, 1) + bo->map1->start + x;
+	}
+	else {
+		return dev_priv->vm->phys_getaddr(vspace, bo, mem->addr + offset);
+	}
+}
+
 uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 {
 	struct gdev_vas *vas = mem->vas;
@@ -537,19 +600,17 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
-	int ret;
 
 	if (mem->map) {
 		memcpy_fromio(buf, mem->map + offset, size);
-		return 0;
 	}
 	else {
 		mutex_lock(&vspace->lock);
-		ret = dev_priv->vm->read(vspace, bo, addr, buf, size);
+		dev_priv->vm->read(vspace, bo, addr, buf, size);
 		mutex_unlock(&vspace->lock);
 	}
 		
-	return ret;
+	return 0;
 }
 
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
@@ -561,53 +622,15 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
-	int ret;
 
 	if (mem->map) {
 		memcpy_toio(mem->map + offset, buf, size);
-		return 0;
 	}
 	else {
 		mutex_lock(&vspace->lock);
-		ret = dev_priv->vm->write(vspace, bo, addr, buf, size);
+		dev_priv->vm->write(vspace, bo, addr, buf, size);
 		mutex_unlock(&vspace->lock);
 	}
 
-	return ret;
-}
-
-/* map device memory to host DMA memory. */
-void *gdev_raw_mem_map(struct gdev_mem *mem)
-{
-	struct gdev_vas *vas = mem->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
-	struct pscnv_bo *bo = mem->bo;
-	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
-	void *map;
-
-	if (dev_priv->vm->map_user(bo))
-		goto fail_map_user;
-	if (!(map = ioremap(bar1_start + bo->map1->start, bo->size)))
-		goto fail_ioremap;
-
-	return map;
-
-fail_ioremap:
-	GDEV_PRINT("Failed to map PCI BAR1\n");
-	pscnv_vspace_unmap_node(bo->map1);
-fail_map_user:
-	GDEV_PRINT("Failed to map host and device memory\n");
-
-	return NULL;
-}
-
-/* unmap device memory from host DMA memory. */
-void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
-{
-	struct pscnv_bo *bo = mem->bo;
-
-	iounmap(map);
-	pscnv_vspace_unmap_node(bo->map1);
+	return 0;
 }

@@ -402,16 +402,18 @@ void *gdev_raw_mem_map(struct gdev_mem *mem)
 	uint64_t map_handle;
 	void *map;
 
-	pscnv_vm_map(fd, vid, handle, &map_handle);
+	if (pscnv_vm_map(fd, vid, handle, &map_handle))
+		goto fail_vm_map;
 
 	map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map_handle);
 	if (map == MAP_FAILED)
-		goto fail;
+		goto fail_mmap;
 
 	return map;
 
-fail:
+fail_mmap:
 	pscnv_vm_unmap(fd, vid, handle);
+fail_vm_map:
 	return NULL;
 }
 
@@ -428,3 +430,18 @@ void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 	pscnv_vm_unmap(fd, vid, handle);
 }
 
+/* get physical bus address. */
+uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
+{
+	struct pscnv_ib_bo *bo = mem->bo;
+	int fd = bo->fd;
+	int vid = bo->vid;
+	uint32_t handle = bo->handle;
+	uint64_t addr = mem->addr;
+	uint64_t phys;
+
+	if (pscnv_phys_getaddr(fd, vid, handle, addr, offset, &phys))
+		return 0;
+
+	return phys;
+}

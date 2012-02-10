@@ -36,9 +36,9 @@ int gdev_ioctl_gmalloc(Ghandle h, unsigned long arg);
 int gdev_ioctl_gfree(Ghandle h, unsigned long arg);
 int gdev_ioctl_gmalloc_dma(Ghandle h, unsigned long arg);
 int gdev_ioctl_gfree_dma(Ghandle h, unsigned long arg);
-int gdev_ioctl_gmap(Ghandle handle, unsigned long arg);
+int gdev_ioctl_gmap(Ghandle h, unsigned long arg);
+int gdev_ioctl_gunmap(Ghandle h, unsigned long arg);
 int gdev_ioctl_gmemcpy_to_device(Ghandle h, unsigned long arg);
-int gdev_ioctl_gunmap(Ghandle handle, unsigned long arg);
 int gdev_ioctl_gmemcpy_to_device_async(Ghandle h, unsigned long arg);
 int gdev_ioctl_gmemcpy_from_device(Ghandle h, unsigned long arg);
 int gdev_ioctl_gmemcpy_from_device_async(Ghandle h, unsigned long arg);
@@ -52,5 +52,6 @@ int gdev_ioctl_gshmget(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmat(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmdt(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmctl(Ghandle h, unsigned long arg);
+int gdev_ioctl_gphysget(Ghandle h, unsigned long arg);
 
 #endif

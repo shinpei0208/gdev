@@ -415,3 +415,34 @@ CUresult cuMemUnmap(void *buf)
 
 	return CUDA_SUCCESS;
 }
+
+/**
+ * Gdev extension: returns physical bus address associated to user buffer.
+ * Note that the address is contiguous only within the page boundary.
+ *
+ * Parameters:
+ * addr - Physical bus address obtained
+ * p - Pointer to user buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemGetPhysAddr(unsigned long long *addr, void *p)
+{
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!addr || !p)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+
+	if (!(*addr = gphysget(handle, p)))
+		return CUDA_ERROR_UNKNOWN;
+
+	return CUDA_SUCCESS;
+}
