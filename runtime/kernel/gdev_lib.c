@@ -40,7 +40,7 @@
 struct gdev_map_bo {
 	uint64_t addr;
 	uint32_t size;
-	void *map;
+	void *buf;
 	struct gdev_list list_entry;
 };
 
@@ -101,16 +101,17 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 
 void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 {
-	void *map;
+	void *buf;
 	struct gdev_map_bo *bo;
 	struct gdev_ioctl_mem mem;
 	int fd = h->fd;
 
+	mem.addr = 0; /* will be set via ioctl() */
 	mem.size = size;
 	if (ioctl(fd, GDEV_IOCTL_GMALLOC_DMA, &mem))
 		goto fail_gmalloc_dma;
-	map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mem.addr);
-	if (map == MAP_FAILED)
+	buf = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mem.addr);
+	if (buf == MAP_FAILED)
 		goto fail_map;
 
 	bo = (struct gdev_map_bo*) malloc(sizeof(*bo));
@@ -119,10 +120,10 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	gdev_list_init(&bo->list_entry, bo);
 	gdev_list_add(&bo->list_entry, &h->map_bo_list);
 	bo->addr = mem.addr;
-	bo->size = mem.size;
-	bo->map = map;
+	bo->size = size; /* could be different from mem.size */
+	bo->buf = buf;
 
-	return map;
+	return buf;
 
 fail_malloc:
 	munmap(map, size);
@@ -139,19 +140,81 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 	int fd = h->fd;
 
 	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		if (bo && (bo->map == buf)) {
+		if (bo && (bo->buf == buf)) {
 			goto free;
 		}
 	}
 	return 0;
 
 free:
-	munmap(bo->map, bo->size);
+	gdev_list_del(&bo->list_entry);
+	munmap(buf, bo->size);
 	mem.addr = bo->addr;
+
 	free(bo);
 	ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
 
 	return mem.size;
+}
+
+void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
+{
+	struct gdev_ioctl_map map;
+	struct gdev_map_bo *bo;
+	void *buf;
+	int fd = h->fd;
+
+	map.addr = addr;
+	map.size = size;
+	map.buf = 0; /* will be set via ioctl() */
+	if (ioctl(fd, GDEV_IOCTL_GMAP, &mem))
+		goto fail_gmap;
+
+	buf = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, addr);
+	if (buf == MAP_FAILED)
+		goto fail_map;
+
+	bo = (struct gdev_map_bo*) malloc(sizeof(*bo));
+	if (!bo)
+		goto fail_malloc;
+	gdev_list_init(&bo->list_entry, bo);
+	gdev_list_add(&bo->list_entry, &h->map_bo_list);
+	bo->addr = map.buf; /* save buffer address but not device address  */
+	bo->size = size;
+	bo->buf = buf;
+
+	return buf;
+
+fail_malloc:
+	munmap(buf, size);
+fail_map:
+	ioctl(fd, GDEV_IOCTL_GUNMAP, &map);
+fail_gmap:
+	return NULL;
+}
+
+int gunmap(struct gdev_handle *h, void *buf)
+{
+	struct gdev_map_bo *bo;
+	struct gdev_ioctl_map map;
+	int fd = h->fd;
+
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
+		if (bo && (bo->buf == buf)) {
+			goto unmap;
+		}
+	}
+	return -ENOENT;
+
+unmap:
+	gdev_list_del(&bo->list_entry);
+	munmap(buf, bo->size);
+	map.addr = 0; /* unused */
+	map.size = 0; /* unused */
+	map.buf = bo->addr; /* bo->addr holds kernel-space buffer pointer */
+	free(bo);
+
+	return ioctl(fd, GDEV_IOCTL_GUNMAP, &map);
 }
 
 static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, int ioctl_cmd)
@@ -161,7 +224,7 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	int fd = h->fd;
 
 	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		if (bo && (bo->map == src_buf))
+		if (bo && (bo->buf == src_buf))
 			break;
 	}
 	
@@ -193,7 +256,7 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 	int fd = h->fd;
 
 	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		if (bo && (bo->map == dst_buf))
+		if (bo && (bo->buf == dst_buf))
 			break;
 	}
 	

@@ -92,6 +92,10 @@ static int gdev_ioctl
 		return gdev_ioctl_gmalloc_dma(handle, arg);
 	case GDEV_IOCTL_GFREE_DMA:
 		return gdev_ioctl_gfree_dma(handle, arg);
+	case GDEV_IOCTL_GMAP:
+		return gdev_ioctl_gmap(handle, arg);
+	case GDEV_IOCTL_GUNMAP:
+		return gdev_ioctl_gunmap(handle, arg);
 	case GDEV_IOCTL_GMEMCPY_TO_DEVICE:
 		return gdev_ioctl_gmemcpy_to_device(handle, arg);
 	case GDEV_IOCTL_GMEMCPY_TO_DEVICE_ASYNC:
@@ -153,10 +157,9 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 		/* loop over all pages, map it page individually */
 		while (size > 0) {
 			pfn = vmalloc_to_pfn(vmalloc_area_ptr);
-			if ((ret = remap_pfn_range(vma, start, pfn, PAGE_SIZE,
-									   PAGE_SHARED)) < 0) {
+			ret = remap_pfn_range(vma, start, pfn, PAGE_SIZE, PAGE_SHARED);
+			if (ret < 0)
 				return ret;
-			}
 			start += PAGE_SIZE;
 			vmalloc_area_ptr += PAGE_SIZE;
 			size -= PAGE_SIZE;
@@ -165,8 +168,8 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 		return 0;
 	}
 	else {
-		return remap_pfn_range(vma, start, virt_to_phys(buf) >> PAGE_SHIFT,
-							   size, PAGE_SHARED);
+		unsigned long pfn = virt_to_phys(buf) >> PAGE_SHIFT;
+		return remap_pfn_range(vma, start, pfn, size, PAGE_SHARED);
 	}
 }
 

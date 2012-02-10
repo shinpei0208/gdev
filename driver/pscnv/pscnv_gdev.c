@@ -599,14 +599,15 @@ fail_ioremap:
 	pscnv_vspace_unmap_node(bo->map1);
 fail_map_user:
 	GDEV_PRINT("Failed to map host and device memory\n");
+
 	return NULL;
 }
 
 /* unmap device memory from host DMA memory. */
-void gdev_raw_mem_unmap(struct gdev_mem *mem)
+void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 {
 	struct pscnv_bo *bo = mem->bo;
 
+	iounmap(map);
 	pscnv_vspace_unmap_node(bo->map1);
 }
-

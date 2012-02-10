@@ -40,7 +40,8 @@ void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t a
 	mem->swap_mem = NULL;
 	mem->swap_buf = NULL;
 	mem->shm = NULL;
-
+	mem->map_users = 0;
+	
 	gdev_list_init(&mem->list_entry_heap, (void *) mem);
 	gdev_list_init(&mem->list_entry_shm, (void *) mem);
 }
@@ -223,16 +224,30 @@ void gdev_mem_gc(struct gdev_vas *vas)
 }
 
 /* map device memory to host DMA memory. */
-void *gdev_mem_map(struct gdev_mem *mem)
+void *gdev_mem_map(struct gdev_mem *mem, uint64_t offset, uint64_t size)
 {
-	mem->map = gdev_raw_mem_map(mem);
-	return mem->map;
+	if (offset + size > mem->size)
+		return NULL;
+
+	/* @size is not really used here... */
+	if (mem->map_users == 0) {
+		mem->map = gdev_raw_mem_map(mem);
+		if (!mem->map)
+			return NULL;
+	}
+
+	mem->map_users++;
+	return mem->map + offset;
 }
 
 /* unmap device memory from host DMA memory. */
 void gdev_mem_unmap(struct gdev_mem *mem)
 {
-	gdev_raw_mem_unmap(mem);
+	mem->map_users--;
+	if (mem->map_users == 0) {
+		gdev_raw_mem_unmap(mem, mem->map);
+		mem->map = NULL;
+	}
 }
 
 /* look up the memory object allocated at the specified address. */

@@ -398,14 +398,14 @@ void *gdev_raw_mem_map(struct gdev_mem *mem)
 	int fd = bo->fd;
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
-	uint32_t size = bo->size;
+	uint64_t size = bo->size;
 	uint64_t map_handle;
 	void *map;
 
 	pscnv_vm_map(fd, vid, handle, &map_handle);
 
 	map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map_handle);
-	if ((void*)map == MAP_FAILED)
+	if (map == MAP_FAILED)
 		goto fail;
 
 	return map;
@@ -416,15 +416,15 @@ fail:
 }
 
 /* unmap device memory from host DMA memory. */
-void gdev_raw_mem_unmap(struct gdev_mem *mem)
+void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 {
 	struct pscnv_ib_bo *bo = mem->bo;
 	int fd = bo->fd;
 	int vid = bo->vid;
 	uint32_t handle = bo->handle;
-	uint32_t size = bo->size;
+	uint64_t size = bo->size;
 
-	munmap(mem->map, size);
+	munmap(map, size);
 	pscnv_vm_unmap(fd, vid, handle);
 }
 
