@@ -126,7 +126,7 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	return buf;
 
 fail_malloc:
-	munmap(map, size);
+	munmap(buf, size);
 fail_map:
 	ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
 fail_gmalloc_dma:
@@ -167,10 +167,10 @@ void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
 	map.addr = addr;
 	map.size = size;
 	map.buf = 0; /* will be set via ioctl() */
-	if (ioctl(fd, GDEV_IOCTL_GMAP, &mem))
+	if (ioctl(fd, GDEV_IOCTL_GMAP, &map))
 		goto fail_gmap;
 
-	buf = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, addr);
+	buf = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map.buf);
 	if (buf == MAP_FAILED)
 		goto fail_map;
 
