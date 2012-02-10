@@ -656,6 +656,7 @@ int pscnv_ioctl_vm_map(struct drm_device *dev, void *data, struct drm_file *file
 
 	/* map the buffer object to BAR1. */
 	ret = dev_priv->vm->map_user(bo);
+	bo->flags |= PSCNV_GEM_MAPPABLE;
 
 	pscnv_vspace_unref(vs);
 
@@ -689,12 +690,54 @@ int pscnv_ioctl_vm_unmap(struct drm_device *dev, void *data, struct drm_file *fi
 
 	if (dev_priv->vm_ok && bo->map1)
 		pscnv_vspace_unmap_node(bo->map1);
+	bo->flags &= ~PSCNV_GEM_MAPPABLE;
 
 	pscnv_vspace_unref(vs);
 
 	return 0;
 }
 
+int pscnv_ioctl_phys_getaddr(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_pscnv_phys_getaddr *req = data;
+	struct drm_nouveau_private *dev_priv = dev->dev_private;
+	struct drm_gem_object *obj;
+	struct pscnv_bo *bo;
+	struct pscnv_vspace *vs;
+	int page;
+	uint32_t x;
+
+	NOUVEAU_CHECK_INITIALISED_WITH_RETURN;
+
+	vs = pscnv_get_vspace(dev, file_priv, req->vid);
+	if (!vs)
+		return -ENOENT;
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		pscnv_vspace_unref(vs);
+		return -EBADF;
+	}
+
+	bo = obj->driver_private;
+
+	page = req->offset / PAGE_SIZE;
+	x = req->offset - page * PAGE_SIZE;
+
+	if (bo->flags & PSCNV_GEM_MAPPABLE) {
+		if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP)
+			req->phys = bo->dmapages[page] + x;
+		else
+			req->phys = pci_resource_start(dev->pdev, 1) + bo->map1->start + x;
+	}
+	else {
+		req->phys = dev_priv->vm->phys_getaddr(vs, bo, req->addr + req->offset);
+	}
+
+	pscnv_vspace_unref(vs);
+
+	return 0;
+}
 
 #ifdef PSCNV_KAPI_DRM_IOCTL_DEF_DRV
 struct drm_ioctl_desc nouveau_ioctls[] = {
@@ -717,6 +760,7 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_MAP, pscnv_ioctl_vm_map, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(PSCNV_VM_UNMAP, pscnv_ioctl_vm_unmap, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PSCNV_PHYS_GETADDR, pscnv_ioctl_phys_getaddr, DRM_UNLOCKED),
 };
 #elif defined(PSCNV_KAPI_DRM_IOCTL_DEF)
 struct drm_ioctl_desc nouveau_ioctls[] = {
@@ -739,6 +783,7 @@ struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_WRITE, pscnv_ioctl_vm_write, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_MAP, pscnv_ioctl_vm_map, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_PSCNV_VM_UNMAP, pscnv_ioctl_vm_unmap, DRM_UNLOCKED),
+	DRM_IOCTL_DEF(DRM_PSCNV_PHYS_GETADDR, pscnv_ioctl_phys_getaddr, DRM_UNLOCKED),
 };
 #else
 #error "Unknown IOCTLDEF method."

@@ -32,8 +32,8 @@
 void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type)
 {
 	mem->vas = vas;
-	mem->addr = addr;
 	mem->size = size;
+	mem->addr = addr;
 	mem->map = map;
 	mem->type = type;
 	mem->evicted = 0;
@@ -291,20 +291,26 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 }
 
 /* get host DMA buffer (could be memory-mapped buffer for device memory). */
-void *gdev_mem_get_buf(struct gdev_mem *mem)
+void *gdev_mem_getbuf(struct gdev_mem *mem)
 {
 	return mem->map;
 }
 
 /* get virtual memory address. */
-uint64_t gdev_mem_get_addr(struct gdev_mem *mem)
+uint64_t gdev_mem_getaddr(struct gdev_mem *mem)
 {
 	return mem->addr;
 }
 
 /* get allocated memory size. */
-uint64_t gdev_mem_get_size(struct gdev_mem *mem)
+uint64_t gdev_mem_getsize(struct gdev_mem *mem)
 {
 	return mem->size;
+}
+
+/* get physical bus address. */
+uint64_t gdev_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
+{
+	return gdev_raw_mem_phys_getaddr(mem, offset);
 }
 

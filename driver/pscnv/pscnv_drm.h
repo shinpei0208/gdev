@@ -164,6 +164,14 @@ struct drm_pscnv_vm_map {
 	uint64_t map_handle; /* > < */
 };
 
+struct drm_pscnv_phys_getaddr {
+	uint32_t vid;		 /* < */
+	uint32_t handle;	 /* < */
+	uint64_t addr;       /* < */
+	uint32_t offset;     /* < */
+	uint64_t phys;       /* > */
+};
+
 #define DRM_PSCNV_GETPARAM           0x00	/* get some information from the card */
 #define DRM_PSCNV_GEM_NEW            0x20	/* create a new BO */
 #define DRM_PSCNV_GEM_INFO           0x21	/* get info about a BO */
@@ -184,6 +192,7 @@ struct drm_pscnv_vm_map {
 #define DRM_PSCNV_VM_WRITE           0x2f	/* Write to virtual memory */
 #define DRM_PSCNV_VM_MAP             0x30	/* Map virtual memory */
 #define DRM_PSCNV_VM_UNMAP           0x31	/* Unmap virtual memory */
+#define DRM_PSCNV_PHYS_GETADDR       0x32	/* Get physical address */
 
 #define DRM_IOCTL_PSCNV_GETPARAM           DRM_IOWR(DRM_COMMAND_BASE + DRM_PSCNV_GETPARAM, struct drm_pscnv_getparam)
 #define DRM_IOCTL_PSCNV_GEM_NEW            DRM_IOWR(DRM_COMMAND_BASE + DRM_PSCNV_GEM_NEW, struct drm_pscnv_gem_info)
@@ -205,5 +214,6 @@ struct drm_pscnv_vm_map {
 #define DRM_IOCTL_PSCNV_VM_WRITE           DRM_IOW(DRM_COMMAND_BASE + DRM_PSCNV_VM_WRITE, struct drm_pscnv_vm_rw)
 #define DRM_IOCTL_PSCNV_VM_MAP             DRM_IOW(DRM_COMMAND_BASE + DRM_PSCNV_VM_MAP, struct drm_pscnv_vm_map)
 #define DRM_IOCTL_PSCNV_VM_UNMAP           DRM_IOW(DRM_COMMAND_BASE + DRM_PSCNV_VM_UNMAP, struct drm_pscnv_vm_map)
+#define DRM_IOCTL_PSCNV_PHYS_GETADDR       DRM_IOW(DRM_COMMAND_BASE + DRM_PSCNV_PHYS_GETADDR, struct drm_pscnv_phys_getaddr)
 
 #endif /* __PSCNV_DRM_H__ */

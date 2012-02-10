@@ -183,8 +183,8 @@ struct gdev_mem {
 	struct gdev_mem *swap_mem; /* device memory for temporal swap */
 	void *swap_buf; /* host buffer for swap */
 	int evicted; /* 1 if evicted, 0 otherwise */
-	uint64_t addr; /* virtual memory address */
 	uint64_t size; /* memory size */
+	uint64_t addr; /* virtual memory address */
 	int type; /* device or host dma? */
 	void *map; /* memory-mapped buffer */
 	int map_users; /* # of users referencing the map */
@@ -235,6 +235,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 void gdev_raw_mem_unshare(struct gdev_mem *mem);
 void *gdev_raw_mem_map(struct gdev_mem *mem);
 void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map);
+uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset);
 uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr);
 void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val);
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size);

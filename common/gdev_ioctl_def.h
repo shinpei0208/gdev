@@ -52,6 +52,7 @@
 #define GDEV_IOCTL_GSHMAT 0x117
 #define GDEV_IOCTL_GSHMDT 0x118
 #define GDEV_IOCTL_GSHMCTL 0x119
+#define GDEV_IOCTL_GPHYSGET 0x120
 
 struct gdev_ioctl_mem {
 	uint64_t addr;
@@ -101,6 +102,11 @@ struct gdev_ioctl_map {
 	uint64_t addr;
 	uint64_t buf;
 	uint64_t size;
+};
+
+struct gdev_ioctl_phys {
+	uint64_t addr;
+	uint64_t phys;
 };
 
 #endif

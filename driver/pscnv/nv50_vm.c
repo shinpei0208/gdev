@@ -231,6 +231,13 @@ nv84_vm_bar_flush(struct drm_device *dev) {
 	}
 }
 
+uint64_t nv50_vm_phys_getaddr(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr)
+{
+	struct drm_device *dev = vs->dev;
+	NV_ERROR(dev, "nv50_vm_phys_getaddr(): Not supported yet!\n");
+	return 0;
+}
+
 int nv50_vm_read32(struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t *ptr)
 {
 	struct drm_device *dev = vs->dev;
@@ -280,6 +287,7 @@ nv50_vm_init(struct drm_device *dev) {
 		vme->base.bar_flush = nv50_vm_bar_flush;
 	else
 		vme->base.bar_flush = nv84_vm_bar_flush;
+	vme->base.phys_getaddr = nv50_vm_phys_getaddr;
 	vme->base.read32 = nv50_vm_read32;
 	vme->base.write32 = nv50_vm_write32;
 	vme->base.read = nv50_vm_read;

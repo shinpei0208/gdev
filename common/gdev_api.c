@@ -120,8 +120,8 @@ static int __gmemcpy_to_device_p(gdev_ctx_t *ctx, uint64_t dst_addr, const void 
 	int i;
 
 	for (i = 0; i < p_count; i++) {
-		dma_addr[i] = gdev_mem_get_addr(bmem[i]);
-		dma_buf[i] = gdev_mem_get_buf(bmem[i]);
+		dma_addr[i] = gdev_mem_getaddr(bmem[i]);
+		dma_buf[i] = gdev_mem_getbuf(bmem[i]);
 		fence[i] = 0;
 	}
 
@@ -165,8 +165,8 @@ static int __gmemcpy_to_device_np(gdev_ctx_t *ctx, uint64_t dst_addr, const void
 	uint32_t dma_size;
 	int ret = 0;
 
-	dma_addr[0] = gdev_mem_get_addr(bmem[0]);
-	dma_buf[0] = gdev_mem_get_buf(bmem[0]);
+	dma_addr[0] = gdev_mem_getaddr(bmem[0]);
+	dma_buf[0] = gdev_mem_getbuf(bmem[0]);
 
 	/* copy data by the chunk size. */
 	offset = 0;
@@ -302,8 +302,8 @@ static int __gmemcpy_from_device_p(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_
 	int i;
 
 	for (i = 0; i < p_count; i++) {
-		dma_addr[i] = gdev_mem_get_addr(bmem[i]);
-		dma_buf[i] = gdev_mem_get_buf(bmem[i]);
+		dma_addr[i] = gdev_mem_getaddr(bmem[i]);
+		dma_buf[i] = gdev_mem_getbuf(bmem[i]);
 		fence[i] = 0;
 	}
 
@@ -354,8 +354,8 @@ static int __gmemcpy_from_device_np(gdev_ctx_t *ctx, void *dst_buf, uint64_t src
 	uint32_t dma_size;
 	int ret = 0;
 
-	dma_addr[0] = gdev_mem_get_addr(bmem[0]);
-	dma_buf[0] = gdev_mem_get_buf(bmem[0]);
+	dma_addr[0] = gdev_mem_getaddr(bmem[0]);
+	dma_buf[0] = gdev_mem_getbuf(bmem[0]);
 
 	/* copy data by the chunk size. */
 	offset = 0;
@@ -694,9 +694,9 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	}
 
 	/* size could have been rounded up. */
-	gdev->mem_used += gdev_mem_get_size(mem); 
+	gdev->mem_used += gdev_mem_getsize(mem); 
 
-	return gdev_mem_get_addr(mem);
+	return gdev_mem_getaddr(mem);
 
 fail:
 	return 0;
@@ -715,7 +715,7 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
-	size = gdev_mem_get_size(mem);
+	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
 
 	gdev->mem_used -= size;
@@ -742,9 +742,9 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 		goto fail;
 
 	/* size could have been rounded up. */
-	gdev->dma_mem_used += gdev_mem_get_size(mem); 
+	gdev->dma_mem_used += gdev_mem_getsize(mem); 
 
-	return gdev_mem_get_buf(mem);
+	return gdev_mem_getbuf(mem);
 
 fail:
 	return 0;
@@ -763,7 +763,7 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 
 	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
 		goto fail;
-	size = gdev_mem_get_size(mem);
+	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
 
 	gdev->dma_mem_used -= size;
@@ -787,7 +787,7 @@ void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
 	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 
-	offset = addr - gdev_mem_get_addr(mem);
+	offset = addr - gdev_mem_getaddr(mem);
 	return gdev_mem_map(mem, offset, size);
 
 fail:
@@ -1057,11 +1057,11 @@ uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags)
 	gdev_mutex_lock(&gdev->shm_mutex);
 	if (!(owner = gdev_shm_lookup(gdev, id)))
 		goto fail;
-	if (!(new = gdev_shm_attach(vas, owner, gdev_mem_get_size(owner))))
+	if (!(new = gdev_shm_attach(vas, owner, gdev_mem_getsize(owner))))
 		goto fail;
 	gdev_mutex_unlock(&gdev->shm_mutex);
 
-	return gdev_mem_get_addr(new);
+	return gdev_mem_getaddr(new);
 
 fail:
 	gdev_mutex_unlock(&gdev->shm_mutex);
@@ -1121,4 +1121,33 @@ int gshmctl(Ghandle h, int id, int cmd, void *buf)
 fail:
 	gdev_mutex_unlock(&gdev->shm_mutex);
 	return ret;
+}
+
+/**
+ * gphysget():
+ * get the physical (PCI) bus address associated with buffer pointer @p
+ */
+uint64_t gphysget(Ghandle h, void *p)
+{
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+	uint32_t type = GDEV_MEM_DMA;
+	uint64_t offset;
+	
+	mem = gdev_mem_lookup(vas, (uint64_t)p, type);
+	if (mem)
+		offset = (uint64_t)p - gdev_mem_getaddr(mem);
+	else {
+		type |= GDEV_MEM_DEVICE;
+		mem = gdev_mem_lookup(vas, (uint64_t)p, type);
+		if (mem)
+			offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
+		else
+			goto fail;
+	}
+
+	return gdev_mem_phys_getaddr(mem, offset);
+	
+fail:
+	return 0;
 }
