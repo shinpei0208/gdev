@@ -170,7 +170,11 @@ static int gdev_mmap(struct file *filp, struct vm_area_struct *vma)
 		return 0;
 	}
 	else {
-		unsigned long pfn = virt_to_phys(buf) >> PAGE_SHIFT;
+		unsigned long pfn;
+		if (virt_addr_valid(buf))
+			pfn = virt_to_phys(buf) >> PAGE_SHIFT;
+		else
+			pfn = vmalloc_to_pfn(buf);
 		return remap_pfn_range(vma, start, pfn, size, PAGE_SHARED);
 	}
 }
