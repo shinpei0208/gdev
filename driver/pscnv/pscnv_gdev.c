@@ -155,17 +155,14 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 
 	/* FIFO indirect buffer setup. */
 	ctx->fifo.ib_order = 9; /* it's hardcoded. */
-	ib_bo = pscnv_mem_alloc(drm, 8 << ctx->fifo.ib_order, 
-							PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
+	ib_bo = pscnv_mem_alloc(drm, 8 << ctx->fifo.ib_order, PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
 	if (!ib_bo) {
 		goto fail_ib;
 	}
-	ret = pscnv_vspace_map(vspace, ib_bo, GDEV_VAS_USER_START, 
-						   GDEV_VAS_USER_END, 0, &ib_mm);
+	ret = pscnv_vspace_map(vspace, ib_bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, &ib_mm);
 	if (ret)
 		goto fail_ibmap;
-	ctx->fifo.ib_map = vmap(ib_bo->pages, ib_bo->size >> PAGE_SHIFT, 0, 
-							PAGE_KERNEL);
+	ctx->fifo.ib_map = vmap(ib_bo->pages, ib_bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
 	ctx->fifo.ib_bo = ib_bo;
 	ctx->fifo.ib_base = ib_mm->start;
 	ctx->fifo.ib_mask = (1 << ctx->fifo.ib_order) - 1;
@@ -308,8 +305,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	if (!(bo = pscnv_mem_alloc(drm, raw_size, flags, 0, 0)))
 		goto fail_bo;
 
-	if (pscnv_vspace_map(vspace, bo, GDEV_VAS_USER_START, 
-						 GDEV_VAS_USER_END, 0, &mm))
+	if (pscnv_vspace_map(vspace, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, &mm))
 		goto fail_map;
 
 	/* address, size, and map. */

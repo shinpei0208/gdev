@@ -230,7 +230,7 @@ void *gdev_mem_map(struct gdev_mem *mem, uint64_t offset, uint64_t size)
 		return NULL;
 
 	/* @size is not really used here... */
-	if (mem->map_users == 0) {
+	if (mem->map_users == 0 && mem->size > GDEV_MEM_MAPPABLE_LIMIT) {
 		mem->map = gdev_raw_mem_map(mem);
 		if (!mem->map)
 			return NULL;
@@ -244,7 +244,7 @@ void *gdev_mem_map(struct gdev_mem *mem, uint64_t offset, uint64_t size)
 void gdev_mem_unmap(struct gdev_mem *mem)
 {
 	mem->map_users--;
-	if (mem->map_users == 0) {
+	if (mem->map_users == 0 && mem->size > GDEV_MEM_MAPPABLE_LIMIT) {
 		gdev_raw_mem_unmap(mem, mem->map);
 		mem->map = NULL;
 	}

@@ -139,6 +139,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	}
 	printf("c[]: Physical Address 0x%llx\n", c_phys);
 
+#if 1
 	/* initialize A[] & B[] */
 	for (i = 0; i < n; i++) {
 		for(j = 0; j < n; j++) {
@@ -147,6 +148,7 @@ int cuda_test_madd(unsigned int n, char *path)
 			b_buf[idx] = i + 1;
 		}
 	}
+#endif
 
 	/* set kernel parameters */
 	res = cuParamSeti(function, 0, a_dev);	
@@ -198,6 +200,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	}
 	cuCtxSynchronize();
 
+#if 0
 	/* check the results */
 	i = j = idx = 0;
 	while (i < n) {
@@ -216,6 +219,7 @@ int cuda_test_madd(unsigned int n, char *path)
 		if (ret)
 			break;
 	}
+#endif
 
 	res = cuMemUnmap((void*)a_buf);
 	if (res != CUDA_SUCCESS) {
