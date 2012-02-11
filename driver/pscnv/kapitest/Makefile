@@ -9,7 +9,8 @@ kapitest-y := fail.o \
 	switcheroo_reprobe.o \
 	getparam_bus_type.o \
 	drm_gem_object_handle_count.o \
-	drm_get_dev.o 
+	drm_get_dev.o \
+	fb_info_apertures.o
 
 obj-m := kapitest.o
 
