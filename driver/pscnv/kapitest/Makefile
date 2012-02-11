@@ -8,7 +8,8 @@ kapitest-y := fail.o \
 	pci_driver.o \
 	switcheroo_reprobe.o \
 	getparam_bus_type.o \
-	drm_gem_object_handle_count.o 
+	drm_gem_object_handle_count.o \
+	drm_get_dev.o 
 
 obj-m := kapitest.o
 
