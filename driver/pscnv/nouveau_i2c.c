@@ -23,6 +23,7 @@
  */
 
 #include "drmP.h"
+#include <linux/module.h>
 #include "nouveau_drv.h"
 #include "nouveau_i2c.h"
 #include "nouveau_hw.h"

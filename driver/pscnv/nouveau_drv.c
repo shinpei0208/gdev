@@ -26,6 +26,7 @@
 #ifdef __linux__
 #include <linux/version.h>
 #endif
+#include <linux/module.h>
 
 #include "drmP.h"
 #include "drm.h"

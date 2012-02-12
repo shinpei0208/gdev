@@ -23,7 +23,7 @@
  */
 
 #include "drmP.h"
-
+#include <linux/module.h>
 #include "nouveau_drv.h"
 #include "nouveau_pm.h"
 
