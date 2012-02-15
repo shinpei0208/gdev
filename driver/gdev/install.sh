@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 0 > /proc/sys/kernel/hung_task_timeout_secs
+
 nvidia_exist=$(lsmod | grep nvidia | wc -l)
 nouveau_exist=$(lsmod | grep nouveau | wc -l)
 ttm_exist=$(lsmod | grep ttm | wc -l)
@@ -25,8 +27,6 @@ fi
 if [ ! $i2c_algo_bit_exist -eq 1 ]; then
 	modprobe i2c_algo_bit
 fi
-
-exit
 
 insmod ./gdev.ko
 
