@@ -1,8 +1,33 @@
 #!/bin/sh
 
-rmmod nvidia
-rmmod nouveau
-rmmod ttm
+nvidia_exist=$(lsmod | grep nvidia | wc -l)
+nouveau_exist=$(lsmod | grep nouveau | wc -l)
+ttm_exist=$(lsmod | grep ttm | wc -l)
+drm_exist=$(lsmod | grep drm | wc -l)
+drm_kms_helper_exist=$(lsmod | grep drm_kms_helper | wc -l)
+i2c_algo_bit_exist=$(lsmod | grep i2c_algo_bit_exist | wc -l)
+
+if [ $nvidia_exist -eq 1 ]; then
+	rmmod nvidia
+fi
+if [ $nouveau_exist -eq 1 ]; then
+	rmmod nouveau
+fi
+if [ $ttm_exist -eq 1 ]; then
+	rmmod ttm
+fi
+if [ ! $drm_exist -eq 1 ]; then
+	modprobe drm
+fi
+if [ ! $drm_kms_helper_exist -eq 1 ]; then
+	modprobe drm_kms_helper
+fi
+if [ ! $i2c_algo_bit_exist -eq 1 ]; then
+	modprobe i2c_algo_bit
+fi
+
+exit
+
 insmod ./gdev.ko
 
 # get a proper group
