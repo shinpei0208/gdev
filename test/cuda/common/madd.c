@@ -231,7 +231,6 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuCtxDestroy failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-
 	gettimeofday(&tv_total_end, NULL);
 
 	/* check the results */

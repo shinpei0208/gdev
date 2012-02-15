@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <elf.h>
 #include <limits.h>
 #if (ULONG_MAX == UINT_MAX)
@@ -60,8 +61,17 @@ static inline int __gdev_get_device_count(void)
 	int minor = 0;
 	FILE *fp;
 
-	if (!(fp = fopen(fname, "r")))
-		return 0;
+	if (!(fp = fopen(fname, "r"))) {
+		/* this is the case that the driver is not Gdev-based. */
+		struct stat st;
+		for (;;) {
+			sprintf(fname, "/dev/nvidia%d", minor);
+			if (stat(fname, &st))
+				break;
+			minor++;
+		}
+		return minor;
+	}
 	if (!fgets(buf, 16, fp))
 		sprintf(buf, "0");
 	fclose(fp);
