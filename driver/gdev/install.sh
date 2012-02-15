@@ -16,7 +16,7 @@ rm -f /dev/gdev*
 major=$(awk "\$2==\"gdev\" {print \$1}" /proc/devices)
 devnum=$(less /proc/gdev/virtual_device_count | awk "{print \$1}")
 minor=0
-while [ $minor -lt $devnum ]
+while [ "$minor" -lt "$devnum" ]
 do
         mknod /dev/gdev${minor} c $major $minor
         chgrp $group /dev/gdev${minor}
