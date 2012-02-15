@@ -507,27 +507,19 @@ static int __init nouveau_init(void)
 		nouveau_register_dsm_handler();
 	}
 
-#ifdef PSCNV_KAPI_PCI_DRIVER
+#if defined(PSCNV_KAPI_PCI_DRIVER) || defined(PSCNV_KAPI_DRM_PCI_INIT)
 	return drm_init(&driver);
 #else
-#ifdef PSCNV_KAPI_DRM_PCI_INIT
-	return drm_pci_init(&driver);
-#else
 	return drm_pci_init(&driver, &nouveau_pci_driver);
-#endif
 #endif
 }
 
 static void __exit nouveau_exit(void)
 {
-#ifdef PSCNV_KAPI_PCI_DRIVER
+#if defined(PSCNV_KAPI_PCI_DRIVER) || defined(PSCNV_KAPI_DRM_PCI_INIT)
 	drm_exit(&driver);
 #else
-#ifdef PSCNV_KAPI_DRM_PCI_INIT
-	drm_pci_exit(&driver);
-#else
 	drm_pci_exit(&driver, &nouveau_pci_driver);
-#endif
 #endif
 	nouveau_unregister_dsm_handler();
 
