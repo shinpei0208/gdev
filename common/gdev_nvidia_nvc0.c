@@ -379,15 +379,15 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	/* setup subchannels. */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
 	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
-#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
-	__gdev_out_ring(ctx, 0x9039); /* M2MF */
-#else
+#ifdef GDEV_NVIDIA_MEMCPY_PCOPY
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
 	__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
-#endif
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
 	__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
+#else
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
+	__gdev_out_ring(ctx, 0x9039); /* M2MF */
+#endif
 	__gdev_fire_ring(ctx);
 
 	/* initialize the fence values. */

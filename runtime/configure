@@ -35,6 +35,8 @@ elif [ $target = 'user' ] ; then
 cp -f ../user/gdev/* .
 cp -f ../user/$backend/* .
 cp -f $topdir/$common/* .
+touch backend.mk
+echo "BACKEND=$backend" > backend.mk
 else
 echo "Error: invalid target '$target'"
 fi

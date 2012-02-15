@@ -1,12 +1,14 @@
 # Makefile
 
+include backend.mk
+
 CC = gcc
 TARGET = libgdev
 CFLAGS = -O2 -Wall
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
-OBJS = 	pscnv_gdev.o libpscnv.o libpscnv_ib.o \
+OBJS = 	$(BACKEND)_gdev.o lib$(BACKEND).o lib$(BACKEND)_ib.o \
 	gdev_lib.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
 	gdev_nvidia.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o 
