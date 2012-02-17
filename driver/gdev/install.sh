@@ -1,5 +1,13 @@
 #!/bin/sh
 
+x_exist=$(ps aux | grep /bin/X | wc -l)
+
+if [ $x_exist -gt 1 ]; then
+	echo "Error: X is running"
+	echo "Please exit X before installing Gdev"
+	exit
+fi
+
 echo 0 > /proc/sys/kernel/hung_task_timeout_secs
 
 nvidia_exist=$(lsmod | grep nvidia | wc -l)
@@ -9,22 +17,22 @@ drm_exist=$(lsmod | grep drm | wc -l)
 drm_kms_helper_exist=$(lsmod | grep drm_kms_helper | wc -l)
 i2c_algo_bit_exist=$(lsmod | grep i2c_algo_bit_exist | wc -l)
 
-if [ $nvidia_exist -eq 1 ]; then
+if [ $nvidia_exist -gt 0 ]; then
 	rmmod nvidia
 fi
-if [ $nouveau_exist -eq 1 ]; then
+if [ $nouveau_exist -gt 0 ]; then
 	rmmod nouveau
 fi
-if [ $ttm_exist -eq 1 ]; then
+if [ $ttm_exist -gt 0 ]; then
 	rmmod ttm
 fi
-if [ ! $drm_exist -eq 1 ]; then
+if [ $drm_exist -eq 0 ]; then
 	modprobe drm
 fi
-if [ ! $drm_kms_helper_exist -eq 1 ]; then
+if [ $drm_kms_helper_exist -eq 0 ]; then
 	modprobe drm_kms_helper
 fi
-if [ ! $i2c_algo_bit_exist -eq 1 ]; then
+if [ $i2c_algo_bit_exist -eq 0 ]; then
 	modprobe i2c_algo_bit
 fi
 
@@ -41,7 +49,7 @@ rm -f /dev/gdev*
 major=$(awk "\$2==\"gdev\" {print \$1}" /proc/devices)
 devnum=$(less /proc/gdev/virtual_device_count | awk "{print \$1}")
 minor=0
-while [ "$minor" -lt "$devnum" ]
+while [ $minor -lt $devnum ]
 do
         mknod /dev/gdev${minor} c $major $minor
         chgrp $group /dev/gdev${minor}
