@@ -8,7 +8,9 @@ if [ $x_exist -gt 1 ]; then
 	exit
 fi
 
-echo 0 > /proc/sys/kernel/hung_task_timeout_secs
+if test -f /proc/sys/kernel/hung_task_timeout_secs; then
+	echo 0 > /proc/sys/kernel/hung_task_timeout_secs
+fi
 
 nvidia_exist=$(lsmod | grep nvidia | wc -l)
 nouveau_exist=$(lsmod | grep nouveau | wc -l)
