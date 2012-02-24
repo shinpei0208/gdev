@@ -28,49 +28,25 @@
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
 #include "gdev_sched.h"
-#include "nouveau_drv.h"
-#include "pscnv_chan.h"
-#include "pscnv_fifo.h"
-#include "pscnv_gem.h"
-#include "pscnv_ioctl.h"
-#include "pscnv_mem.h"
-#include "pscnv_vm.h"
-
-extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
+#include "gdev_interface.h"
 
 /* query device-specific information. */
-int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
+int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *res)
 {
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_pscnv_getparam getparam;
-	int ret;
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		getparam.param = PSCNV_GETPARAM_MP_COUNT;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*result = getparam.value;
-		break;
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_MP_COUNT, res);
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
-		getparam.param = PSCNV_GETPARAM_FB_SIZE;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*result = getparam.value;
-		break;
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_FB_SIZE, res);
 	case GDEV_QUERY_DMA_MEM_SIZE:
-		getparam.param = PSCNV_GETPARAM_AGP_SIZE;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*result = getparam.value;
-		break;
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_AGP_SIZE, res);
 	case GDEV_QUERY_CHIPSET:
-		getparam.param = PSCNV_GETPARAM_CHIPSET_ID;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*result = getparam.value;
-		break;
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
-
-	return ret;
 }
 
 /* open a new Gdev object associated with the specified device. */
@@ -93,18 +69,17 @@ void gdev_raw_dev_close(struct gdev_device *gdev)
 struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 {
 	struct gdev_vas *vas;
+	struct gdev_drv_vspace vspace;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct pscnv_vspace *vspace;
 
 	if (!(vas = kzalloc(sizeof(*vas), GFP_KERNEL)))
 		goto fail_vas;
 
-	if (!(vspace = pscnv_vspace_new(drm, size, 0, 0)))
+	/* call the device driver specific function. */
+	if (gdev_drv_vspace_alloc(drm, size, &vspace)))
 		goto fail_vspace;
 
-	vspace->filp = NULL; /* we don't need vspace->filp in Gdev. */
-	vas->pvas = (void *) vspace; /* driver private object. */
-	vas->vid = vspace->vid; /* VAS ID. */
+	vas->pvas = vspace.priv; /* driver private object. */
 
 	return vas;
 
@@ -117,11 +92,10 @@ fail_vas:
 /* free the specified virtual address space object. */
 void gdev_raw_vas_free(struct gdev_vas *vas)
 {
-	struct pscnv_vspace *vspace = vas->pvas;
+	struct gdev_drv_vspace vspace;
 
-	vspace->filp = NULL;
-	pscnv_vspace_unref(vspace);
-
+	vspace.priv = vas->pvas;
+	pscnv_vspace_unref(&vspace);
 	kfree(vas);
 }
 
@@ -129,132 +103,64 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
+	struct gdev_drv_chan chan;
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo fbo, nbo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *priv = drm->dev_private;
-	uint32_t chipset = priv->chipset;
-	struct pscnv_vspace *vspace = vas->pvas; 
-	struct pscnv_chan *chan;
-	struct pscnv_bo *ib_bo, *pb_bo, *fence_bo, *notify_bo;
-	struct pscnv_mm_node *ib_mm, *pb_mm, *fence_mm, *notify_mm;
-	int ret;
+	uint32_t flags;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
+	if (!(ctx = kzalloc(sizeof(*ctx), GFP_KERNEL)))
 		goto fail_ctx;
 
-	chan = pscnv_chan_new(drm, vspace, 0);
-	if (!chan)
+	vspace.priv = vas->pvas; 
+	if (gdev_drv_chan_alloc(drm, &vspace, &chan))
 		goto fail_chan;
 
-	/* we don't need chan->filp in Gdev. */
-	chan->filp = NULL;
+	ctx->cid = chan.cid;
+	ctx->pctx = chan.priv; /* driver private data. */
+	ctx->vas = vas;
 
-    if ((chipset & 0xf0) != 0xc0) {
-		/* TODO: set up vdma here! */
-	}
-
-	/* FIFO indirect buffer setup. */
-	ctx->fifo.ib_order = 9; /* it's hardcoded. */
-	ib_bo = pscnv_mem_alloc(drm, 8 << ctx->fifo.ib_order, PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
-	if (!ib_bo) {
-		goto fail_ib;
-	}
-	ret = pscnv_vspace_map(vspace, ib_bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, &ib_mm);
-	if (ret)
-		goto fail_ibmap;
-	ctx->fifo.ib_map = vmap(ib_bo->pages, ib_bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
-	ctx->fifo.ib_bo = ib_bo;
-	ctx->fifo.ib_base = ib_mm->start;
-	ctx->fifo.ib_mask = (1 << ctx->fifo.ib_order) - 1;
-	ctx->fifo.ib_put = ctx->fifo.ib_get = 0;
-
-	/* FIFO push buffer setup. */
-	ctx->fifo.pb_order = 20; /* it's hardcoded. */
-	pb_bo = pscnv_mem_alloc(drm, 1 << ctx->fifo.pb_order, 
-							PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
-	if (!pb_bo)
-		goto fail_pb;
-	ret = pscnv_vspace_map(vspace, pb_bo, GDEV_VAS_USER_START, 
-						   GDEV_VAS_USER_END, 0, &pb_mm);
-	if (ret)
-		goto fail_pbmap;
-	ctx->fifo.pb_map = vmap(pb_bo->pages, pb_bo->size >> PAGE_SHIFT, 0, 
-							PAGE_KERNEL);
-	ctx->fifo.pb_bo = pb_bo;
-	ctx->fifo.pb_base = pb_mm->start;
-	ctx->fifo.pb_mask = (1 << ctx->fifo.pb_order) - 1;
-	ctx->fifo.pb_size = (1 << ctx->fifo.pb_order);
-	ctx->fifo.pb_pos = ctx->fifo.pb_put = ctx->fifo.pb_get = 0;
-
-	/* FIFO init. */
-	ret = priv->fifo->chan_init_ib(chan, 0, 0, 1, 
-								   ctx->fifo.ib_base, ctx->fifo.ib_order);
-	if (ret)
-		goto fail_fifo_init;
-
-	/* FIFO command queue registers. */
-	switch (chipset & 0xf0) {
-	case 0xc0:
-		ctx->fifo.regs = nvc0_fifo_ctrl_ptr(drm, chan);
-		break;
-	default:
-		goto fail_fifo_reg;
-	}
+	/* command FIFO. */
+	ctx->fifo.regs = chan.regs;
+	ctx->fifo.ib_bo = chan.ib_bo;
+	ctx->fifo.ib_map = chan.ib_map;
+	ctx->fifo.ib_order = chan.ib_order;
+	ctx->fifo.ib_base = chan->ib_base;
+	ctx->fifo.ib_mask = chan->ib_mask;
+	ctx->fifo.ib_put = 0;
+	ctx->fifo.ib_get = 0;
+	ctx->fifo.pb_bo = chan->pb_bo;
+	ctx->fifo.pb_map = chan->pb_map;
+	ctx->fifo.pb_order = chan->pb_order;
+	ctx->fifo.pb_base = chan->pb_base;
+	ctx->fifo.pb_mask = chan->pb_mask;
+	ctx->fifo.pb_size = chan->pb_size;
+	ctx->fifo.pb_pos = 0;
+	ctx->fifo.pb_put = 0;
+	ctx->fifo.pb_get = 0;
 
 	/* fence buffer. */
-	fence_bo = pscnv_mem_alloc(drm, GDEV_FENCE_BUF_SIZE, 
-							   PSCNV_GEM_SYSRAM_SNOOP, 0, 0);
-	if (!fence_bo)
+	flags = GDEV_DRV_BO_SYSRAM | GDEV_DRV_BO_VSPACE | GDEV_DRV_BO_MAPPABLE;
+	if (gdev_drv_bo_alloc(drm, GDEV_FENCE_BUF_SIZE, flags, &vspace, &fbo))
 		goto fail_fence_alloc;
-	ret = pscnv_vspace_map(vspace, fence_bo, GDEV_VAS_USER_START, 
-						   GDEV_VAS_USER_END, 0, &fence_mm);
-	if (ret)
-		goto fail_fence_map;
-	ctx->fence.bo = fence_bo;
-	ctx->fence.map = vmap(fence_bo->pages, fence_bo->size >> PAGE_SHIFT, 0, 
-						  PAGE_KERNEL);
-	ctx->fence.addr = fence_mm->start;
+	ctx->fence.bo = fbo.priv;
+	ctx->fence.addr = fbo.addr;
+	ctx->fence.map = fbo.map;
 	ctx->fence.seq = 0;
 
 	/* notify buffer. */
-	notify_bo = pscnv_mem_alloc(drm, 8 /* 64bit */, PSCNV_GEM_VRAM_SMALL, 0, 0);
-	if (!notify_bo)
+	flags = GDEV_DRV_BO_VRAM | GDEV_DRV_BO_VSPACE;
+	if (gdev_drv_bo_alloc(drm, 8 /* 64 bits */, flags, &vspace, &nbo))
 		goto fail_notify_alloc;
-	ret = pscnv_vspace_map(vspace, notify_bo, GDEV_VAS_USER_START, 
-						   GDEV_VAS_USER_END, 0, &notify_mm);
-	if (ret)
-		goto fail_notify_map;
-	ctx->notify.bo = notify_bo;
-	ctx->notify.addr = notify_mm->start;
-
-	/* private data. */
-	ctx->pctx = (void *) chan;
-	/* context ID = channel ID. */
-	ctx->cid = chan->cid;
+	ctx->notify.bo = nbo.priv;
+	ctx->notify.addr = nbo.addr;
 
 	return ctx;
 	
-fail_notify_map:
-	pscnv_mem_free(notify_bo);
 fail_notify_alloc:
-	pscnv_vspace_unmap(vspace, fence_mm->start);
-fail_fence_map:
-	pscnv_mem_free(fence_bo);
+	gdev_drv_bo_free(&vspace, &fbo);
 fail_fence_alloc:
-fail_fifo_reg:
-fail_fifo_init:
-	vunmap(ctx->fifo.pb_map);
-	pscnv_vspace_unmap(vspace, pb_mm->start);
-fail_pbmap:
-	pscnv_mem_free(pb_bo);
-fail_pb:
-	vunmap(ctx->fifo.ib_map);
-	pscnv_vspace_unmap(vspace, ib_mm->start);
-fail_ibmap:
-	pscnv_mem_free(ib_bo);
-fail_ib:
-	chan->filp = NULL;
-	pscnv_chan_unref(chan);
+	gdev_drv_chan_free(&vspace, &chan);
 fail_chan:
 	kfree(ctx);
 fail_ctx:
@@ -264,22 +170,30 @@ fail_ctx:
 /* destroy the specified GPU context object. */
 void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_chan chan;
+	struct gdev_drv_bo fbo, nbo;
 	struct gdev_vas *vas = ctx->vas; 
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_chan *chan = ctx->pctx;
 
-	vunmap(ctx->fence.map);
-	pscnv_vspace_unmap(vspace, ctx->fence.addr);
-	pscnv_mem_free((struct pscnv_bo *)ctx->fence.bo);
-	vunmap(ctx->fifo.pb_map);
-	pscnv_vspace_unmap(vspace, ctx->fifo.pb_base);
-	pscnv_mem_free((struct pscnv_bo *)ctx->fifo.pb_bo);
-	vunmap(ctx->fifo.ib_map);
-	pscnv_vspace_unmap(vspace, ctx->fifo.ib_base);
-	pscnv_mem_free((struct pscnv_bo *)ctx->fifo.ib_bo);
+	vspace.priv = vas->pvas;
 
-	chan->filp = NULL;
-	pscnv_chan_unref(chan);
+	nmem.priv = ctx->notify.bo;
+	nmem.addr = ctx->notify.addr;
+	gdev_drv_bo_free(&vspace, &nbo);
+
+	fmem.priv = ctx->fence.bo;
+	fmem.addr = ctx->fence.addr;
+	fmem.map = ctx->fence.map;
+	gdev_drv_bo_free(&vspace, &fbo);
+
+	chan.priv = ctx->pctx;
+	chan.ib_bo = ctx->fifo.ib_bo;
+	chan.ib_base = ctx->fifo.ib_base;
+	chan.ib_map = ctx->fifo.ib_map;
+	chan.pb_bo = ctx->fifo.pb_bo;
+	chan.pb_base = ctx->fifo.pb_base;
+	chan.pb_map = ctx->fifo.pb_map;
+	gdev_drv_chan_free(&vspace, &chan);
 
 	kfree(ctx);
 }
@@ -287,75 +201,42 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 /* allocate a new memory object. */
 static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_mem *mem;
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo;
-	struct pscnv_mm_node *mm;
-	uint64_t raw_size = *size;
-	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
 
 	GDEV_DPRINT("Allocating memory of 0x%llx bytes\n", *size);
 
 	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
 		goto fail_mem;
 
-	if (!(bo = pscnv_mem_alloc(drm, raw_size, flags, 0, 0)))
-		goto fail_bo;
-
-	if (pscnv_vspace_map(vspace, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0, &mm))
-		goto fail_map;
-
-	/* address, size, and map. */
-	*addr = mm->start;
-	*size = bo->size;
-	*map = NULL;
-	if (flags & PSCNV_GEM_MAPPABLE) {
-		if (flags & PSCNV_GEM_SYSRAM_SNOOP) {
-			if (bo->size > PAGE_SIZE)
-				*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
-			else
-				*map = kmap(bo->pages[0]);
-		}
-		else {
-			if (dev_priv->vm->map_user(bo))
-				goto fail_map_user;
-			if (!(*map = ioremap(bar1_start + bo->map1->start, bo->size)))
-				goto fail_ioremap;
-		}
-	}
-
-	/* private data. */
-	mem->bo = (void *) bo;
-	GDEV_DPRINT("Allocated memory of 0x%llx bytes at 0x%llx\n", *size, *addr);
-
+	vspace.priv = vas->pvas;
+	if (gdev_drv_bo_alloc(drv, *size, flags, &vspace, &bo))
+		goto fail_bo_alloc;
+	*addr = bo.addr;
+	*size = bo.size;
+	*map = bo.map;
+	mem->bo = bo.priv;
+	
 	return mem;
 
-fail_ioremap:
-	GDEV_PRINT("Failed to map PCI BAR1\n");
-	pscnv_vspace_unmap_node(bo->map1);
-fail_map_user:
-	GDEV_PRINT("Failed to map host and device memory\n");
-	pscnv_vspace_unmap(vspace, mm->start);
-fail_map:
-	GDEV_PRINT("Failed to map VAS\n");
-	pscnv_mem_free(bo);
-fail_bo:
-	GDEV_PRINT("Failed to allocate PSCNV buffer object\n");
+fail_mem_alloc:
+	GDEV_PRINT("Failed to allocate driver buffer object\n");
 	kfree(mem);
 fail_mem:
+	GDEV_PRINT("Failed to allocate memory object\n");
 	return NULL;
 }
 
 /* allocate a new device memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	uint32_t flags = PSCNV_GEM_VRAM_SMALL;
+	uint32_t flags = GDEV_DRV_BO_VRAM | GDEV_DRV_BO_VSPACE;
 
 	if (*size <= GDEV_MEM_MAPPABLE_LIMIT)
-		flags |= (PSCNV_GEM_CONTIG | PSCNV_GEM_MAPPABLE);
+		flags |= GDEV_DRV_BO_MAPPABLE;
 
 	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
@@ -363,8 +244,7 @@ struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64
 /* allocate a new host DMA memory object. size may be aligned. */
 struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
 {
-	/* dma host memory is always mapped to user buffers. */
-	uint32_t flags = PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE;
+	uint32_t flags = GDEV_DRV_BO_SYSRAM | GDEV_DRV_BO_VSPACE | GDEV_DRV_BO_MAPPABLE; /* dma host memory is always mapped to user buffers. */
 	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
 }
 
@@ -372,28 +252,16 @@ struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, ui
 void gdev_raw_mem_free(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 
-	if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP) {
-		if (mem->map) {
-			if (bo->size > PAGE_SIZE)
-				vunmap(mem->map);
-			else
-				kunmap(mem->map);
-		}
-		else
-			GDEV_PRINT("Error: host memory map is invalid\n");
-	}
-	else if (bo->flags & PSCNV_GEM_CONTIG) {
-		if (mem->map)
-			iounmap(mem->map);
-		else
-			GDEV_PRINT("Error: device memory map is invalid\n");
-	}
-
-	pscnv_vspace_unmap(vspace, mem->addr);
-	pscnv_mem_free(bo);
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size;
+	bo.map = mem->map;
+	if (gdev_drv_bo_free(&vspace, &bo))
+		GDEV_PRINT("Failed to free driver buffer object\n");
 	kfree(mem);
 }
 
@@ -401,33 +269,47 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
 {
 	struct gdev_mem *mem;
+	struct gdev_drv_bo bo;
+	struct gdev_drv_vspace vspace;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct pscnv_bo *bo;
+	uint32_t flags = GDEV_DRV_BO_VRAM;
 
 	if (size == 0)
-		return NULL;
+		goto fail_size;
 
 	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
-		return NULL;
+		goto fail_mem;
 
-	if (!(bo = pscnv_mem_alloc(drm, size, PSCNV_GEM_VRAM_SMALL, 0, 0))) {
-		GDEV_PRINT("Failed to allocate PSCNV buffer object for swap memory\n");
-		kfree(mem);
-		return NULL;
-	}
+	vspace.priv = NULL;
+	if (gdev_drv_bo_alloc(drm, size, flags, &vspace, &bo))
+		goto fail_bo_alloc;
 
-	/* private data. */
-	mem->bo = (void *) bo;
+	mem->bo = bo.priv;
+	mem->size = bo.size;
 
 	return mem;
+
+fail_bo_alloc:
+	GDEV_PRINT("Failed to allocate driver buffer object\n");
+	kfree(mem);
+fail_mem:
+fail_size:
+	GDEV_PRINT("Failed to allocate swap memory object\n");
+	return NULL;
 }
 
 /* free the specified swap memory object. */
 void gdev_raw_swap_free(struct gdev_mem *mem)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
+
 	if (mem) {
-		struct pscnv_bo *bo = mem->bo;
-		pscnv_mem_free(bo);
+		vspace.priv = NULL;
+		bo.priv = mem->bo;
+		bo.addr = 0;
+		bo.map = NULL;
+		gdev_drv_bo_free(&vspace, &bo);
 		kfree(mem);
 	}
 }
