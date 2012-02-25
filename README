@@ -60,8 +60,11 @@ Recent versions of Gdev disgregate from the device driver. You need
 to install some GPU device driver underlying Gdev. Currently there
 are two open-source drivers available in Linux: pscnv and nouveau.
 The following shows how to install pscnv.
-NOTE: pscnv is PathScale's open-source driver, but we have applied
+NOTE1: pscnv is PathScale's open-source driver, but we have applied
 several patches, making it available for Gdev.
+NOTE2: pscnv is available with Linux 2.6.33 or later. It may also 
+have issues with some Fermi chipsets - nvc0 is best tested.
+See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
 
 cd $(TOPDIR)/pscnv/pscnv
 ./configure
