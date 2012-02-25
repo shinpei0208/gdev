@@ -1,7 +1,5 @@
 #!/bin/sh
 
-insmod ./gdev.ko
-
 # get a proper group
 group="staff"
 grep -q '^staff:' /etc/group || group="wheel"
