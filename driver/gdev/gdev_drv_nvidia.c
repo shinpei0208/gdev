@@ -30,25 +30,6 @@
 #include "gdev_sched.h"
 #include "gdev_interface.h"
 
-/* query device-specific information. */
-int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *res)
-{
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-
-	switch (type) {
-	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_MP_COUNT, res);
-	case GDEV_QUERY_DEVICE_MEM_SIZE:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_FB_SIZE, res);
-	case GDEV_QUERY_DMA_MEM_SIZE:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_AGP_SIZE, res);
-	case GDEV_QUERY_CHIPSET:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
-	default:
-		return -EINVAL;
-	}
-}
-
 /* open a new Gdev object associated with the specified device. */
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
@@ -260,8 +241,10 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	bo.addr = mem->addr;
 	bo.size = mem->size;
 	bo.map = mem->map;
+
 	if (gdev_drv_bo_free(&vspace, &bo))
 		GDEV_PRINT("Failed to free driver buffer object\n");
+
 	kfree(mem);
 }
 
@@ -285,7 +268,9 @@ struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
 		goto fail_bo_alloc;
 
 	mem->bo = bo.priv;
+	mem->addr = 0;
 	mem->size = bo.size;
+	mem->map = NULL;
 
 	return mem;
 
@@ -305,10 +290,11 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 	struct gdev_drv_bo bo;
 
 	if (mem) {
-		vspace.priv = NULL;
+		vspace.priv = NULL; /* indicate that bo doensn't have vspace. */
 		bo.priv = mem->bo;
-		bo.addr = 0;
-		bo.map = NULL;
+		bo.addr = mem->addr; /* not really used. */
+		bo.size = mem->size; /* not really used. */
+		bo.map = mem->map; /* not really used. */
 		gdev_drv_bo_free(&vspace, &bo);
 		kfree(mem);
 	}
@@ -317,37 +303,36 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 /* create a new memory object sharing memory space with @mem. */
 struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map)
 {
-	struct pscnv_vspace *vs = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
-	struct pscnv_mm_node *mm;
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_mem *new;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
 
 	if (!(new = kzalloc(sizeof(*new), GFP_KERNEL)))
 		goto fail_mem;
 
-	if (pscnv_vspace_map(vs, bo, GDEV_VAS_USER_START, GDEV_VAS_USER_END, 0,&mm))
-		goto fail_map;
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = 0; /* will be obtained. */
+	bo.size = 0; /* will be obtained. */
+	bo.map = NULL; /* will be obtained. */
+
+	/* bind a virtual address in @vspace to memory space in @bo. */
+	if (gdev_drv_bo_bind(drm, &vspace, &bo))
+		goto fail_bind;
 
 	/* address, size, and map. */
-	*addr = mm->start;
-	*size = bo->size;
-	if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP) {
-		if (bo->size > PAGE_SIZE)
-			*map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
-		else
-			*map = kmap(bo->pages[0]);
-	}
-	else
-		*map = NULL;
-
-	/* private data. */
-	new->bo = (void *) bo;
+	*addr = bo.addr;
+	*size = bo.size;
+	*map = bo.map;
+	new->bo = (void *)bo.priv; /* private driver object. */
 
 	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx\n", *size, *addr);
 
 	return new;
 
-fail_map:
+fail_bind:
 	kfree(new);
 fail_mem:
 	return NULL;
@@ -356,159 +341,168 @@ fail_mem:
 /* destroy the memory object by just unsharing memory space. */
 void gdev_raw_mem_unshare(struct gdev_mem *mem)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
-	struct pscnv_vspace *vspace = vas->pvas;
 
-	pscnv_vspace_unmap(vspace, mem->addr);
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size;
+	bo.map = mem->map;
+
+	gdev_drv_bo_unbind(&vspace, &bo);
 	kfree(mem);
 }
 
 /* map device memory to host DMA memory. */
 void *gdev_raw_mem_map(struct gdev_mem *mem)
 {
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
-	struct pscnv_bo *bo = mem->bo;
-	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
-	void *map;
 
-	if (dev_priv->vm->map_user(bo))
-		goto fail_map_user;
-	if (!(map = ioremap(bar1_start + bo->map1->start, bo->size)))
-		goto fail_ioremap;
+	if (gdev_drv_bo_map(drm, &bo))
+		goto fail_map;
 
-	bo->flags |= PSCNV_GEM_MAPPABLE;
+	return bo.map;
 
-	return map;
-
-fail_ioremap:
-	GDEV_PRINT("Failed to map PCI BAR1\n");
-	pscnv_vspace_unmap_node(bo->map1);
-fail_map_user:
+fail_map:
 	GDEV_PRINT("Failed to map host and device memory\n");
-
 	return NULL;
 }
 
 /* unmap device memory from host DMA memory. */
 void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 {
-	struct pscnv_bo *bo = mem->bo;
+	struct gdev_drv_bo bo;
 
-	iounmap(map);
-	pscnv_vspace_unmap_node(bo->map1);
-	bo->flags &= ~PSCNV_GEM_MAPPABLE;
-}
-
-/* get physical bus address. */
-uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
-{
-	struct gdev_vas *vas = mem->vas;
-	struct gdev_device *gdev = vas->gdev;
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
-	int page = offset / PAGE_SIZE;
-	uint32_t x = offset - page * PAGE_SIZE;
-	uint32_t flags = bo->flags;
-
-	if (flags & PSCNV_GEM_MAPPABLE) {
-		if (flags & PSCNV_GEM_SYSRAM_SNOOP)
-			return bo->dmapages[page] + x;
-		else
-			return pci_resource_start(drm->pdev, 1) + bo->map1->start + x;
-	}
-	else {
-		return dev_priv->vm->phys_getaddr(vspace, bo, mem->addr + offset);
-	}
+	bo.priv = mem->bo;
+	bo.addr = mem->addr; /* not really used. */
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+	
+	gdev_drv_bo_unmap(&drv_bo);
 }
 
 uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
 	uint32_t val;
 
-	if (mem->map) {
-		val = ioread32_native(mem->map + offset);
-	}
-	else {
-		mutex_lock(&vspace->lock);
-		dev_priv->vm->read32(vspace, bo, addr, &val);
-		mutex_unlock(&vspace->lock);
-	}
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+
+	gdev_drv_read32(drm, &vspace, &bo, offset, &val);
 
 	return val;
 }
 
 void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
 
-	if (mem->map) {
-		iowrite32_native(val, mem->map + offset);
-	}
-	else {
-		mutex_lock(&vspace->lock);
-		dev_priv->vm->write32(vspace, bo, addr, val);
-		mutex_unlock(&vspace->lock);
-	}
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+
+	gdev_drv_write32(drm, &vspace, &bo, offset, val);
 }
 
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
+	uint32_t val;
 
-	if (mem->map) {
-		memcpy_fromio(buf, mem->map + offset, size);
-	}
-	else {
-		mutex_lock(&vspace->lock);
-		dev_priv->vm->read(vspace, bo, addr, buf, size);
-		mutex_unlock(&vspace->lock);
-	}
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+
+	gdev_drv_read(drm, &vspace, &bo, offset, size, buf);
 		
 	return 0;
 }
 
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
 {
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct pscnv_vspace *vspace = vas->pvas;
-	struct pscnv_bo *bo = mem->bo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint64_t offset = addr - mem->addr;
+	uint32_t val;
 
-	if (mem->map) {
-		memcpy_toio(mem->map + offset, buf, size);
-	}
-	else {
-		mutex_lock(&vspace->lock);
-		dev_priv->vm->write(vspace, bo, addr, buf, size);
-		mutex_unlock(&vspace->lock);
-	}
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+
+	gdev_drv_write(drm, &vspace, &bo, offset, size, buf);
 
 	return 0;
+}
+
+/* get physical bus address. */
+uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
+{
+	struct gdev_drv_vspace vspace;
+	struct gdev_drv_bo bo;
+	struct gdev_vas *vas = mem->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	uint64_t phys;
+
+	vspace.priv = vas->pvas;
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map;
+
+	gdev_drv_getaddr(drm, &vspace, &bo, offset, &phys);
+
+	return phys;
+}
+
+/* query device-specific information. */
+int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *res)
+{
+	struct drm_device *drm = (struct drm_device *) gdev->priv;
+
+	switch (type) {
+	case GDEV_NVIDIA_QUERY_MP_COUNT:
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_MP_COUNT, res);
+	case GDEV_QUERY_DEVICE_MEM_SIZE:
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_FB_SIZE, res);
+	case GDEV_QUERY_DMA_MEM_SIZE:
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_AGP_SIZE, res);
+	case GDEV_QUERY_CHIPSET:
+		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
+	default:
+		return -EINVAL;
+	}
 }

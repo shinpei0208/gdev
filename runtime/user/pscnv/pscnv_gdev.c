@@ -41,25 +41,29 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_MP_COUNT, result))
-			return -EINVAL;
+			goto fail;
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_FB_SIZE, result))
-			return -EINVAL;
+			goto fail;
 		break;
 	case GDEV_QUERY_DMA_MEM_SIZE:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_AGP_SIZE, result))
-			return -EINVAL;
+			goto fail;
 		break;
 	case GDEV_QUERY_CHIPSET:
 		if (pscnv_getparam(fd, PSCNV_GETPARAM_CHIPSET_ID, result))
-			return -EINVAL;
+			goto fail;
 		break;
 	default:
-		return -EINVAL;
+		goto fail;
 	}
 
 	return 0;
+
+fail:
+	GDEV_PRINT("Failed to query %u\n", type);
+	return -EINVAL;
 }
 
 /* open a new Gdev object associated with the specified device. */

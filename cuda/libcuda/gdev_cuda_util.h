@@ -54,6 +54,7 @@ typedef FILE file_t;
 #define FREE(x) free(x)
 #define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
 
+/* a bit wild coding... */
 static inline int __gdev_get_device_count(void)
 {
 	char fname[256] = "/proc/gdev/virtual_device_count";
@@ -62,8 +63,18 @@ static inline int __gdev_get_device_count(void)
 	FILE *fp;
 
 	if (!(fp = fopen(fname, "r"))) {
-		/* this is the case that the driver is not Gdev-based. */
+		/* this is the case for non-gdev device drivers. */
 		struct stat st;
+		/* check for Linux open-source drivers first. */
+		for (;;) {
+			sprintf(fname, "/dev/dri/card%d", minor);
+			if (stat(fname, &st))
+				break;
+			minor++;
+		}
+		if (minor)
+			return minor;
+		/* check for NVIDIA BLOB drivers next. */
 		for (;;) {
 			sprintf(fname, "/dev/nvidia%d", minor);
 			if (stat(fname, &st))
