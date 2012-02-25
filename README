@@ -10,95 +10,115 @@
 # All Rights Reserved.
 #
 
-Gdev is an operating system module that manages GPUs as first-class
-computing resources. It currently supports only NVIDIA's Fermi
-architecuture, but could be easily ported to other artectures, too.
+Gdev is a runtime-unified operating system module that manages GPUs 
+as first-class computing resources.
+Currently it supports only NVIDIA's Fermi GPUs, but the concept of
+Gdev is also applicable to generic "compute devices".
+Gdev coordinates with a DRM-based GPU device driver (pscnv/nouveau)
+in the operating system, providing APIs for application programs.
+Gdev API is a low-level primitive that allows programmers to control
+the details of GPU resource parameters, while Gdev also supports a
+high-level API, such as CUDA.
+Gdev is available for GPGPU and graphics applications. It is self-
+contained for GPGPU, though graphics applications require additional
+APIs, such as OpenGL, LIBDRM, and DDX.
 
-as a background implementation of a GPU device driver. It currently
-supports most of NVIDIA's GPU architectures, including Fermi (nvc0). 
-Gdev also plans to use Nouveau as another background implementation
-given that some Linux distros install Nouveau by default recently.
-As Gdev doesn't change any interface provided by PSCNV or Nouveau,
-the X window system and its compiz can accelerate on GPUs with Gdev.
-However, this requires users to additionally install LIBDRM and DDX.
-See https://github.com/pathscale/ for PSCNV and 
-http://nouveau.freedesktop.org/wiki/InstallNouveau for Nouveau.
-To install Gdev device driver, follow the instructions below.
-Let $(TOPDIR) be the top working directory, henceforth.
+Gdev is open-source. We believe that this open-source implementation
+facilitates further research and development of GPU technology.
 
-1. envytools
+The following instruct Gdev installation. Some of the installation
+stages will require you to install additional tools and packages.
+$(TOPDIR) will represent your top working directory, henceforth.
 
-envytools provides a set of tools that assemble/disassemble firmware
-code, GPU code, and macro code. It also provides tools to generate
-header files that include GPU command definitions.
-Gdev requires envytools to compile fermi firmware code.
+1. Download
 
 cd $(TOPDIR)
 git clone git://0x04.net/envytools.git
-cd envytools
+git clone git://github.com/shinpei0208/pscnv.git
+git clone git://github.com/shinpei0208/gdev.git
+
+2. envytools
+
+envytools is a rich set of open-source tools to compile or decompile
+NVIDIA GPU program code, firmware code, macro code, and so on. It is
+also used to generate C header files with GPU command definitions.
+In addition, envytools document the NVIDIA GPU architecture details,
+while are not disclosed to the public so far. If you are interested 
+in GPU system software development, this is what you should read!
+Please follow the instruction below to install envytools.
+
+cd $(TOPDIR)/envytools
 mkdir build
 cd build
-cmake .. # may require you to install some packages on your distro
+cmake .. # may require some packages on your distro
 make
 sudo make install # will install tools to /usr/local/{bin,lib}
 
-2. Gdev runtime
+3. Device Driver
 
-There are two instances of Gdev runtime that users can choose:
-(i) user-space runtime and (ii) kernel-space runtime.
-The user-space runtime provides all compute functions in user-space,
-while the kernel-space runtime lives in the OS and user-space programs
-need to use the ioctl system call to use their functions. The following
-assume user-space runtime.
+Recent versions of Gdev disgregate from the device driver. You need
+to install some GPU device driver underlying Gdev. Currently there
+are two open-source drivers available in Linux: pscnv and nouveau.
+The following shows how to install pscnv.
+NOTE: pscnv is PathScale's open-source driver, but we have applied
+several patches to make it available to work with Gdev.
 
-cd $(TOPDIR)/runtime
-mkdir build
-cd build
-../configure # if you want user-space runtime, specify --target=user
+cd $(TOPDIR)/pscnv/pscnv
+./configure
 make
-sudo make install
+sudo init 3 # kill X
+sudo make modules_install
+sudo shutdown -r now # will reboot your machine
 
-3. Gdev device driver
+4. Gdev Module
 
-cd $(TOPDIR)/driver
+Gdev is double-edge, i.e., it provides a runtime-unified operating
+system approach as well as a typical user-space runtime approach.
+The following installation is required only for the former.
+
+cd $(TOPDIR)/gdev/driver
 mkdir build
 cd build
 ../configure
 make
-sudo init 3
-cd $(TOPDIR)/driver/build
+sudo insmod gdev.ko
+sh gdev.sh
+
+5. Gdev Library
+
+Gdev's user-space library provides Gdev API. This API can be used
+by either user programs directly or another high-level API library.
+For instance, third party's CUDA library can use Gdev API.
+If you have taken Step 4, i.e., chosen the runtime-unified operating
+system approach, this library is just a set of wrapper functions
+that call Gdev module's functions via ioctl.
+
+cd $(TOPDIR)/gdev/lib
+mkdir build
+cd build
+../configure # if you skipped Step 4, you must specify --target=user
+make
 sudo make install
-sudo init 5
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
 
-4. Gdev API test
+6. CUDA Driver API
 
-cd $(TOPDIR)/test/gdev/user/matrixadd
-make
-./user_test 256 # a[256] + b[256] = c[256]
+Gdev currently supports a limited set of CUDA Driver API. We plan to 
+support a full set of CUDA Driver API in future work. If you need
+CUDA Runtime API, you should use some compiler framework, such as
+Ocelot, which can translate CUDA Drier API to Runtime API.
 
-5. CUDA Driver API
-
-Gdev supports CUDA Driver API. Currently, a set of the supported API functions
-is limited, while major functions are implemented. We plan to implement missing
-functions, too.
-On the other hand, Gdev does not support CUDA Runtime API, for now. 
-CUDA Runtime API requires compiler support to implicitly call some internal
-functions provided by the runtime library. In order to support CUDA Runtime
-API, hence, we need to provide either (i) a compiler that generates internal
-functions familiar to Gdev, or (ii) the internal functions that the target
-compiler, such as nvcc, generates.  We are trying the latter approach.
-
-cd $(TOPDIR)/cuda/
+cd $(TOPDIR)/gdev/cuda
 mkdir build
 cd build
-../configure # if you want kernel-space CUDA, specify --target=kcuda
+../configure # if you want to run CUDA in OS, specify --target=kcuda
 make
 sudo make install
 
-6. CUDA Driver API test (user-space)
+7. CUDA Driver API test (user-space programs)
 
-cd $(TOPDIR)/test/cuda/user/matrixadd
+cd $(TOPDIR)/test/cuda/user/madd
 make
 ./user_test 256 # a[256] x b[256] = c[256]
+
