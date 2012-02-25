@@ -61,7 +61,7 @@ to install some GPU device driver underlying Gdev. Currently there
 are two open-source drivers available in Linux: pscnv and nouveau.
 The following shows how to install pscnv.
 NOTE: pscnv is PathScale's open-source driver, but we have applied
-several patches to make it available to work with Gdev.
+several patches, making it available for Gdev.
 
 cd $(TOPDIR)/pscnv/pscnv
 ./configure
@@ -82,7 +82,7 @@ cd build
 ../configure
 make
 sudo insmod gdev.ko
-sh gdev.sh
+sudo sh gdev.sh
 
 5. Gdev Library
 
