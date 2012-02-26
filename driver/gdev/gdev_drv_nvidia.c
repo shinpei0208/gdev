@@ -57,7 +57,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 		goto fail_vas;
 
 	/* call the device driver specific function. */
-	if (gdev_drv_vspace_alloc(drm, size, &vspace)))
+	if (gdev_drv_vspace_alloc(drm, size, &vspace))
 		goto fail_vspace;
 
 	vas->pvas = vspace.priv; /* driver private object. */
@@ -76,7 +76,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 	struct gdev_drv_vspace vspace;
 
 	vspace.priv = vas->pvas;
-	pscnv_vspace_unref(&vspace);
+	gdev_drv_vspace_free(&vspace);
 	kfree(vas);
 }
 
@@ -106,16 +106,16 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->fifo.ib_bo = chan.ib_bo;
 	ctx->fifo.ib_map = chan.ib_map;
 	ctx->fifo.ib_order = chan.ib_order;
-	ctx->fifo.ib_base = chan->ib_base;
-	ctx->fifo.ib_mask = chan->ib_mask;
+	ctx->fifo.ib_base = chan.ib_base;
+	ctx->fifo.ib_mask = chan.ib_mask;
 	ctx->fifo.ib_put = 0;
 	ctx->fifo.ib_get = 0;
-	ctx->fifo.pb_bo = chan->pb_bo;
-	ctx->fifo.pb_map = chan->pb_map;
-	ctx->fifo.pb_order = chan->pb_order;
-	ctx->fifo.pb_base = chan->pb_base;
-	ctx->fifo.pb_mask = chan->pb_mask;
-	ctx->fifo.pb_size = chan->pb_size;
+	ctx->fifo.pb_bo = chan.pb_bo;
+	ctx->fifo.pb_map = chan.pb_map;
+	ctx->fifo.pb_order = chan.pb_order;
+	ctx->fifo.pb_base = chan.pb_base;
+	ctx->fifo.pb_mask = chan.pb_mask;
+	ctx->fifo.pb_size = chan.pb_size;
 	ctx->fifo.pb_pos = 0;
 	ctx->fifo.pb_put = 0;
 	ctx->fifo.pb_get = 0;
@@ -158,13 +158,13 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 
 	vspace.priv = vas->pvas;
 
-	nmem.priv = ctx->notify.bo;
-	nmem.addr = ctx->notify.addr;
+	nbo.priv = ctx->notify.bo;
+	nbo.addr = ctx->notify.addr;
 	gdev_drv_bo_free(&vspace, &nbo);
 
-	fmem.priv = ctx->fence.bo;
-	fmem.addr = ctx->fence.addr;
-	fmem.map = ctx->fence.map;
+	fbo.priv = ctx->fence.bo;
+	fbo.addr = ctx->fence.addr;
+	fbo.map = ctx->fence.map;
 	gdev_drv_bo_free(&vspace, &fbo);
 
 	chan.priv = ctx->pctx;
@@ -194,7 +194,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 		goto fail_mem;
 
 	vspace.priv = vas->pvas;
-	if (gdev_drv_bo_alloc(drv, *size, flags, &vspace, &bo))
+	if (gdev_drv_bo_alloc(drm, *size, flags, &vspace, &bo))
 		goto fail_bo_alloc;
 	*addr = bo.addr;
 	*size = bo.size;
@@ -203,7 +203,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	
 	return mem;
 
-fail_mem_alloc:
+fail_bo_alloc:
 	GDEV_PRINT("Failed to allocate driver buffer object\n");
 	kfree(mem);
 fail_mem:
@@ -383,7 +383,7 @@ void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 	bo.size = mem->size; /* not really used. */
 	bo.map = mem->map;
 	
-	gdev_drv_bo_unmap(&drv_bo);
+	gdev_drv_bo_unmap(&bo);
 }
 
 uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
@@ -433,7 +433,6 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	uint64_t offset = addr - mem->addr;
-	uint32_t val;
 
 	vspace.priv = vas->pvas;
 	bo.priv = mem->bo;
@@ -454,7 +453,6 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	uint64_t offset = addr - mem->addr;
-	uint32_t val;
 
 	vspace.priv = vas->pvas;
 	bo.priv = mem->bo;
@@ -495,13 +493,13 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *res)
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_MP_COUNT, res);
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_MP_COUNT, res);
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_FB_SIZE, res);
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_FB_SIZE, res);
 	case GDEV_QUERY_DMA_MEM_SIZE:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_AGP_SIZE, res);
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_AGP_SIZE, res);
 	case GDEV_QUERY_CHIPSET:
-		return gdev_drv_getparam(drv, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
 	default:
 		return -EINVAL;
 	}

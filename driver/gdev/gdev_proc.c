@@ -304,20 +304,20 @@ int gdev_proc_delete(void)
 	char name[256];
 
 	for (i = 0; i < gdev_vcount; i++) {
-		sprintf(name, "gdev/vd%d", i);
-		remove_proc_entry(name, gdev_proc);
-		remove_proc_entry("processor_bandwidth", proc_vd[i].dir);
+		sprintf(name, "vd%d", i);
+		remove_proc_entry("compute_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_share", proc_vd[i].dir);
 		remove_proc_entry("period", proc_vd[i].dir);
-		remove_proc_entry("processor_bandwidth_used", proc_vd[i].dir);
+		remove_proc_entry("compute_bandwidth_used", proc_vd[i].dir);
 		remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
 		remove_proc_entry("phys", proc_vd[i].dir);
+		remove_proc_entry(name, gdev_proc);
 	}
 	kfree(proc_vd);
 
-	remove_proc_entry("gdev/virtual_device_count", gdev_proc);
-	remove_proc_entry("gdev/device_count", gdev_proc);
+	remove_proc_entry("virtual_device_count", gdev_proc);
+	remove_proc_entry("device_count", gdev_proc);
 	remove_proc_entry("gdev", NULL);
 
 	return 0;
