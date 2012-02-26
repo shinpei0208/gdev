@@ -1,5 +1,5 @@
 #
-# Gdev - Managing GPUs as First-Class Compute Devices
+# Gdev - Managing GPUs as First-Class Computing Resources
 # 
 # README
 #
@@ -10,7 +10,10 @@
 # All Rights Reserved.
 #
 
-Gdev uses PathScale's PSCNV open-source driver with some extension
+Gdev is an operating system module that manages GPUs as first-class
+computing resources. It currently supports only NVIDIA's Fermi
+architecuture, but could be easily ported to other artectures, too.
+
 as a background implementation of a GPU device driver. It currently
 supports most of NVIDIA's GPU architectures, including Fermi (nvc0). 
 Gdev also plans to use Nouveau as another background implementation

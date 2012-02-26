@@ -45,14 +45,6 @@ struct gdev_mutex {
 };
 
 /**
- * Gdev init/exit functions:
- */
-int gdev_major_init(struct pci_driver *);
-int gdev_major_exit(void);
-int gdev_minor_init(struct drm_device *);
-int gdev_minor_exit(struct drm_device *);
-
-/**
  * export callback function.
  */
 extern void (*gdev_callback_notify)(int subc, uint32_t data);

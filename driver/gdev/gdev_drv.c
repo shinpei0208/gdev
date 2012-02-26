@@ -39,8 +39,13 @@
 #include "gdev_device.h"
 #include "gdev_drv.h"
 #include "gdev_fops.h"
+#include "gdev_interface.h"
 #include "gdev_proc.h"
 #include "gdev_sched.h"
+
+MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Gdev");
+MODULE_AUTHOR("Shinpei Kato");
 
 #define MODULE_NAME	"gdev"
 
@@ -335,12 +340,12 @@ void gdev_mutex_unlock(struct gdev_mutex *p)
 /**
  * called for each minor physical device.
  */
-int gdev_minor_init(struct drm_device *drm)
+int gdev_minor_init(int physid)
 {
-	int i = 0, j = 0;
-	int physid = drm->primary->index;
+	int i, j;
+	struct drm_device *drm;
 
-	if (physid >= gdev_count) {
+	if (gdev_drv_getdrm(physid, &drm)) {
 		GDEV_PRINT("Could not find device %d\n", physid);
 		return -EINVAL;
 	}
@@ -348,6 +353,7 @@ int gdev_minor_init(struct drm_device *drm)
 	/* initialize the physical device. */
 	gdev_init_device(&gdevs[physid], physid, drm);
 
+	j = 0;
 	for (i = 0; i < physid; i++)
 		j += VCOUNT_LIST[i];
 
@@ -369,10 +375,9 @@ int gdev_minor_init(struct drm_device *drm)
 /**
  * called for each minor physical device.
  */
-int gdev_minor_exit(struct drm_device *drm)
+int gdev_minor_exit(int physid)
 {
 	int i;
-	int physid = drm->primary->index;
 
 	if (gdevs[physid].users) {
 		GDEV_PRINT("Device %d has %d users\n", physid, gdevs[physid].users);
@@ -391,30 +396,25 @@ int gdev_minor_exit(struct drm_device *drm)
 	return 0;
 }
 
-int gdev_major_init(struct pci_driver *pdriver)
+int gdev_major_init(void)
 {
 	int i, major, ret;
-	struct pci_dev *pdev = NULL;
-	const struct pci_device_id *pid;
 
-	GDEV_PRINT("Initializing module...\n");
-
-	/* count how many physical devices are installed. */
-	gdev_count = 0;
-	gdev_vcount = 0;
-	for (i = 0; pdriver->id_table[i].vendor != 0; i++) {
-		pid = &pdriver->id_table[i];
-		while ((pdev = pci_get_subsys(pid->vendor, pid->device, pid->subvendor, pid->subdevice, pdev)) != NULL) {
-			if ((pdev->class & pid->class_mask) != pid->class)
-				continue;
-	
-			gdev_vcount += VCOUNT_LIST[gdev_count]; /* virtual device count */
-			gdev_count++; /* physical device count */
-		}
+	/* get the number of physical devices. */
+	if (gdev_drv_getdevice(&gdev_count)) {
+		GDEV_PRINT("Failed to get device count\n");
+		ret = -EINVAL;
+		goto fail_getdevice;
 	}
 
-	GDEV_PRINT("Found %d GPU physical device(s).\n", gdev_count);
-	GDEV_PRINT("Configured %d GPU virtual device(s).\n", gdev_vcount);
+	GDEV_PRINT("Found %d physical device(s).\n", gdev_count);
+
+	/* get the number of virtual devices. */
+	gdev_vcount = 0;
+	for (i = 0; i < gdev_count; i++)
+		gdev_vcount += VCOUNT_LIST[i];
+
+	GDEV_PRINT("Configured %d virtual device(s).\n", gdev_vcount);
 
 	/* allocate vdev_count character devices. */
 	if ((ret = alloc_chrdev_region(&dev, 0, gdev_vcount, MODULE_NAME))) {
@@ -456,7 +456,7 @@ int gdev_major_init(struct pci_driver *pdriver)
 	}
 
 	/* set interrupt handler. */
-	gdev_callback_notify = __gdev_notify_handler;
+	gdev_drv_setnotify(__gdev_notify_handler);
 
 	return 0;
 
@@ -473,6 +473,7 @@ fail_alloc_gdev_vds:
 fail_alloc_gdevs:
 	unregister_chrdev_region(dev, gdev_vcount);
 fail_alloc_chrdev:
+fail_getdevice:
 	return ret;
 }
 
@@ -480,9 +481,7 @@ int gdev_major_exit(void)
 {
 	int i;
 
-	GDEV_PRINT("Exiting module...\n");
-
-	gdev_callback_notify = NULL;
+	gdev_drv_unsetnotify(__gdev_notify_handler);
 
 	gdev_proc_delete();
 
@@ -523,3 +522,43 @@ EXPORT_SYMBOL(glaunch);
 EXPORT_SYMBOL(gsync);
 EXPORT_SYMBOL(gquery);
 EXPORT_SYMBOL(gtune);
+
+static int __init gdev_module_init(void)
+{
+	int i;
+
+	GDEV_PRINT("Loading module...\n");
+
+	if (gdev_major_init()) {
+		GDEV_PRINT("Failed to initialize major device(s)\n");
+		goto end;
+	}
+
+	for (i = 0; i < gdev_count; i++) {
+		if (gdev_minor_init(i)) {
+			for (i = i - 1; i >= 0; i--)
+				gdev_minor_exit(i);
+			gdev_major_exit();
+			goto end;
+		}
+	}
+
+end:
+	return 0;
+}
+
+static void __exit gdev_module_exit(void)
+{
+	int i;
+
+	GDEV_PRINT("Unloading module...\n");
+
+	for (i = 0; i < gdev_count; i++) {
+		gdev_minor_exit(i);
+	}
+
+	gdev_major_exit();
+}
+
+module_init(gdev_module_init);
+module_exit(gdev_module_exit);
