@@ -94,7 +94,8 @@ static int __gdev_sched_com_thread(void *__data)
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-		gdev_select_next_compute(gdev);
+		if (gdev->users)
+			gdev_select_next_compute(gdev);
 	}
 
 	return 0;
@@ -110,7 +111,8 @@ static int __gdev_sched_mem_thread(void *__data)
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
-		gdev_select_next_memory(gdev);
+		if (gdev->users)
+			gdev_select_next_memory(gdev);
 	}
 
 	return 0;
@@ -241,12 +243,14 @@ int gdev_sched_create_scheduler(struct gdev_device *gdev)
 	if (credit_com) {
 		sched_setscheduler(credit_com, SCHED_FIFO, &sp);
 		wake_up_process(credit_com);
+		gdev->credit_com_thread = credit_com;
 	}
 	sprintf(name, "gcreditm%d", gdev->id);
 	credit_mem = kthread_create(__gdev_credit_mem_thread, (void*)gdev, name);
 	if (credit_mem) {
 		sched_setscheduler(credit_mem, SCHED_FIFO, &sp);
 		wake_up_process(credit_mem);
+		gdev->credit_mem_thread = credit_mem;
 	}
 
 	return 0;
@@ -254,10 +258,23 @@ int gdev_sched_create_scheduler(struct gdev_device *gdev)
 
 void gdev_sched_destroy_scheduler(struct gdev_device *gdev)
 {
-	if (gdev->sched_com_thread)
-		kthread_stop(gdev->sched_com_thread);
-	if (gdev->sched_mem_thread)
+	if (gdev->credit_mem_thread) {
+		kthread_stop(gdev->credit_mem_thread);
+		gdev->credit_mem_thread = NULL;
+	}
+	if (gdev->credit_com_thread) {
+		kthread_stop(gdev->credit_com_thread);
+		gdev->credit_com_thread = NULL;
+	}
+	if (gdev->sched_mem_thread) {
 		kthread_stop(gdev->sched_mem_thread);
+		gdev->sched_mem_thread = NULL;	
+}
+	if (gdev->sched_com_thread) {
+		kthread_stop(gdev->sched_com_thread);
+		gdev->sched_com_thread = NULL;
+	}
+	schedule_timeout_uninterruptible(usecs_to_jiffies(gdev->period));
 }
 
 void *gdev_sched_get_current_task(void)

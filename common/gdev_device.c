@@ -69,6 +69,8 @@ void __gdev_init_device(struct gdev_device *gdev, int id)
 	gdev->swap = NULL;
 	gdev->sched_com_thread = NULL;
 	gdev->sched_mem_thread = NULL;
+	gdev->credit_com_thread = NULL;
+	gdev->credit_mem_thread = NULL;
 	gdev->current_com = NULL;
 	gdev->current_mem = NULL;
 	gdev->parent = NULL;

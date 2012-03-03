@@ -71,6 +71,8 @@ struct gdev_device {
 	void *compute; /* private set of compute functions */
 	void *sched_com_thread; /* compute scheduler thread */
 	void *sched_mem_thread; /* memory scheduler thread */
+	void *credit_com_thread; /* compute credit thread */
+	void *credit_mem_thread; /* memory credit thread */
 	void *current_com; /* current compute execution entity */
 	void *current_mem; /* current memory transfer entity */
 	struct gdev_device *parent; /* only for virtual devices */
