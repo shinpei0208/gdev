@@ -159,8 +159,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 }
 
 /* create a new GPU context object. 
-   there are not many to do here, as we have already allocated a channel
-   object in gdev_vas_new(), i.e., @vas holds it. */
+   we don't use @vas->pchan, as a channel is already held by @vas->pvas. */
 struct gdev_ctx *gdev_raw_ctx_new
 (struct gdev_device *gdev, struct gdev_vas *vas)
 {

@@ -1,6 +1,7 @@
 #!/bin/sh
 
 pscnv_exist=$(lsmod | grep pscnv | wc -l)
+nouveau_exist=$(lsmod | grep nouveau | wc -l)
 driver=''
 
 if [ ! $pscnv_exist -eq 0 ] ; then
