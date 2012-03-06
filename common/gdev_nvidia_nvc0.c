@@ -280,19 +280,47 @@ static void nvc0_fence_reset(struct gdev_ctx *ctx, uint32_t sequence)
 #ifndef GDEV_NVIDIA_MEMCPY_PCOPY
 static void nvc0_memcpy_m2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
-	uint32_t mode = 0x102110; /* QUERY_SHORT|QUERY_YES|SRC_LINEAR|DST_LINEAR */
+	uint32_t mode1 = 0x102110; /* QUERY_SHORT|QUERY_YES|SRC_LINEAR|DST_LINEAR */
+	uint32_t mode2 = 0x100110; /* QUERY_SHORT|SRC_LINEAR|DST_LINEAR */
+	uint32_t page_size = 0x1000;
+	uint32_t page_count = size / page_size;
+	uint32_t rem_size = size - page_size * page_count;
 
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x238, 2);
-	__gdev_out_ring(ctx, dst_addr >> 32); /* OFFSET_OUT_HIGH */
-	__gdev_out_ring(ctx, dst_addr); /* OFFSET_OUT_LOW */
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x30c, 2);
-	__gdev_out_ring(ctx, src_addr >> 32); /* OFFSET_IN_HIGH */
-	__gdev_out_ring(ctx, src_addr); /* OFFSET_IN_LOW */
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x31c, 2);
-	__gdev_out_ring(ctx, size); /* LINE_LENGTH_IN */
-	__gdev_out_ring(ctx, 1); /* LINE_COUNT */
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x300, 1);
-	__gdev_out_ring(ctx, mode); /* EXEC */
+	while (page_count) {
+		int line_count = (page_count > 2047) ? 2047 : page_count;
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x238, 2);
+		__gdev_out_ring(ctx, dst_addr >> 32); /* OFFSET_OUT_HIGH */
+		__gdev_out_ring(ctx, dst_addr); /* OFFSET_OUT_LOW */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x30c, 6);
+		__gdev_out_ring(ctx, src_addr >> 32); /* OFFSET_IN_HIGH */
+		__gdev_out_ring(ctx, src_addr); /* OFFSET_IN_LOW */
+		__gdev_out_ring(ctx, page_size); /* SRC_PITCH_IN */
+		__gdev_out_ring(ctx, page_size); /* DST_PITCH_IN */
+		__gdev_out_ring(ctx, page_size); /* LINE_LENGTH_IN */
+		__gdev_out_ring(ctx, line_count); /* LINE_COUNT */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x300, 1);
+		if (page_count == line_count && rem_size == 0)
+			__gdev_out_ring(ctx, mode1); /* EXEC */
+		else
+			__gdev_out_ring(ctx, mode2); /* EXEC */
+		page_count -= line_count;
+		dst_addr += (page_size * line_count);
+		src_addr += (page_size * line_count);
+	}
+
+	if (rem_size) {
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x238, 2);
+		__gdev_out_ring(ctx, dst_addr >> 32); /* OFFSET_OUT_HIGH */
+		__gdev_out_ring(ctx, dst_addr); /* OFFSET_OUT_LOW */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x30c, 2);
+		__gdev_out_ring(ctx, src_addr >> 32); /* OFFSET_IN_HIGH */
+		__gdev_out_ring(ctx, src_addr); /* OFFSET_IN_LOW */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x31c, 2);
+		__gdev_out_ring(ctx, rem_size); /* LINE_LENGTH_IN */
+		__gdev_out_ring(ctx, 1); /* LINE_COUNT */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x300, 1);
+		__gdev_out_ring(ctx, mode1); /* EXEC */
+	}
 
 	__gdev_fire_ring(ctx);
 }
