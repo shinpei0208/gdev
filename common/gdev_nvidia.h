@@ -251,12 +251,14 @@ static inline void __gdev_relax_fifo(void)
 
 static inline uint32_t __gdev_read_fifo_reg(struct gdev_ctx *ctx, uint32_t reg)
 {
-	return IOREAD32(ctx->fifo.regs + reg / 4);
+	/* don't forget (unsigned long) cast... */
+	return IOREAD32((unsigned long)ctx->fifo.regs + reg);
 }
 
 static inline void __gdev_write_fifo_reg(struct gdev_ctx *ctx, uint32_t reg, uint32_t val)
 {
-	IOWRITE32(val, ctx->fifo.regs + reg / 4);
+	/* don't forget (unsigned long) cast... */
+	IOWRITE32(val, (unsigned long)ctx->fifo.regs + reg);
 }
 
 static inline void __gdev_push_fifo(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
