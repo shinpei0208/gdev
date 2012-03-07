@@ -129,7 +129,6 @@ static int __gmemcpy_to_device_p(gdev_ctx_t *ctx, uint64_t dst_addr, const void 
 	for (;;) {
 		for (i = 0; i < p_count; i++) {
 			dma_size = __min(rest_size, ch_size);
-			rest_size -= dma_size;
 			/* HtoH */
 			if (fence[i])
 				gdev_poll(ctx, fence[i], NULL);
@@ -138,12 +137,13 @@ static int __gmemcpy_to_device_p(gdev_ctx_t *ctx, uint64_t dst_addr, const void 
 				goto end;
 			/* HtoD */
 			fence[i] = gdev_memcpy(ctx, dst_addr+offset, dma_addr[i], dma_size);
-			if (rest_size == 0) {
+			if (rest_size == dma_size) {
 				/* wait for the last fence, and go out! */
 				gdev_poll(ctx, fence[i], NULL);
 				goto end;
 			}
 			offset += dma_size;
+			rest_size -= dma_size;
 		}
 	}
 
@@ -307,32 +307,40 @@ static int __gmemcpy_from_device_p(gdev_ctx_t *ctx, void *dst_buf, uint64_t src_
 		fence[i] = 0;
 	}
 
+	/* DtoH for all bounce buffers first. */
 	offset = 0;
-	dma_size = __min(rest_size, ch_size);
-	rest_size -= dma_size;
-	/* DtoH */
-	fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + 0, dma_size);
+	for (i = 0; i < p_count; i++) {
+		dma_size = __min(rest_size, ch_size);
+		fence[i] = gdev_memcpy(ctx, dma_addr[i], src_addr + offset, dma_size);
+		if (rest_size == dma_size)
+			break;
+		offset += dma_size;
+		rest_size -= dma_size;
+	}
+
+	/* reset offset and rest size. */
+	offset = 0;
+	rest_size = size;
+	/* now start overlapping. */
 	for (;;) {
 		for (i = 0; i < p_count; i++) {
-			if (rest_size == 0) {
-				/* HtoH */
-				gdev_poll(ctx, fence[i], NULL);
-				host_copy(dst_buf + offset, dma_buf[i], dma_size);
-				goto end;
-			}
 			dma_size = __min(rest_size, ch_size);
-			rest_size -= dma_size;
-			offset += dma_size;
-			/* DtoH */
-			if (i + 1 == p_count)
-				fence[0] = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
-			else
-				fence[i+1] = gdev_memcpy(ctx, dma_addr[i+1], src_addr + offset, dma_size);
 			/* HtoH */
 			gdev_poll(ctx, fence[i], NULL);
-			ret = host_copy(dst_buf + offset - dma_size, dma_buf[i], dma_size);
+			ret = host_copy(dst_buf + offset, dma_buf[i], dma_size);
 			if (ret)
 				goto end;
+			/* DtoH for the next round if necessary. */
+			if (p_count * ch_size < rest_size) {
+				uint64_t rest_size_n = rest_size - p_count * ch_size;
+				uint32_t dma_size_n = __min(rest_size_n, ch_size);
+				uint64_t offset_n = offset + p_count * ch_size;
+				fence[i] = gdev_memcpy(ctx, dma_addr[i], src_addr + offset_n, dma_size_n);
+			}
+			else if (rest_size == dma_size)
+				goto end;
+			offset += dma_size;
+			rest_size -= dma_size;
 		}
 	}
 
