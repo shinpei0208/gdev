@@ -54,6 +54,11 @@ struct pscnv_vm_engine {
 	int (*map_user) (struct pscnv_bo *);
 	int (*map_kernel) (struct pscnv_bo *);
 	void (*bar_flush) (struct drm_device *dev);
+	uint64_t (*phys_getaddr) (struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr);
+	int (*read32) (struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t *ptr);
+	int (*write32) (struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, uint32_t val);
+	int (*read) (struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, void *buf, uint32_t size);
+	int (*write) (struct pscnv_vspace *vs, struct pscnv_bo *bo, uint64_t addr, const void *buf, uint32_t size);
 	struct pscnv_vspace *fake_vspaces[4];
 	struct pscnv_vspace *vspaces[128];
 	spinlock_t vs_lock;
