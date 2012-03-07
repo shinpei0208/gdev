@@ -67,6 +67,7 @@ have issues with some Fermi chipsets - nvc0 is best tested.
 See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
 
 cd $(TOPDIR)/pscnv/pscnv
+# if you prefer a stable version, cd $(TOPDIR)/gdev/driver/pscnv
 ./configure
 make
 sudo init 3 # kill X
