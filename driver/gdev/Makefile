@@ -17,6 +17,3 @@ all:
 clean:
 	+make -C $(SYSSRC) M=$(PWD) clean
 	rm -f *~
-
-install:
-	@sh ./install.sh

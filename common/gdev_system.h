@@ -78,6 +78,8 @@ void gdev_mutex_unlock(gdev_mutex_t *p);
 	copy_from_user(dst, (void __user *) src, size)
 #define COPY_TO_USER(dst, src, size) \
 	copy_to_user((void __user *) dst, src, size)
+#define IOREAD32(addr) ioread32((void *)(addr))
+#define IOWRITE32(val, addr) iowrite32(val, (void *)(addr))
 #else /* user-space functions */
 #define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
 #ifdef GDEV_DEBUG_PRINT
@@ -99,6 +101,8 @@ void gdev_mutex_unlock(gdev_mutex_t *p);
 #define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size) 
 /* should never used */
 #define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
+#define IOREAD32(addr) *(uint32_t *)(addr)
+#define IOWRITE32(val, addr) *(uint32_t *)(addr) = val
 #endif
 
 #endif
