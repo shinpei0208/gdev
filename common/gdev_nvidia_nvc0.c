@@ -312,10 +312,11 @@ static void nvc0_memcpy_m2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t s
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x238, 2);
 		__gdev_out_ring(ctx, dst_addr >> 32); /* OFFSET_OUT_HIGH */
 		__gdev_out_ring(ctx, dst_addr); /* OFFSET_OUT_LOW */
-		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x30c, 2);
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x30c, 6);
 		__gdev_out_ring(ctx, src_addr >> 32); /* OFFSET_IN_HIGH */
 		__gdev_out_ring(ctx, src_addr); /* OFFSET_IN_LOW */
-		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x31c, 2);
+		__gdev_out_ring(ctx, rem_size); /* SRC_PITCH_IN */
+		__gdev_out_ring(ctx, rem_size); /* DST_PITCH_IN */
 		__gdev_out_ring(ctx, rem_size); /* LINE_LENGTH_IN */
 		__gdev_out_ring(ctx, 1); /* LINE_COUNT */
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x300, 1);
