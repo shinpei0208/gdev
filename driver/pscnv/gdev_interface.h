@@ -42,18 +42,25 @@ struct gdev_drv_bo {
 	void *map;
 };
 
-int gdev_drv_getdevice(int *count);
-int gdev_drv_getparam(struct drm_device *drm, uint32_t type, uint64_t *res);
-int gdev_drv_setnotify(void (*func)(int subc, uint32_t data));
 int gdev_drv_vspace_alloc(struct drm_device *drm, uint64_t size, struct gdev_drv_vspace *drv_vspace);
 int gdev_drv_vspace_free(struct gdev_drv_vspace *drv_vspace);
 int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_chan *drv_chan);
 int gdev_drv_chan_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_chan *drv_chan);
 int gdev_drv_bo_alloc(struct drm_device *drm, uint64_t size, uint32_t flags, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo);
 int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo);
-int gdev_drv_bo_bind(struct drm_device *drm, struct gdev_drv_bo *drv_bo, struct gdev_drv_vspace *drv_vspace);
-int gdev_drv_bo_unbind(struct gdev_drv_bo *drv_bo);
+int gdev_drv_bo_bind(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo);
+int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo);
 int gdev_drv_bo_map(struct drm_device *drm, struct gdev_drv_bo *drv_bo);
 int gdev_drv_bo_unmap(struct gdev_drv_bo *drv_bo);
+int gdev_drv_read32(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint32_t *p);
+int gdev_drv_write32(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint32_t val);
+int gdev_drv_read(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t size, void *buf);
+int gdev_drv_write(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t size, const void *buf);
+int gdev_drv_getdevice(int *count);
+int gdev_drv_getdrm(int minor, struct drm_device **pptr);
+int gdev_drv_getparam(struct drm_device *drm, uint32_t type, uint64_t *res);
+int gdev_drv_getaddr(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t *addr);
+int gdev_drv_setnotify(void (*func)(int subc, uint32_t data));
+int gdev_drv_unsetnotify(void (*func)(int subc, uint32_t data));
 
 #endif

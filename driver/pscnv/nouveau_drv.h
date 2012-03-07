@@ -25,16 +25,16 @@
 #ifndef __NOUVEAU_DRV_H__
 #define __NOUVEAU_DRV_H__
 
-#define DRIVER_AUTHOR		"Stephane Marchesin"
-#define DRIVER_EMAIL		"dri-devel@lists.sourceforge.net"
+#define DRIVER_AUTHOR		"Shinpei Kato"
+#define DRIVER_EMAIL		"shinpei@soe.ucsc.edu"
 
 #define DRIVER_NAME		"pscnv"
-#define DRIVER_DESC		"nVidia NV50"
-#define DRIVER_DATE		"20090420"
+#define DRIVER_DESC		"NVIDIA Tesla/Fermi"
+#define DRIVER_DATE		"20120123"
 
 #define DRIVER_MAJOR		0
 #define DRIVER_MINOR		0
-#define DRIVER_PATCHLEVEL	16
+#define DRIVER_PATCHLEVEL	0
 
 #define DRM_FILE_PAGE_OFFSET (0x100000000ULL >> PAGE_SHIFT)
 

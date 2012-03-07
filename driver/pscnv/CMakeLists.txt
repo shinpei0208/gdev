@@ -96,6 +96,7 @@ set(sources
     nvc0_graph
     nvc0_grctx
     nv40_counter
+    gdev_interface
     )
 
 #set(makefile "${CMAKE_CURRENT_BINARY_DIR}/build/Makefile")

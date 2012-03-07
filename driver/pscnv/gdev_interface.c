@@ -11,56 +11,9 @@
 #define VS_END (1ull << 40)
 
 extern int pscnv_device_count;
+extern struct drm_device **pscnv_drm;
 extern void (*pscnv_callback_notify)(int subc, uint32_t data);
 extern uint32_t *nvc0_fifo_ctrl_ptr(struct drm_device *, struct pscnv_chan *);
-
-int gdev_drv_getdevice(int *count)
-{
-	*count = pscnv_device_count;
-	return 0;
-}
-EXPORT_SYMBOL(gdev_drv_getdevice);
-
-int gdev_drv_getparam(struct drm_device *drm, uint32_t type, uint64_t *res)
-{
-	struct drm_pscnv_getparam getparam;
-	int ret = 0;
-
-	switch (type) {
-	case GDEV_DRV_GETPARAM_MP_COUNT:
-		getparam.param = PSCNV_GETPARAM_MP_COUNT;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*res = getparam.value;
-		break;
-	case GDEV_DRV_GETPARAM_FB_SIZE:
-		getparam.param = PSCNV_GETPARAM_FB_SIZE;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*res = getparam.value;
-		break;
-	case GDEV_DRV_GETPARAM_AGP_SIZE:
-		getparam.param = PSCNV_GETPARAM_AGP_SIZE;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*res = getparam.value;
-		break;
-	case GDEV_DRV_GETPARAM_CHIPSET_ID:
-		getparam.param = PSCNV_GETPARAM_CHIPSET_ID;
-		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
-		*res = getparam.value;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL(gdev_drv_getparam);
-
-int gdev_drv_setnotify(void (*func)(int subc, uint32_t data))
-{
-	pscnv_callback_notify = func;
-	return 0;
-}
-EXPORT_SYMBOL(gdev_drv_setnotify);
 
 int gdev_drv_vspace_alloc(struct drm_device *drm, uint64_t size, struct gdev_drv_vspace *drv_vspace)
 {
@@ -320,26 +273,250 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 }
 EXPORT_SYMBOL(gdev_drv_bo_free);
 
-int gdev_drv_bo_bind(struct drm_device *drm, struct gdev_drv_bo *mem, struct gdev_drv_vspace *drv_vspace)
+int gdev_drv_bo_bind(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct pscnv_mm_node *mm;
+	void *map;
+
+	if (pscnv_vspace_map(vspace, bo, VS_START, VS_END, 0,&mm))
+		goto fail_map;
+
+	if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP) {
+		if (bo->size > PAGE_SIZE)
+			map = vmap(bo->pages, bo->size >> PAGE_SHIFT, 0, PAGE_KERNEL);
+		else
+			map = kmap(bo->pages[0]);
+	}
+	else
+		map = NULL;
+
+	drv_bo->addr = mm->start;
+	drv_bo->size = bo->size;
+	drv_bo->map = map;
+
 	return 0;
+
+fail_map:
+	return -ENOMEM;
 }
 EXPORT_SYMBOL(gdev_drv_bo_bind);
 
-int gdev_drv_bo_unbind(struct gdev_drv_bo *drv_bo)
+int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+
+	pscnv_vspace_unmap(vspace, drv_bo->addr);	
+	
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_bo_unbind);
 
 int gdev_drv_bo_map(struct drm_device *drm, struct gdev_drv_bo *drv_bo)
 {
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	unsigned long bar1_start = pci_resource_start(drm->pdev, 1);
+	void *map;
+
+	if (dev_priv->vm->map_user(bo))
+		goto fail_map_user;
+	if (!(map = ioremap(bar1_start + bo->map1->start, bo->size)))
+		goto fail_ioremap;
+
+	bo->flags |= PSCNV_GEM_MAPPABLE;
+	drv_bo->map = map;
+
 	return 0;
+
+fail_ioremap:
+	pscnv_vspace_unmap_node(bo->map1);
+fail_map_user:
+	return -EIO;
 }
 EXPORT_SYMBOL(gdev_drv_bo_map);
 
 int gdev_drv_bo_unmap(struct gdev_drv_bo *drv_bo)
 {
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	void *map = drv_bo->map;
+
+	iounmap(map);
+	pscnv_vspace_unmap_node(bo->map1);
+	bo->flags &= ~PSCNV_GEM_MAPPABLE;
+
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_bo_unmap);
+
+int gdev_drv_read32(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint32_t *p)
+{
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	if (drv_bo->map) {
+		*p = ioread32_native(drv_bo->map + offset);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->read32(vspace, bo, drv_bo->addr + offset, p);
+		mutex_unlock(&vspace->lock);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_read32);
+
+int gdev_drv_write32(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint32_t val)
+{
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	if (drv_bo->map) {
+		iowrite32_native(val, drv_bo->map + offset);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->write32(vspace, bo, drv_bo->addr + offset, val);
+		mutex_unlock(&vspace->lock);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_write32);
+
+int gdev_drv_read(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t size, void *buf)
+{
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	if (drv_bo->map) {
+		memcpy_fromio(buf, drv_bo->map + offset, size);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->read(vspace, bo, drv_bo->addr + offset, buf, size);
+		mutex_unlock(&vspace->lock);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_read);
+
+int gdev_drv_write(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t size, const void *buf)
+{
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+
+	if (drv_bo->map) {
+		memcpy_toio(drv_bo->map + offset, buf, size);
+	}
+	else {
+		mutex_lock(&vspace->lock);
+		dev_priv->vm->write(vspace, bo, drv_bo->addr + offset, buf, size);
+		mutex_unlock(&vspace->lock);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_write);
+
+int gdev_drv_getdevice(int *count)
+{
+	*count = pscnv_device_count;
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_getdevice);
+
+int gdev_drv_getdrm(int minor, struct drm_device **pptr)
+{
+	if (minor < pscnv_device_count) {
+		if (pscnv_drm[minor]) {
+			*pptr = pscnv_drm[minor];
+			return 0;
+		}
+	}
+	
+	*pptr = NULL;
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL(gdev_drv_getdrm);
+
+int gdev_drv_getparam(struct drm_device *drm, uint32_t type, uint64_t *res)
+{
+	struct drm_pscnv_getparam getparam;
+	int ret = 0;
+
+	switch (type) {
+	case GDEV_DRV_GETPARAM_MP_COUNT:
+		getparam.param = PSCNV_GETPARAM_MP_COUNT;
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	case GDEV_DRV_GETPARAM_FB_SIZE:
+		getparam.param = PSCNV_GETPARAM_FB_SIZE;
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	case GDEV_DRV_GETPARAM_AGP_SIZE:
+		getparam.param = PSCNV_GETPARAM_AGP_SIZE;
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	case GDEV_DRV_GETPARAM_CHIPSET_ID:
+		getparam.param = PSCNV_GETPARAM_CHIPSET_ID;
+		ret = pscnv_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(gdev_drv_getparam);
+
+int gdev_drv_getaddr(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t *addr)
+{
+	struct pscnv_vspace *vspace = (struct pscnv_vspace *)drv_vspace->priv;
+	struct pscnv_bo *bo = (struct pscnv_bo *)drv_bo->priv;
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	int page = offset / PAGE_SIZE;
+	uint32_t x = offset - page * PAGE_SIZE;
+
+	if (bo->flags & PSCNV_GEM_MAPPABLE) {
+		if (bo->flags & PSCNV_GEM_SYSRAM_SNOOP)
+			*addr = bo->dmapages[page] + x;
+		else
+			*addr = pci_resource_start(drm->pdev, 1) + bo->map1->start + x;
+	}
+	else {
+		*addr = dev_priv->vm->phys_getaddr(vspace, bo, drv_bo->addr + offset);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_getaddr);
+
+int gdev_drv_setnotify(void (*func)(int subc, uint32_t data))
+{
+	pscnv_callback_notify = func;
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_setnotify);
+
+int gdev_drv_unsetnotify(void (*func)(int subc, uint32_t data))
+{
+	if (pscnv_callback_notify != func)
+		return -EINVAL;
+	pscnv_callback_notify = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(gdev_drv_unsetnotify);

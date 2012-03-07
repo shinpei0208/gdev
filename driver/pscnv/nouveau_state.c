@@ -535,6 +535,9 @@ static int nouveau_remove_conflicting_drivers(struct drm_device *dev)
 	return 0;
 }
 
+extern int pscnv_device_count;
+extern struct drm_device **pscnv_drm;
+
 int nouveau_load(struct drm_device *dev, unsigned long flags)
 {
 	struct drm_nouveau_private *dev_priv;
@@ -690,6 +693,9 @@ int nouveau_load(struct drm_device *dev, unsigned long flags)
 		if (ret)
 			return ret;
 	}
+
+	if (dev->primary->index < pscnv_device_count)
+		pscnv_drm[dev->primary->index] = dev;
 
 	return 0;
 }

@@ -26,12 +26,16 @@ pscnv-$(CONFIG_ACPI) += nouveau_acpi.o
 
 obj-m := pscnv.o
 
-EXTRA_CFLAGS = -Iinclude/drm
-
-SYSSRC = /lib/modules/$(shell uname -r)/build
+EXTRA_CFLAGS := -Iinclude/drm
+SYSSRC := /lib/modules/$(shell uname -r)/build
+PWD := $(shell pwd)
 
 all:
 	+make -C $(SYSSRC) M=$(PWD) modules
+
+modules_install:
+	+make -C $(SYSSRC) M=$(PWD) modules_install
+	@sh ./gdev.sh
 
 clean:
 	+make -C $(SYSSRC) M=$(PWD) clean

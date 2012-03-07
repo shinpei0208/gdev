@@ -501,10 +501,17 @@ static int __get_device_count(void)
 }
 
 int pscnv_device_count = 0;
+struct drm_device **pscnv_drm;
 
 static int __init nouveau_init(void)
 {
 	pscnv_device_count = __get_device_count();
+
+	pscnv_drm = kzalloc(sizeof(*pscnv_drm) * pscnv_device_count, GFP_KERNEL);
+	if (!pscnv_drm) {
+		printk(KERN_INFO "Failed to allocate pscnv drm array\n");
+		return -ENOMEM;
+	}
 
 	driver.num_ioctls = nouveau_max_ioctl;
 
@@ -542,6 +549,8 @@ static void __exit nouveau_exit(void)
 	drm_pci_exit(&driver, &nouveau_pci_driver);
 #endif
 	nouveau_unregister_dsm_handler();
+
+	kfree(pscnv_drm);
 }
 
 module_init(nouveau_init);
