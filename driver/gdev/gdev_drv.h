@@ -29,6 +29,7 @@
 #ifndef __GDEV_DRV_H__
 #define __GDEV_DRV_H__
 
+#include <asm/io.h>
 #include <linux/kernel.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>

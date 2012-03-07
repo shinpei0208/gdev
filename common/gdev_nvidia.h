@@ -249,12 +249,23 @@ static inline void __gdev_relax_fifo(void)
 	SCHED_YIELD();
 }
 
+static inline uint32_t __gdev_read_fifo_reg(struct gdev_ctx *ctx, uint32_t reg)
+{
+	return IOREAD32(ctx->fifo.regs + reg / 4);
+}
+
+static inline void __gdev_write_fifo_reg(struct gdev_ctx *ctx, uint32_t reg, uint32_t val)
+{
+	IOWRITE32(val, ctx->fifo.regs + reg / 4);
+}
+
 static inline void __gdev_push_fifo(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
 {
 	uint64_t w = base | (uint64_t)len << 40 | (uint64_t)flags << 40;
 	while (((ctx->fifo.ib_put + 1) & ctx->fifo.ib_mask) == ctx->fifo.ib_get) {
 		uint32_t old = ctx->fifo.ib_get;
-		ctx->fifo.ib_get = ctx->fifo.regs[0x88/4];
+		/* ctx->fifo.ib_get = ctx->fifo.regs[0x88/4]; */
+		ctx->fifo.ib_get = __gdev_read_fifo_reg(ctx, 0x88);
 		if (old == ctx->fifo.ib_get) {
 			__gdev_relax_fifo();
 		}
@@ -265,13 +276,16 @@ static inline void __gdev_push_fifo(struct gdev_ctx *ctx, uint64_t base, uint32_
 	ctx->fifo.ib_put &= ctx->fifo.ib_mask;
 	MB(); /* is this needed? */
 	ctx->dummy = ctx->fifo.ib_map[0]; /* flush writes */
-	ctx->fifo.regs[0x8c/4] = ctx->fifo.ib_put;
+	/* ctx->fifo.regs[0x8c/4] = ctx->fifo.ib_put; */
+	__gdev_write_fifo_reg(ctx, 0x8c, ctx->fifo.ib_put);
 }
 
 static inline void __gdev_update_get(struct gdev_ctx *ctx)
 {
-	uint32_t lo = ctx->fifo.regs[0x58/4];
-	uint32_t hi = ctx->fifo.regs[0x5c/4];
+	/* uint32_t lo = ctx->fifo.regs[0x58/4]; */
+	uint32_t lo = __gdev_read_fifo_reg(ctx, 0x58);
+	/* uint32_t hi = ctx->fifo.regs[0x5c/4]; */
+	uint32_t hi = __gdev_read_fifo_reg(ctx, 0x5c);
 	if (hi & 0x80000000) {
 		uint64_t mg = ((uint64_t)hi << 32 | lo) & 0xffffffffffull;
 		ctx->fifo.pb_get = mg - ctx->fifo.pb_base;
