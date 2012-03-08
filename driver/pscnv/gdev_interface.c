@@ -264,7 +264,7 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 			return -ENOENT;
 	}
 
-	if (vspace)
+	if (addr)
 		pscnv_vspace_unmap(vspace, addr);
 
 	pscnv_mem_free(bo);
