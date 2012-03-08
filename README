@@ -66,12 +66,24 @@ NOTE2: pscnv is available with Linux 2.6.33 or later. It may also
 have issues with some Fermi chipsets - nvc0 is best tested.
 See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
 
+3.1. When you use pscnv
+
 cd $(TOPDIR)/pscnv/pscnv
 # if you prefer a stable version, cd $(TOPDIR)/gdev/driver/pscnv
 ./configure
 make
 sudo init 3 # kill X
 sudo make modules_install
+sudo shutdown -r now # will reboot your machine
+
+3.2. When you use nouveau
+
+cd $(TOPDIR)/gdev/driver/nouveau
+make NOUVEAUROOTDIR=.
+sudo init 3 # kill X
+sudo make install NOUVEAUROOTDIR=.
+cd drivers/gpu/drm/nouveau
+sudo sh gdev.sh
 sudo shutdown -r now # will reboot your machine
 
 4. Gdev Module
