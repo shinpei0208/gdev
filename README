@@ -21,20 +21,20 @@ the details of GPU resource parameters, while Gdev also supports a
 high-level API, such as CUDA.
 Gdev is available for GPGPU and graphics applications. It is self-
 contained for GPGPU, though graphics applications require additional
-APIs, such as OpenGL, LIBDRM, and DDX.
+packages, such as OpenGL, LIBDRM, and DDX.
 
 Gdev is open-source. We believe that this open-source implementation
 facilitates further research and development of GPU technology.
 
-The following instruct Gdev installation. Some of the installation
-stages will require you to install additional tools and packages.
+The following instruction will tell you how to install Gdev. Some of 
+the installation stages may require you to install additional tools 
+and packages.
 $(TOPDIR) will represent your top working directory, henceforth.
 
 1. Download
 
 cd $(TOPDIR)
 git clone git://0x04.net/envytools.git
-git clone git://github.com/shinpei0208/pscnv.git
 git clone git://github.com/shinpei0208/gdev.git
 
 2. envytools
@@ -68,8 +68,7 @@ See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
 
 3.1. When you use pscnv
 
-cd $(TOPDIR)/pscnv/pscnv
-# if you prefer a stable version, cd $(TOPDIR)/gdev/driver/pscnv
+cd $(TOPDIR)/gdev/driver/pscnv
 ./configure
 make
 sudo init 3 # kill X
