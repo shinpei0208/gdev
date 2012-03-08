@@ -26,6 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <linux/module.h>
 #include <linux/version.h>
 #include "gdev_api.h"
 #include "gdev_device.h"

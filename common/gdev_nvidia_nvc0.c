@@ -405,23 +405,27 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
 
-	/* setup subchannels. */
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
-	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
-#ifdef GDEV_NVIDIA_MEMCPY_PCOPY
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
-	__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
-	__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
-#else
-	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
-	__gdev_out_ring(ctx, 0x9039); /* M2MF */
-#endif
-	__gdev_fire_ring(ctx);
-
 	/* initialize the fence values. */
 	for (i = 0; i < GDEV_FENCE_COUNT; i++)
 		nvc0_fence_reset(ctx, i);
+
+	/* set each subchannel twice - it ensures there are no ghost commands
+	   remaining at least in the second setup. */
+	for (i = 0; i < 2; i++) {
+		/* setup subchannels. */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
+		__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
+#ifdef GDEV_NVIDIA_MEMCPY_PCOPY
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
+		__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
+		__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
+#else
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
+		__gdev_out_ring(ctx, 0x9039); /* M2MF */
+#endif
+		__gdev_fire_ring(ctx);
+	}
 
 	/* the blob places NOP at the beginning. */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0x100, 1);
