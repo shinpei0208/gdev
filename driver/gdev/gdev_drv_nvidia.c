@@ -180,7 +180,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
+static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size, uint32_t flags)
 {
 	struct gdev_drv_vspace vspace;
 	struct gdev_drv_bo bo;
@@ -188,17 +188,17 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 
-	GDEV_DPRINT("Allocating memory of 0x%llx bytes\n", *size);
+	GDEV_DPRINT("Allocating memory of 0x%llx bytes\n", size);
 
 	if (!(mem = kzalloc(sizeof(*mem), GFP_KERNEL)))
 		goto fail_mem;
 
 	vspace.priv = vas->pvas;
-	if (gdev_drv_bo_alloc(drm, *size, flags, &vspace, &bo))
+	if (gdev_drv_bo_alloc(drm, size, flags, &vspace, &bo))
 		goto fail_bo_alloc;
-	*addr = bo.addr;
-	*size = bo.size;
-	*map = bo.map;
+	mem->addr = bo.addr;
+	mem->size = bo.size;
+	mem->map = bo.map;
 	mem->bo = bo.priv;
 	
 	return mem;
@@ -212,21 +212,21 @@ fail_mem:
 }
 
 /* allocate a new device memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size)
 {
 	uint32_t flags = GDEV_DRV_BO_VRAM | GDEV_DRV_BO_VSPACE;
 
-	if (*size <= GDEV_MEM_MAPPABLE_LIMIT)
+	if (size <= GDEV_MEM_MAPPABLE_LIMIT)
 		flags |= GDEV_DRV_BO_MAPPABLE;
 
-	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
+	return __gdev_raw_mem_alloc(vas, size, flags);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t size)
 {
 	uint32_t flags = GDEV_DRV_BO_SYSRAM | GDEV_DRV_BO_VSPACE | GDEV_DRV_BO_MAPPABLE; /* dma host memory is always mapped to user buffers. */
-	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
+	return __gdev_raw_mem_alloc(vas, size, flags);
 }
 
 /* free the specified memory object. */
@@ -301,7 +301,7 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 }
 
 /* create a new memory object sharing memory space with @mem. */
-struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem)
 {
 	struct gdev_drv_vspace vspace;
 	struct gdev_drv_bo bo;
@@ -323,12 +323,12 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, 
 		goto fail_bind;
 
 	/* address, size, and map. */
-	*addr = bo.addr;
-	*size = bo.size;
-	*map = bo.map;
+	new->addr = bo.addr;
+	new->size = bo.size;
+	new->map = bo.map;
 	new->bo = (void *)bo.priv; /* private driver object. */
 
-	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx\n", *size, *addr);
+	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx\n", bo.size, bo.addr);
 
 	return new;
 
@@ -362,6 +362,9 @@ void *gdev_raw_mem_map(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
+
+	if (mem->map)
+		return mem->map;
 
 	if (gdev_drv_bo_map(drm, &bo))
 		goto fail_map;

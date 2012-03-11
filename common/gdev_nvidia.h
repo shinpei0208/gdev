@@ -207,8 +207,8 @@ struct gdev_compute {
 /**
  * generic memory list functions for NVIDIA implementations.
  */
-void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type);
-void gdev_nvidia_mem_list_add(struct gdev_mem *mem, int type);
+void gdev_nvidia_mem_setup(struct gdev_mem *mem, struct gdev_vas *vas, int type);
+void gdev_nvidia_mem_list_add(struct gdev_mem *mem);
 void gdev_nvidia_mem_list_del(struct gdev_mem *mem);
 
 /**
@@ -226,12 +226,12 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size);
 void gdev_raw_vas_free(struct gdev_vas *vas);
 struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas);
 void gdev_raw_ctx_free(struct gdev_ctx *ctx);
-struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map);
-struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map);
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size);
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t size);
 void gdev_raw_mem_free(struct gdev_mem *mem);
 struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size);
 void gdev_raw_swap_free(struct gdev_mem *mem);
-struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map);
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem);
 void gdev_raw_mem_unshare(struct gdev_mem *mem);
 void *gdev_raw_mem_map(struct gdev_mem *mem);
 void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map);

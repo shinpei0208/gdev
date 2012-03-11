@@ -239,27 +239,25 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 }
 
 /* allocate a new memory object. */
-static struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map, uint32_t flags)
+static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size, uint32_t flags)
 {
 	struct gdev_mem *mem;
 	struct pscnv_ib_chan *chan = vas->pvas;
 	struct pscnv_ib_bo *bo;
-	uint64_t raw_size = *size;
 	
 	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
 		goto fail_mem;
 
-	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, flags, 0, raw_size, 0, &bo))
+	if (pscnv_ib_bo_alloc(chan->fd, chan->vid, 1, flags, 0, size, 0, &bo))
 		goto fail_bo;
 
 	/* address, size, and map. */
-	*addr = bo->vm_base;
-	*size = bo->size;
+	mem->addr = bo->vm_base;
+	mem->size = bo->size;
 	if (flags & PSCNV_GEM_MAPPABLE)
-		*map = bo->map;
+		mem->map = bo->map;
 	else
-		*map = NULL;
-
+		mem->map = NULL;
 	/* private data. */
 	mem->bo = (void *) bo;
 
@@ -273,21 +271,21 @@ fail_mem:
 }
 
 /* allocate a new device memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size)
 {
 	uint32_t flags = PSCNV_GEM_VRAM_SMALL;
 
-	if (*size <= GDEV_MEM_MAPPABLE_LIMIT)
+	if (size <= GDEV_MEM_MAPPABLE_LIMIT)
 		flags |= PSCNV_GEM_MAPPABLE;
 
-	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
+	return __gdev_raw_mem_alloc(vas, size, flags);
 }
 
 /* allocate a new host DMA memory object. size may be aligned. */
-struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t size)
 {
 	uint32_t flags = PSCNV_GEM_SYSRAM_SNOOP | PSCNV_GEM_MAPPABLE;
-	return __gdev_raw_mem_alloc(vas, addr, size, map, flags);
+	return __gdev_raw_mem_alloc(vas, size, flags);
 }
 
 /* free the specified memory object. */
@@ -316,7 +314,7 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 }
 
 /* create a new memory object sharing memory space with @mem. */
-struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t *addr, uint64_t *size, void **map)
+struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem)
 {
 	GDEV_PRINT("Shared memory not implemented\n");
 	/* To be implemented. */

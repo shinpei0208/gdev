@@ -112,18 +112,20 @@ EXPORT_SYMBOL(gdev_drv_chan_free);
 
 int gdev_drv_bo_alloc(struct drm_device *drm, uint64_t size, uint32_t drv_flags, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
 	struct nouveau_bo *bo;
 	struct nouveau_vma *vma;
-	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
-	struct drm_nouveau_private *dev_priv = drm->dev_private;
 	uint32_t flags = 0;
 	int ret;
 
 	/* set memory type. */
-	if (drv_flags & GDEV_DRV_BO_VRAM)
+	if (drv_flags & GDEV_DRV_BO_VRAM) {
 		flags |= TTM_PL_FLAG_VRAM;
-	if (drv_flags & GDEV_DRV_BO_SYSRAM)
+	}
+	if (drv_flags & GDEV_DRV_BO_SYSRAM) {
 		flags |= TTM_PL_FLAG_TT;
+	}
 
 	ret = nouveau_bo_new(drm, size, 0, flags, 0, 0, &bo);
 	if (ret)
@@ -182,9 +184,9 @@ EXPORT_SYMBOL(gdev_drv_bo_alloc);
 
 int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
-	struct nouveau_vma *vma;
 	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
 	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+	struct nouveau_vma *vma;
 	uint64_t addr = drv_bo->addr;
 	void *map = drv_bo->map;
 
@@ -194,7 +196,7 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 	if (addr) {
 		vma = nouveau_bo_vma_find(bo, chan->vm);
 		if (vma) {
-			nouveau_bo_vma_del(bo, vma); /* this causes a crush... */
+			nouveau_bo_vma_del(bo, vma);
 			kfree(vma);
 		}
 		else {
@@ -210,24 +212,83 @@ EXPORT_SYMBOL(gdev_drv_bo_free);
 
 int gdev_drv_bo_bind(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+	struct drm_nouveau_private *dev_priv = drm->dev_private;
+	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
+	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+	struct nouveau_vma *vma;
+	int ret;
+
+	/* allocate virtual address space, if requested. */
+	if (dev_priv->card_type >= NV_50) {
+		vma = kzalloc(sizeof(*vma), GFP_KERNEL);
+		if (!vma) {
+			ret = -ENOMEM;
+			goto fail_vma_alloc;
+		}
+		
+		ret = nouveau_bo_vma_add(bo, chan->vm, vma);
+		if (ret)
+			goto fail_vma_add;
+		
+		drv_bo->addr = vma->offset;
+	}
+	else /* non-supported cards. */
+		drv_bo->addr = 0;
+
+	drv_bo->map = bo->kmap.virtual; /* could be NULL. */
+	drv_bo->size = bo->bo.mem.size;
+
 	return 0;
+
+fail_vma_add:
+	kfree(vma);
+fail_vma_alloc:
+	return ret;
 }
 EXPORT_SYMBOL(gdev_drv_bo_bind);
 
 int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
+	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+	struct nouveau_vma *vma;
+
+	vma = nouveau_bo_vma_find(bo, chan->vm);
+	if (vma) {
+		nouveau_bo_vma_del(bo, vma);
+		kfree(vma);
+	}
+	else
+		return -ENOENT;
+	
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_bo_unbind);
 
 int gdev_drv_bo_map(struct drm_device *drm, struct gdev_drv_bo *drv_bo)
 {
+	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+	int ret;
+
+	ret = nouveau_bo_map(bo);
+	if (ret)
+		return ret;
+
+	drv_bo->map = bo->kmap.virtual;
+
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_bo_map);
 
 int gdev_drv_bo_unmap(struct gdev_drv_bo *drv_bo)
 {
+	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+
+	if (bo->kmap.bo) /* dirty validation.. */
+		nouveau_bo_unmap(bo);
+	else
+		return -ENOENT;
+
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_bo_unmap);
