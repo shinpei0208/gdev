@@ -49,8 +49,7 @@ static int __gdev_swap_attach(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
 	struct gdev_mem *swap_mem;
-	uint64_t addr, size;
-	void *map, *swap_buf;
+	void *swap_buf;
 
 	/* host buffer for swap. */
 	swap_buf = MALLOC(mem->size);
@@ -58,10 +57,10 @@ static int __gdev_swap_attach(struct gdev_mem *mem)
 		goto fail_swap_buf;
 	/* device memory for temporal swap (shared by others). */
 	if (GDEV_SWAP_MEM_SIZE > 0) {
-		swap_mem = gdev_raw_mem_share(vas, gdev->swap, &addr, &size, &map);
+		swap_mem = gdev_raw_mem_share(vas, gdev->swap);
 		if (!swap_mem)
 			goto fail_swap_mem;
-		gdev_nvidia_mem_init(swap_mem, vas, addr, size, map, GDEV_MEM_DEVICE);
+		gdev_nvidia_mem_setup(swap_mem, vas, GDEV_MEM_DEVICE);
 	}
 	else {
 		swap_mem = NULL;
@@ -109,8 +108,6 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 {
 	struct gdev_mem *mem;
 	struct gdev_shm *shm;
-	uint64_t addr;
-	void *map;
 	int id = -1;
 	int i;
 
@@ -123,11 +120,11 @@ int gdev_shm_create(struct gdev_device *gdev, struct gdev_vas *vas, int key, uin
 
 	if (id < 0) {
 		/* @size could be resized (aligned by page size) */
-		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map))) {
+		if (!(mem = gdev_raw_mem_alloc(vas, size))) {
 			GDEV_PRINT("Failed to allocate memory\n");
 			goto fail_mem_alloc;
 		}
-		gdev_nvidia_mem_init(mem, vas, addr, size, map, GDEV_MEM_DEVICE);
+		gdev_nvidia_mem_setup(mem, vas, GDEV_MEM_DEVICE);
 		/* register the new shared memory segment. */
 		for (i = 0; i < GDEV_SHM_SEGMENT_COUNT; i++) {
 			if (!gdev_shm_owners[i]) {
@@ -260,8 +257,6 @@ static struct gdev_mem *__gdev_shm_find_victim(struct gdev_vas *vas, uint64_t si
 struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uint64_t size)
 {
 	struct gdev_mem *new;
-	uint64_t addr;
-	void *map;
 	int implicit;
 
 	if (!mem) {
@@ -275,11 +270,11 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 		implicit = 0;
 
 	/* borrow the same (physical) memory space by sharing. */
-	if (!(new = gdev_raw_mem_share(vas, mem, &addr, &size, &map)))
+	if (!(new = gdev_raw_mem_share(vas, mem)))
 		goto fail_shm;
 
 	/* initialize the new memory object. type = mem->type. */
-	gdev_nvidia_mem_init(new, vas, addr, size, map, mem->type);
+	gdev_nvidia_mem_setup(new, vas, mem->type);
 
 	/* if created implicitly, the object will need eviction at runtime. */
 	if (implicit) {
@@ -300,7 +295,7 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 	/* this increment is protected by gdev->shm_mutex. */
 	mem->shm->users++;
 
-	gdev_nvidia_mem_list_add(new, mem->type);
+	gdev_nvidia_mem_list_add(new);
 
 	return new;
 

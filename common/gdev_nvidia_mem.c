@@ -29,12 +29,9 @@
 #include "gdev_device.h"
 
 /* initialize a memory object. */
-void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t addr, uint64_t size, void *map, int type)
+void gdev_nvidia_mem_setup(struct gdev_mem *mem, struct gdev_vas *vas, int type)
 {
 	mem->vas = vas;
-	mem->size = size;
-	mem->addr = addr;
-	mem->map = map;
 	mem->type = type;
 	mem->evicted = 0;
 	mem->swap_mem = NULL;
@@ -42,14 +39,15 @@ void gdev_nvidia_mem_init(struct gdev_mem *mem, struct gdev_vas *vas, uint64_t a
 	mem->shm = NULL;
 	mem->map_users = 0;
 	
-	gdev_list_init(&mem->list_entry_heap, (void *) mem);
-	gdev_list_init(&mem->list_entry_shm, (void *) mem);
+	gdev_list_init(&mem->list_entry_heap, (void *)mem);
+	gdev_list_init(&mem->list_entry_shm, (void *)mem);
 }
 
 /* add a new memory object to the memory list. */
-void gdev_nvidia_mem_list_add(struct gdev_mem *mem, int type)
+void gdev_nvidia_mem_list_add(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
+	int type = mem->type;
 	unsigned long flags;
 
 	switch (type) {
@@ -139,16 +137,14 @@ void gdev_mem_unlock_all(struct gdev_vas *vas)
 struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
 	struct gdev_mem *mem;
-	uint64_t addr;
-	void *map;
 
 	switch (type) {
 	case GDEV_MEM_DEVICE:
-		if (!(mem = gdev_raw_mem_alloc(vas, &addr, &size, &map)))
+		if (!(mem = gdev_raw_mem_alloc(vas, size)))
 			goto fail;
 		break;
 	case GDEV_MEM_DMA:
-		if (!(mem = gdev_raw_mem_alloc_dma(vas, &addr, &size, &map)))
+		if (!(mem = gdev_raw_mem_alloc_dma(vas, size)))
 			goto fail;
 		break;
 	default:
@@ -156,8 +152,8 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 		goto fail;
 	}
 
-	gdev_nvidia_mem_init(mem, vas, addr, size, map, type);
-	gdev_nvidia_mem_list_add(mem, type);
+	gdev_nvidia_mem_setup(mem, vas, type);
+	gdev_nvidia_mem_list_add(mem);
 
 	return mem;
 
