@@ -27,6 +27,8 @@
 #ifndef __NOUVEAU_FB_H__
 #define __NOUVEAU_FB_H__
 
+#include "pscnv_kapi.h"
+
 struct nouveau_framebuffer {
 	struct drm_framebuffer base;
 	struct pscnv_bo *nvbo;
@@ -40,7 +42,12 @@ nouveau_framebuffer(struct drm_framebuffer *fb)
 
 extern const struct drm_mode_config_funcs nouveau_mode_config_funcs;
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+int nouveau_framebuffer_init(struct drm_device *dev, struct nouveau_framebuffer *nouveau_fb,
+			     struct drm_mode_fb_cmd2 *mode_cmd, struct pscnv_bo *nvbo);
+#else
 int nouveau_framebuffer_init(struct drm_device *dev, struct nouveau_framebuffer *nouveau_fb,
 			     struct drm_mode_fb_cmd *mode_cmd, struct pscnv_bo *nvbo);
+#endif
 
 #endif /* __NOUVEAU_FB_H__ */

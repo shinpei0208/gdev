@@ -5,13 +5,16 @@ kapitest-y := fail.o \
 	map_ofs.o \
 	io_mapping_2.o io_mapping_3.o \
 	i2c_id.o \
-	pci_driver.o \
 	switcheroo_reprobe.o \
 	getparam_bus_type.o \
+	drm_init.o \
 	drm_gem_object_handle_count.o \
 	drm_get_dev.o \
-	drm_pci_init.o \
-	fb_info_apertures.o
+	fb_info_apertures.o \
+	drm_driver_fops.o \
+	noop_llseek.o \
+	drm_mode_fb_cmd2.o \
+	drm_fb_pitch.o
 
 obj-m := kapitest.o
 

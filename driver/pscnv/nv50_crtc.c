@@ -607,10 +607,19 @@ nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	OUT_RING(evo, 0);
 	OUT_RING(evo, (drm_fb->height << 16) | drm_fb->width);
 	if (!nv_crtc->fb.tile_flags) {
+#ifdef PSCNV_KAPI_DRM_FB_PITCH
 		OUT_RING(evo, drm_fb->pitch | (1 << 20));
+#else
+		OUT_RING(evo, drm_fb->pitches[0] | (1 << 20));
+#endif
 	} else {
+#ifdef PSCNV_KAPI_DRM_FB_PITCH
 		OUT_RING(evo, ((drm_fb->pitch / 4) << 4) |
 				  fb->nvbo->user[0]);
+#else
+		OUT_RING(evo, ((drm_fb->pitches[0] / 4) << 4) |
+				  fb->nvbo->user[0]);
+#endif
 	}
 	if (dev_priv->chipset == 0x50)
 		OUT_RING(evo, (fb->nvbo->tile_flags << 16) | format);

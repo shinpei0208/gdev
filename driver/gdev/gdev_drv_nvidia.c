@@ -361,11 +361,15 @@ void *gdev_raw_mem_map(struct gdev_mem *mem)
 	struct gdev_drv_bo bo;
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_device *drm = (struct drm_device *)gdev->priv;
 
 	if (mem->map)
 		return mem->map;
 
+	bo.priv = mem->bo;
+	bo.addr = mem->addr;
+	bo.size = mem->size;
+	bo.map = NULL; /* will be obtained. */
 	if (gdev_drv_bo_map(drm, &bo))
 		goto fail_map;
 

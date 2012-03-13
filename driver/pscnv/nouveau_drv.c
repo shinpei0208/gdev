@@ -409,6 +409,24 @@ nouveau_pci_resume(struct pci_dev *pdev)
 #endif
 }
 
+#ifndef PSCNV_KAPI_DRM_DRIVER_FOPS
+static const struct file_operations nouveau_driver_fops = {
+	.owner = THIS_MODULE,
+	.open = drm_open,
+	.release = drm_release,
+	.unlocked_ioctl = drm_ioctl,
+	.mmap = pscnv_mmap,
+	.poll = drm_poll,
+	.fasync = drm_fasync,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = nouveau_compat_ioctl,
+#endif
+#ifdef PSCNV_KAPI_NOOP_LLSEEK
+	.llseek = noop_llseek,
+#endif
+};
+#endif
+
 static struct drm_driver driver = {
 	.driver_features =
 		DRIVER_USE_AGP | DRIVER_PCI_DMA | DRIVER_SG |
@@ -432,6 +450,7 @@ static struct drm_driver driver = {
 	.get_reg_ofs = drm_core_get_reg_ofs,
 #endif
 	.ioctls = nouveau_ioctls,
+#ifdef PSCNV_KAPI_DRM_DRIVER_FOPS
 	.fops = {
 		.owner = THIS_MODULE,
 		.open = drm_open,
@@ -444,8 +463,11 @@ static struct drm_driver driver = {
 		.compat_ioctl = nouveau_compat_ioctl,
 #endif
 	},
+#else
+	.fops = &nouveau_driver_fops,
+#endif
 
-#ifdef PSCNV_KAPI_PCI_DRIVER
+#ifdef PSCNV_KAPI_DRM_INIT
 	.pci_driver = {
 		.name = DRIVER_NAME,
 		.id_table = pciidlist,
@@ -470,7 +492,7 @@ static struct drm_driver driver = {
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
-#if !defined(PSCNV_KAPI_PCI_DRIVER) && !defined(PSCNV_KAPI_DRM_PCI_INIT)
+#ifndef PSCNV_KAPI_DRM_INIT
 static struct pci_driver nouveau_pci_driver = {
 	.name = DRIVER_NAME,
 	.id_table = pciidlist,
@@ -534,7 +556,7 @@ static int __init nouveau_init(void)
 		nouveau_register_dsm_handler();
 	}
 
-#if defined(PSCNV_KAPI_PCI_DRIVER) || defined(PSCNV_KAPI_DRM_PCI_INIT)
+#ifdef PSCNV_KAPI_DRM_INIT
 	return drm_init(&driver);
 #else
 	return drm_pci_init(&driver, &nouveau_pci_driver);
@@ -543,7 +565,7 @@ static int __init nouveau_init(void)
 
 static void __exit nouveau_exit(void)
 {
-#if defined(PSCNV_KAPI_PCI_DRIVER) || defined(PSCNV_KAPI_DRM_PCI_INIT)
+#ifdef PSCNV_KAPI_DRM_INIT
 	drm_exit(&driver);
 #else
 	drm_pci_exit(&driver, &nouveau_pci_driver);
