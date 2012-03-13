@@ -49,7 +49,7 @@
 #include "nouveau_dma.h"
 #include "pscnv_gem.h"
 #include "pscnv_vm.h"
-
+#include "pscnv_kapi.h"
 
 static int
 nouveau_fbcon_sync(struct fb_info *info)
@@ -191,7 +191,11 @@ nouveau_fbcon_create(struct nouveau_fbdev *nfbdev,
 	struct nouveau_framebuffer *nouveau_fb;
 	struct pscnv_bo *nvbo;
 	struct drm_gem_object *obj;
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+	struct drm_mode_fb_cmd2 mode_cmd;
+#else
 	struct drm_mode_fb_cmd mode_cmd;
+#endif
 	struct pci_dev *pdev = dev->pdev;
 	struct device *device = &pdev->dev;
 	int size, ret;
@@ -199,12 +203,23 @@ nouveau_fbcon_create(struct nouveau_fbdev *nfbdev,
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+	mode_cmd.pitches[0] = mode_cmd.width * (sizes->surface_bpp >> 3);
+	mode_cmd.pitches[0] = roundup(mode_cmd.pitches[0], 256);
+	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
+							  sizes->surface_depth);
+#else
 	mode_cmd.bpp = sizes->surface_bpp;
 	mode_cmd.pitch = mode_cmd.width * (mode_cmd.bpp >> 3);
 	mode_cmd.pitch = roundup(mode_cmd.pitch, 256);
 	mode_cmd.depth = sizes->surface_depth;
+#endif
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+	size = mode_cmd.pitches[0] * mode_cmd.height;
+#else
 	size = mode_cmd.pitch * mode_cmd.height;
+#endif
 	size = roundup(size, PAGE_SIZE);
 
 	obj = pscnv_gem_new(dev, size, PSCNV_GEM_CONTIG, 0, 0xd15fb, 0);
@@ -264,7 +279,11 @@ nouveau_fbcon_create(struct nouveau_fbdev *nfbdev,
 	info->screen_base = ioremap_wc(dev_priv->fb_phys + nvbo->map1->start, size);
 	info->screen_size = size;
 
+#ifdef PSCNV_KAPI_DRM_FB_PITCH
 	drm_fb_helper_fill_fix(info, fb->pitch, fb->depth);
+#else
+	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
+#endif
 	drm_fb_helper_fill_var(info, &nfbdev->helper, sizes->fb_width, sizes->fb_height);
 
 	/* FIXME: we really shouldn't expose mmio space at all */

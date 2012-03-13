@@ -1,3 +1,4 @@
+#include <linux/module.h>
 #include "gdev_interface.h"
 #include "nouveau_drv.h"
 #include "pscnv_chan.h"

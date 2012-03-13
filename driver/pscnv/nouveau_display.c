@@ -29,6 +29,7 @@
 #include "nouveau_drv.h"
 #include "nouveau_fb.h"
 #include "nouveau_fbcon.h"
+#include "pscnv_kapi.h"
 
 static void
 nouveau_user_framebuffer_destroy(struct drm_framebuffer *drm_fb)
@@ -57,9 +58,15 @@ static const struct drm_framebuffer_funcs nouveau_framebuffer_funcs = {
 	.create_handle = nouveau_user_framebuffer_create_handle,
 };
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+int
+nouveau_framebuffer_init(struct drm_device *dev, struct nouveau_framebuffer *nouveau_fb,
+			 struct drm_mode_fb_cmd2 *mode_cmd, struct pscnv_bo *nvbo)
+#else
 int
 nouveau_framebuffer_init(struct drm_device *dev, struct nouveau_framebuffer *nouveau_fb,
 			 struct drm_mode_fb_cmd *mode_cmd, struct pscnv_bo *nvbo)
+#endif
 {
 	int ret;
 
@@ -73,16 +80,27 @@ nouveau_framebuffer_init(struct drm_device *dev, struct nouveau_framebuffer *nou
 	return 0;
 }
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+static struct drm_framebuffer *
+nouveau_user_framebuffer_create(struct drm_device *dev,
+				struct drm_file *file_priv,
+				struct drm_mode_fb_cmd2 *mode_cmd)
+#else
 static struct drm_framebuffer *
 nouveau_user_framebuffer_create(struct drm_device *dev,
 				struct drm_file *file_priv,
 				struct drm_mode_fb_cmd *mode_cmd)
+#endif
 {
 	struct nouveau_framebuffer *nouveau_fb;
 	struct drm_gem_object *gem;
 	int ret;
 
+#ifdef PSCNV_KAPI_DRM_MODE_FB_CMD2
+	gem = drm_gem_object_lookup(dev, file_priv, mode_cmd->handles[0]);
+#else
 	gem = drm_gem_object_lookup(dev, file_priv, mode_cmd->handle);
+#endif
 	if (!gem)
 		return ERR_PTR(-ENOENT);
 
