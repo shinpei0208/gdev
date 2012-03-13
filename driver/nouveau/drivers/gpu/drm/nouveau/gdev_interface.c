@@ -401,6 +401,20 @@ EXPORT_SYMBOL(gdev_drv_getparam);
 
 int gdev_drv_getaddr(struct drm_device *drm, struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo, uint64_t offset, uint64_t *addr)
 {
+	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
+	int page = offset / PAGE_SIZE;
+	uint32_t x = offset - page * PAGE_SIZE;
+
+	if (drv_bo->map) {
+		if (bo->bo.mem.mem_type & TTM_PL_TT)
+			*addr = ((struct ttm_dma_tt *)bo->bo.ttm)->dma_address[page] + x;
+		else
+			*addr = bo->bo.mem.bus.base + bo->bo.mem.bus.offset + x;
+	}
+	else {
+		*addr = 0;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_getaddr);
