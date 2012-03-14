@@ -53,5 +53,6 @@ int gdev_ioctl_gshmat(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmdt(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmctl(Ghandle h, unsigned long arg);
 int gdev_ioctl_gphysget(Ghandle h, unsigned long arg);
+int gdev_ioctl_gvirtget(Ghandle h, unsigned long arg);
 
 #endif

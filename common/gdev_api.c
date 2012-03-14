@@ -1144,7 +1144,7 @@ uint64_t gphysget(Ghandle h, void *p)
 	
 	mem = gdev_mem_lookup(vas, (uint64_t)p, type);
 	if (mem)
-		offset = (uint64_t)p - gdev_mem_getaddr(mem);
+		offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
 	else {
 		type |= GDEV_MEM_DEVICE;
 		mem = gdev_mem_lookup(vas, (uint64_t)p, type);
@@ -1155,6 +1155,35 @@ uint64_t gphysget(Ghandle h, void *p)
 	}
 
 	return gdev_mem_phys_getaddr(mem, offset);
+	
+fail:
+	return 0;
+}
+
+/**
+ * gvirtget():
+ * get the unified virtual address associated with buffer pointer @p
+ */
+uint64_t gvirtget(Ghandle h, void *p)
+{
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+	uint32_t type = GDEV_MEM_DMA;
+	uint64_t offset;
+	
+	mem = gdev_mem_lookup(vas, (uint64_t)p, type);
+	if (mem)
+		offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
+	else {
+		type |= GDEV_MEM_DEVICE;
+		mem = gdev_mem_lookup(vas, (uint64_t)p, type);
+		if (mem)
+			offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
+		else
+			goto fail;
+	}
+
+	return gdev_mem_getaddr(mem) + offset;
 	
 fail:
 	return 0;

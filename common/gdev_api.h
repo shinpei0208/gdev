@@ -69,6 +69,7 @@ uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags);
 int gshmdt(Ghandle h, uint64_t addr);
 int gshmctl(Ghandle h, int id, int cmd, void *buf);
 uint64_t gphysget(Ghandle h, void *p);
+uint64_t gvirtget(Ghandle h, void *p);
 
 
 /**

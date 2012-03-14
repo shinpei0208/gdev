@@ -446,3 +446,4 @@ uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
 
 	return phys;
 }
+

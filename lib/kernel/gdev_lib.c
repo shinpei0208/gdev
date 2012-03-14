@@ -441,3 +441,26 @@ physget:
 
 	return phys.phys;
 }
+
+uint64_t gvirtget(struct gdev_handle *h, void *p)
+{
+	struct gdev_map_bo *bo;
+	struct gdev_ioctl_virt virt;
+	int fd = h->fd;
+	uint64_t p_addr = (uint64_t)p;
+	uint64_t buf_addr;
+
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
+		buf_addr = (uint64_t)bo->buf;
+		if ((p_addr >= buf_addr) && (p_addr < buf_addr + bo->size))
+			goto physget;
+	}
+	return 0;
+
+physget:
+	/* bo->addr is buffer pointer address valid in OS-space. */
+	virt.addr = bo->addr + (p_addr - buf_addr);
+	ioctl(fd, GDEV_IOCTL_GVIRTGET, &virt);
+
+	return virt.virt;
+}

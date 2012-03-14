@@ -354,6 +354,124 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
 }
 
 /**
+ * Allocates bytesize bytes of host memory that is page-locked and accessible 
+ * to the device. The driver tracks the virtual memory ranges allocated with 
+ * this function and automatically accelerates calls to functions such as 
+ * cuMemcpyHtoD(). Since the memory can be accessed directly by the device, it 
+ * can be read or written with much higher bandwidth than pageable memory 
+ * obtained with functions such as malloc(). Allocating excessive amounts of 
+ * pinned memory may degrade system performance, since it reduces the amount of 
+ * memory available to the system for paging. As a result, this function is 
+ * best used sparingly to allocate staging areas for data exchange between host
+ * and device.
+ *
+ * The Flags parameter enables different options to be specified that affect 
+ * the allocation, as follows.
+ *
+ * CU_MEMHOSTALLOC_PORTABLE: The memory returned by this call will be 
+ * considered as pinned memory by all CUDA contexts, not just the one that 
+ * performed the allocation.
+ *
+ * CU_MEMHOSTALLOC_DEVICEMAP: Maps the allocation into the CUDA address space. 
+ * The device pointer to the memory may be obtained by calling 
+ * cuMemHostGetDevicePointer(). This feature is available only on GPUs with 
+ * compute capability greater than or equal to 1.1.
+ *
+ * CU_MEMHOSTALLOC_WRITECOMBINED: Allocates the memory as write-combined (WC). 
+ * WC memory can be transferred across the PCI Express bus more quickly on some
+ * system configurations, but cannot be read efficiently by most CPUs. WC 
+ * memory is a good option for buffers that will be written by the CPU and read
+ * by the GPU via mapped pinned memory or host->device transfers.
+ *
+ * All of these flags are orthogonal to one another: a developer may allocate 
+ * memory that is portable, mapped and/or write-combined with no restrictions.
+ *
+ * The CUDA context must have been created with the CU_CTX_MAP_HOST flag in 
+ * order for the CU_MEMHOSTALLOC_MAPPED flag to have any effect.
+ *
+ * The CU_MEMHOSTALLOC_MAPPED flag may be specified on CUDA contexts for 
+ * devices that do not support mapped pinned memory. The failure is deferred to
+ * cuMemHostGetDevicePointer() because the memory may be mapped into other CUDA
+ * contexts via the CU_MEMHOSTALLOC_PORTABLE flag.
+ *
+ * The memory allocated by this function must be freed with cuMemFreeHost().
+ *
+ * Note all host memory allocated using cuMemHostAlloc() will automatically be
+ * immediately accessible to all contexts on all devices which support unified 
+ * addressing (as may be queried using CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING).
+ * Unless the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, the device 
+ * pointer that may be used to access this host memory from those contexts is 
+ * always equal to the returned host pointer *pp. If the flag 
+ * CU_MEMHOSTALLOC_WRITECOMBINED is specified, then the function 
+ * cuMemHostGetDevicePointer() must be used to query the device pointer, even 
+ * if the context supports unified addressing. See Unified Addressing for 
+ * additional details.
+ *
+ * Parameters:
+ * pp - Returned host pointer to page-locked memory
+ * bytesize - Requested allocation size in bytes
+ * Flags - Flags for allocation request
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
+ * CUDA_ERROR_OUT_OF_MEMORY 
+ */
+CUresult cuMemHostAlloc(void **pp, unsigned int bytesize, unsigned int Flags)
+{
+	if (Flags & CU_MEMHOSTALLOC_PORTABLE) {
+		GDEV_PRINT("CU_MEMHOSTALLOC_PORTABLE: Not Implemented Yet\n");
+		return CUDA_ERROR_UNKNOWN;
+	}
+
+	if (Flags & CU_MEMHOSTALLOC_WRITECOMBINED) {
+		GDEV_PRINT("CU_MEMHOSTALLOC_WRITECOMBINED: Not Implemented Yet\n");
+		return CUDA_ERROR_UNKNOWN;
+	}
+
+	/* our implementation uses CU_MEMHOSTALLOC_DEVICEMAP by default. */
+	return cuMemAllocHost(pp, bytesize);
+}
+
+/**
+ * Passes back the device pointer pdptr corresponding to the mapped, pinned 
+ * host buffer p allocated by cuMemHostAlloc.
+ *
+ * cuMemHostGetDevicePointer() will fail if the CU_MEMALLOCHOST_DEVICEMAP flag 
+ * was not specified at the time the memory was allocated, or if the function 
+ * is called on a GPU that does not support mapped pinned memory.
+ *
+ * Flags provides for future releases. For now, it must be set to 0.
+ *
+ * Parameters:
+ * pdptr - Returned device pointer
+ * p - Host pointer
+ * Flags - Options (must be 0)
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags)
+{
+	Ghandle handle;
+	uint64_t addr;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!pdptr || !p || Flags != 0)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gdev_ctx_current->gdev_handle;
+	addr = gvirtget(handle, p);
+	*pdptr = (CUdeviceptr)addr;
+
+	return CUDA_SUCCESS;
+}
+
+/**
  * Gdev extension: maps device memory to host memory.
  *
  * Parameters:
