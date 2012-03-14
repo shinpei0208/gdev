@@ -436,3 +436,19 @@ int gdev_ioctl_gphysget(Ghandle handle, unsigned long arg)
 
 	return 0;
 }
+
+int gdev_ioctl_gvirtget(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_phys p;
+
+	if (copy_from_user(&p, (void __user *)arg, sizeof(p)))
+		return -EFAULT;
+
+	if (!(p.phys = gvirtget(handle, (void *)p.addr)))
+		return -EINVAL;
+
+	if (copy_to_user((void __user *)arg, &p, sizeof(p)))
+		return -EFAULT;
+
+	return 0;
+}

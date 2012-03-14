@@ -256,7 +256,7 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	case (GDEV_MEM_DEVICE | GDEV_MEM_DMA):
 		gdev_lock_save(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-			uint64_t map_addr = (uint64_t) mem->map;
+			uint64_t map_addr = (uint64_t)mem->map;
 			if ((addr >= map_addr) && (addr < map_addr + mem->size))
 				break;
 		}
@@ -273,7 +273,7 @@ struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
 	case GDEV_MEM_DMA:
 		gdev_lock_save(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
-			uint64_t map_addr = (uint64_t) mem->map;
+			uint64_t map_addr = (uint64_t)mem->map;
 			if ((addr >= map_addr) && (addr < map_addr + mem->size))
 				break;
 		}

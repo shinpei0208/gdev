@@ -703,6 +703,27 @@ typedef enum cudaError_enum {
     CUDA_ERROR_UNKNOWN                        = 999
 } CUresult;
 
+/**
+ * If set, host memory is portable between CUDA contexts.
+ * Flag for ::cuMemHostAlloc()
+ */
+#define CU_MEMHOSTALLOC_PORTABLE        0x01
+
+/**
+ * If set, host memory is mapped into CUDA address space and
+ * ::cuMemHostGetDevicePointer() may be called on the host pointer.
+ * Flag for ::cuMemHostAlloc()
+ */
+#define CU_MEMHOSTALLOC_DEVICEMAP       0x02
+
+/**
+ * If set, host memory is allocated as write-combined - fast to write,
+ * faster to DMA, slow to read except via SSE4 streaming load instruction
+ * (MOVNTDQA).
+ * Flag for ::cuMemHostAlloc()
+ */
+#define CU_MEMHOSTALLOC_WRITECOMBINED   0x04
+
 /* Initialization */
 CUresult cuInit(unsigned int Flags);
 
@@ -762,6 +783,8 @@ CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int By
 CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount);
 CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream);
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount);
+CUresult cuMemHostAlloc(void **pp, unsigned int bytesize, unsigned int Flags);
+CUresult cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags);
 /* Memory mapping - Gdev extension */
 CUresult cuMemMap(void **buf, CUdeviceptr dptr, unsigned int bytesize);
 CUresult cuMemUnmap(void *buf);
