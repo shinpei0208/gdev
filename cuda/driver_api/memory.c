@@ -201,8 +201,7 @@ CUresult cuMemFreeHost(void *p)
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyHtoD
-(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
+CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
 {
 	Ghandle handle;
 	const void *src_buf = srcHost;
@@ -244,12 +243,53 @@ CUresult cuMemcpyHtoD
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyHtoDAsync
-(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, 
- CUstream hStream)
+CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream)
 {
-	GDEV_PRINT("cuMemcpyHtoD: Not Implemented Yet\n");
+	Ghandle handle, handle_ref;
+	struct CUstream_st *stream = hStream;
+	const void *src_buf = srcHost;
+	uint64_t dst_addr = dstDevice;
+	uint64_t dst_addr_ref;
+	uint32_t size = ByteCount;
+	struct gdev_cuda_fence *fence;
+	uint32_t id;
+
+	if (!stream)
+		return cuMemcpyHtoD(dst_addr, src_buf, size);
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!src_buf || !dst_addr || !size)
+		return CUDA_ERROR_INVALID_VALUE;
+	if (gdev_ctx_current != stream->ctx)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	fence = (struct gdev_cuda_fence *)MALLOC(sizeof(*fence));
+	if (!fence)
+		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
+	
+	handle = gdev_ctx_current->gdev_handle;
+	handle_ref = stream->gdev_handle;
+
+	if (!(dst_addr_ref = gref(handle, dst_addr, size, handle_ref)))
+		goto fail_gref;
+
+	if (gmemcpy_to_device_async(handle_ref, dst_addr_ref, src_buf, size, &id))
+		goto fail_gmemcpy;
+
+	fence->id = id;
+	fence->addr_ref = dst_addr_ref;
+	gdev_list_init(&fence->list_entry, fence);
+	gdev_list_add(&fence->list_entry, &stream->sync_list);
+
 	return CUDA_SUCCESS;
+
+fail_gmemcpy:
+	gunref(handle_ref, dst_addr_ref);
+fail_gref:
+	FREE(fence);
+
+	return CUDA_ERROR_UNKNOWN;
 }
 
 /**
@@ -266,8 +306,7 @@ CUresult cuMemcpyHtoDAsync
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyDtoH
-(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
+CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
 	Ghandle handle;
 	void *dst_buf = dstHost;
@@ -309,11 +348,53 @@ CUresult cuMemcpyDtoH
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyDtoHAsync
-(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hstream)
+CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream)
 {
-	GDEV_PRINT("cuMemcpyDtoH: Not Implemented Yet\n");
+	Ghandle handle, handle_ref;
+	struct CUstream_st *stream = hStream;
+	void *dst_buf = dstHost;
+	uint64_t src_addr = srcDevice;
+	uint64_t src_addr_ref;
+	uint32_t size = ByteCount;
+	struct gdev_cuda_fence *fence;
+	uint32_t id;
+
+	if (!stream)
+		return cuMemcpyDtoH(dst_buf, src_addr, size);
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!dst_buf || !src_addr || !size)
+		return CUDA_ERROR_INVALID_VALUE;
+	if (gdev_ctx_current != stream->ctx)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	fence = (struct gdev_cuda_fence *)MALLOC(sizeof(*fence));
+	if (!fence)
+		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
+
+	handle = gdev_ctx_current->gdev_handle;
+	handle_ref = stream->gdev_handle;
+
+	if (!(src_addr_ref = gref(handle, src_addr, size, handle_ref)))
+		goto fail_gref;
+	
+	if (gmemcpy_from_device_async(handle_ref, dst_buf, src_addr_ref, size, &id))
+		goto fail_gmemcpy;
+
+	fence->id = id;
+	fence->addr_ref = src_addr_ref;
+	gdev_list_init(&fence->list_entry, fence);
+	gdev_list_add(&fence->list_entry, &stream->sync_list);
+
 	return CUDA_SUCCESS;
+
+fail_gmemcpy:
+	gunref(handle_ref, src_addr_ref);
+fail_gref:
+	FREE(fence);
+
+	return CUDA_ERROR_UNKNOWN;
 }
 
 /**

@@ -68,6 +68,8 @@ int gshmget(Ghandle h, int key, uint64_t size, int flags);
 uint64_t gshmat(Ghandle h, int id, uint64_t addr, int flags);
 int gshmdt(Ghandle h, uint64_t addr);
 int gshmctl(Ghandle h, int id, int cmd, void *buf);
+uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave);
+int gunref(Ghandle h, uint64_t addr);
 uint64_t gphysget(Ghandle h, void *p);
 uint64_t gvirtget(Ghandle h, void *p);
 

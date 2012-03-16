@@ -32,6 +32,8 @@
 #include "gdev_api.h"
 #include "gdev_ioctl_def.h"
 
+int gdev_ioctl_get_handle(Ghandle handle, unsigned long arg);
+
 int gdev_ioctl_gmalloc(Ghandle h, unsigned long arg);
 int gdev_ioctl_gfree(Ghandle h, unsigned long arg);
 int gdev_ioctl_gmalloc_dma(Ghandle h, unsigned long arg);
@@ -52,6 +54,8 @@ int gdev_ioctl_gshmget(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmat(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmdt(Ghandle h, unsigned long arg);
 int gdev_ioctl_gshmctl(Ghandle h, unsigned long arg);
+int gdev_ioctl_gref(Ghandle h, unsigned long arg);
+int gdev_ioctl_gunref(Ghandle h, unsigned long arg);
 int gdev_ioctl_gphysget(Ghandle h, unsigned long arg);
 int gdev_ioctl_gvirtget(Ghandle h, unsigned long arg);
 

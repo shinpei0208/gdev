@@ -30,7 +30,12 @@
 #define __GDEV_IOCTL_DEF_H__
 
 /**
- * user-space ioctl commands:
+ * utility ioctl commands:
+ */
+#define GDEV_IOCTL_GET_HANDLE 0x10
+
+/**
+ * user-space ioctl commands for Gdev API:
  */
 #define GDEV_IOCTL_GMALLOC 0x100
 #define GDEV_IOCTL_GFREE 0x101
@@ -52,8 +57,14 @@
 #define GDEV_IOCTL_GSHMAT 0x117
 #define GDEV_IOCTL_GSHMDT 0x118
 #define GDEV_IOCTL_GSHMCTL 0x119
-#define GDEV_IOCTL_GPHYSGET 0x120
-#define GDEV_IOCTL_GVIRTGET 0x121
+#define GDEV_IOCTL_GREF 0x120
+#define GDEV_IOCTL_GUNREF 0x121
+#define GDEV_IOCTL_GPHYSGET 0x122
+#define GDEV_IOCTL_GVIRTGET 0x123
+
+struct gdev_ioctl_handle {
+	uint64_t handle;
+};
 
 struct gdev_ioctl_mem {
 	uint64_t addr;
@@ -103,6 +114,17 @@ struct gdev_ioctl_map {
 	uint64_t addr;
 	uint64_t buf;
 	uint64_t size;
+};
+
+struct gdev_ioctl_ref {
+	uint64_t addr;
+	uint64_t size;
+	uint64_t handle_slave;
+	uint64_t addr_slave;
+};
+
+struct gdev_ioctl_unref {
+	uint64_t addr;
 };
 
 struct gdev_ioctl_phys {

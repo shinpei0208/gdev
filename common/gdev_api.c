@@ -1132,6 +1132,44 @@ fail:
 }
 
 /**
+ * gref():
+ * reference device virtual memory of handle @hsrc from handle @hdst.
+ * this API can be used alone - no need to call other gshm* APIs a priori.
+ */
+uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave)
+{
+	gdev_mem_t *mem, *new;
+	
+	mem = gdev_mem_lookup(hmaster->vas, addr, GDEV_MEM_DEVICE);
+	if (!mem)
+		return 0;
+
+	new = gdev_shm_attach(hslave->vas, mem, size);
+	if (!new)
+		return 0;
+
+	return gdev_mem_getaddr(new);
+}
+
+/**
+ * gunref():
+ * unreference device virtual memory from the shared region.
+ */
+int gunref(Ghandle h, uint64_t addr)
+{
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *mem;
+	
+	mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE);
+	if (!mem)
+		return -ENOENT;
+
+	gdev_shm_detach(mem);
+
+	return 0;
+}
+
+/**
  * gphysget():
  * get the physical (PCI) bus address associated with buffer pointer @p
  */

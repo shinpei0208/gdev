@@ -97,7 +97,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	struct CUctx_st *ctx;
 	struct gdev_cuda_info *cuda_info;
 	Ghandle handle;
-	int minor = dev;
+	int minor = (int)dev;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -156,6 +156,8 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	/* we will trace # of kernels. */
 	ctx->launch_id = 0;
+	/* save the device ID. */
+	ctx->minor = minor;
 
 	gdev_ctx_current = ctx;	/* set to the current context. */
 	*pctx = ctx;
@@ -313,7 +315,7 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
 CUresult cuCtxSynchronize(void)
 {
 	Ghandle handle;
-	struct gdev_cuda_launch *l;
+	struct gdev_cuda_fence *f;
 	struct gdev_list *p;
 
 	if (!gdev_initialized)
@@ -327,17 +329,17 @@ CUresult cuCtxSynchronize(void)
 	handle = gdev_ctx_current->gdev_handle;
 
 	/* synchronize with all kernels. */
-	gdev_list_for_each(l, &gdev_ctx_current->sync_list, list_entry) {
+	gdev_list_for_each(f, &gdev_ctx_current->sync_list, list_entry) {
 		/* if timeout is required, specify gdev_time value instead of NULL. */
-		if (gsync(handle, l->id, NULL))
+		if (gsync(handle, f->id, NULL))
 			return CUDA_ERROR_UNKNOWN;
 	}
 
 	/* remove all lists. */
 	while ((p = gdev_list_head(&gdev_ctx_current->sync_list))) {
 		gdev_list_del(p);
-		l = gdev_list_container(p);
-		FREE(l);
+		f = gdev_list_container(p);
+		FREE(f);
 	}
 
 	if (gbarrier(handle))

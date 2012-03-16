@@ -33,6 +33,18 @@
 
 #define GDEV_MEMCPY_USER_DIRECT
 
+int gdev_ioctl_get_handle(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_handle h;
+
+	h.handle = (uint64_t)handle;
+
+	if (copy_to_user((void __user *)arg, &h, sizeof(h)))
+		return -EFAULT;
+
+	return 0;
+}
+
 int gdev_ioctl_gmalloc(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_mem m;
@@ -419,6 +431,35 @@ int gdev_ioctl_gshmctl(Ghandle handle, unsigned long arg)
 	}
 
 	return gshmctl(handle, s.id, s.cmd, (void *)&ds);
+}
+
+int gdev_ioctl_gref(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_ref r;
+
+	if (copy_from_user(&r, (void __user *)arg, sizeof(r)))
+		return -EFAULT;
+
+	if (!(r.addr_slave = gref(handle, r.addr, r.size, (Ghandle)r.handle_slave)))
+		return -EINVAL;
+
+	if (copy_to_user((void __user *)arg, &r, sizeof(r)))
+		return -EFAULT;
+
+	return 0;
+}
+
+int gdev_ioctl_gunref(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_unref r;
+
+	if (copy_from_user(&r, (void __user *)arg, sizeof(r)))
+		return -EFAULT;
+
+	if (gunref(handle, r.addr))
+		return -EINVAL;
+
+	return 0;
 }
 
 int gdev_ioctl_gphysget(Ghandle handle, unsigned long arg)
