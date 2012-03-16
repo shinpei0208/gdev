@@ -45,9 +45,4 @@ struct gdev_mutex {
 	struct mutex mutex;
 };
 
-/**
- * export callback function.
- */
-extern void (*gdev_callback_notify)(int subc, uint32_t data);
-
 #endif

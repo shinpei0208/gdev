@@ -47,6 +47,7 @@ typedef struct gdev_mem gdev_mem_t;
 int gdev_compute_setup(struct gdev_device *gdev);
 uint32_t gdev_launch(gdev_ctx_t *ctx, struct gdev_kernel *kern);
 uint32_t gdev_memcpy(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size);
+uint32_t gdev_memcpy_async(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size);
 uint32_t gdev_read32(gdev_mem_t *mem, uint64_t addr);
 void gdev_write32(gdev_mem_t *mem, uint64_t addr, uint32_t val);
 int gdev_read(gdev_mem_t *mem, void *buf, uint64_t addr, uint32_t size);

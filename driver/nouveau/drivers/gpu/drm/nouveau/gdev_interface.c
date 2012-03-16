@@ -71,10 +71,17 @@ int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspa
 
 	/* FIFO init: it has already been done in gdev_vas_new(). */
 
-	/* FIFO command queue registers. */
 	switch (dev_priv->chipset & 0xf0) {
 	case 0xc0:
+		/* FIFO command queue registers. */
 		regs = chan->user;
+		/* PCOPY engines. */
+		ret = dev_priv->eng[NVOBJ_ENGINE_COPY0]->context_new(chan, NVOBJ_ENGINE_COPY0);
+		if (ret)
+			goto fail_pcopy0;
+		ret = dev_priv->eng[NVOBJ_ENGINE_COPY1]->context_new(chan, NVOBJ_ENGINE_COPY1);
+		if (ret)
+			goto fail_pcopy1;
 		break;
 	default:
 		ret = -EINVAL;
@@ -99,13 +106,21 @@ int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspa
 	return 0;
 
 fail_fifo_reg:
+fail_pcopy1:
+	dev_priv->eng[NVOBJ_ENGINE_COPY0]->context_del(chan, NVOBJ_ENGINE_COPY0);
+fail_pcopy0:
 	return ret;
 }
 EXPORT_SYMBOL(gdev_drv_chan_alloc);
 
 int gdev_drv_chan_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_chan *drv_chan)
 {
-	/* really nothing to do. */
+	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
+	struct drm_nouveau_private *dev_priv = chan->dev->dev_private;
+
+	dev_priv->eng[NVOBJ_ENGINE_COPY1]->context_del(chan, NVOBJ_ENGINE_COPY1);
+	dev_priv->eng[NVOBJ_ENGINE_COPY0]->context_del(chan, NVOBJ_ENGINE_COPY0);
+
 	return 0;
 }
 EXPORT_SYMBOL(gdev_drv_chan_free);

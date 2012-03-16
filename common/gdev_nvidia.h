@@ -36,19 +36,12 @@
 #include "gdev_time.h"
 
 /**
- * MRQ requires compute and memcpy to be overlapped - hence PCOPY.
+ * subchannel IDs == generic operation IDs. 
  */
-#ifdef GDEV_SCHED_MRQ
-#define GDEV_NVIDIA_MEMCPY_PCOPY
-#endif
-
-#define GDEV_SUBCH_NV_COMPUTE GDEV_SUBCH_COMPUTE
-#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
-#define GDEV_SUBCH_NV_M2MF GDEV_SUBCH_MEMCPY
-#else
-#define GDEV_SUBCH_NV_PCOPY0 GDEV_SUBCH_MEMCPY
-#endif
-#define GDEV_SUBCH_NV_PCOPY1 (GDEV_SUBCH_MEMCPY + 1)
+#define GDEV_SUBCH_NV_COMPUTE GDEV_OP_COMPUTE /* 1 */
+#define GDEV_SUBCH_NV_M2MF GDEV_OP_MEMCPY /* 2 */
+#define GDEV_SUBCH_NV_PCOPY0 GDEV_OP_MEMCPY_ASYNC /* 3 */
+#define GDEV_SUBCH_NV_PCOPY1 (GDEV_SUBCH_NV_PCOPY0 + 1) /* 4 */
 
 #define GDEV_FENCE_BUF_SIZE 0x10000 /* 64KB */
 #define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */
@@ -199,6 +192,7 @@ struct gdev_compute {
 	void (*fence_write)(struct gdev_ctx *, int, uint32_t);
 	void (*fence_reset)(struct gdev_ctx *, uint32_t);
 	void (*memcpy)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
+	void (*memcpy_async)(struct gdev_ctx *, uint64_t, uint64_t, uint32_t);
 	void (*membar)(struct gdev_ctx *);
 	void (*notify_intr)(struct gdev_ctx *);
 	void (*init)(struct gdev_ctx *);

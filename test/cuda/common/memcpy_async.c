@@ -37,9 +37,9 @@ int cuda_test_memcpy_async(unsigned int size)
 	struct timeval tv_total_start, tv_total_end;
 	unsigned long total;
 	struct timeval tv_h2d_start, tv_h2d_end;
-	unsigned long h2d;
+	float h2d;
 	struct timeval tv_d2h_start, tv_d2h_end;
-	unsigned long d2h;
+	float d2h;
 
 	in = (unsigned int *) malloc(size);
 	out = (unsigned int *) malloc(size);
@@ -118,14 +118,14 @@ int cuda_test_memcpy_async(unsigned int size)
 	free(out);
 
 	tvsub(&tv_h2d_end, &tv_h2d_start, &tv);
-	h2d = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	h2d = tv.tv_sec * 1000.0 + (float)tv.tv_usec / 1000.0;
 	tvsub(&tv_d2h_end, &tv_d2h_start, &tv);
-	d2h = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	d2h = tv.tv_sec * 1000.0 + (float)tv.tv_usec / 1000.0;
 	tvsub(&tv_total_end, &tv_total_start, &tv);
 	total = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
-	printf("HtoD: %lu\n", h2d);
-	printf("DtoH: %lu\n", d2h);
+	printf("HtoD: %f\n", h2d);
+	printf("DtoH: %f\n", d2h);
 
 	return 0;
 

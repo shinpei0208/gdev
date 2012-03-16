@@ -192,12 +192,16 @@ static int __gmemcpy_dma_to_device(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_t 
 {
 	uint32_t fence;
 
-	/* we don't break data into chunks if copying directly from dma memory. */
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
-	if (!id)
+	/* we don't break data into chunks if copying directly from dma memory. 
+	   if @id == NULL, it means memcpy is synchronous. */
+	if (!id) {
+		fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
 		gdev_poll(ctx, fence, NULL);
-	else
+	}
+	else {
+		fence = gdev_memcpy_async(ctx, dst_addr, src_addr, size);
 		*id = fence;
+	}
 	
 	return 0;
 }
@@ -369,9 +373,9 @@ static int __gmemcpy_from_device_np(gdev_ctx_t *ctx, void *dst_buf, uint64_t src
 	offset = 0;
 	while (rest_size) {
 		dma_size = __min(rest_size, ch_size);
-		fence = gdev_memcpy(ctx, dma_addr[0], src_addr+offset, dma_size);
+		fence = gdev_memcpy(ctx, dma_addr[0], src_addr + offset, dma_size);
 		gdev_poll(ctx, fence, NULL);
-		ret = host_copy(dst_buf+offset, dma_buf[0], dma_size);
+		ret = host_copy(dst_buf + offset, dma_buf[0], dma_size);
 		if (ret)
 			goto end;
 		rest_size -= dma_size;
@@ -389,12 +393,16 @@ static int __gmemcpy_dma_from_device(gdev_ctx_t *ctx, uint64_t dst_addr, uint64_
 {
 	uint32_t fence;
 
-	/* we don't break data into chunks if copying directly from dma memory. */
-	fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
-	if (!id)
+	/* we don't break data into chunks if copying directly from dma memory. 
+	   if @id == NULL, it means memcpy is synchronous. */
+	if (!id) {
+		fence = gdev_memcpy(ctx, dst_addr, src_addr, size);
 		gdev_poll(ctx, fence, NULL);
-	else
+	}
+	else {
+		fence = gdev_memcpy_async(ctx, dst_addr, src_addr, size);
 		*id = fence;
+	}
 
 	return 0;
 }

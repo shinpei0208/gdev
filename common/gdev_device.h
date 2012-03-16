@@ -39,10 +39,11 @@
 #define GDEV_PHYSICAL_DEVICE_MAX_COUNT 8
 
 /**
- * generic subchannel definitions
+ * generic operation definitions
  */
-#define GDEV_SUBCH_COMPUTE 1
-#define GDEV_SUBCH_MEMCPY 2
+#define GDEV_OP_COMPUTE 1
+#define GDEV_OP_MEMCPY 2
+#define GDEV_OP_MEMCPY_ASYNC 3
 
 /**
  * Gdev device struct:
