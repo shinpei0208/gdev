@@ -98,10 +98,17 @@ int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspa
 	if (ret)
 		goto fail_fifo_init;
 
-	/* FIFO command queue registers. */
 	switch (dev_priv->chipset & 0xf0) {
 	case 0xc0:
+		/* FIFO command queue registers. */
 		regs = nvc0_fifo_ctrl_ptr(drm, chan);
+		/* PCOPY engines. */
+		ret = dev_priv->engines[PSCNV_ENGINE_COPY0]->chan_alloc(dev_priv->engines[PSCNV_ENGINE_COPY0], chan);
+		if (ret)
+			goto fail_pcopy0;
+		ret = dev_priv->engines[PSCNV_ENGINE_COPY1]->chan_alloc(dev_priv->engines[PSCNV_ENGINE_COPY1], chan);
+		if (ret)
+			goto fail_pcopy1;
 		break;
 	default:
 		ret = -EINVAL;
@@ -126,6 +133,9 @@ int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspa
 	return 0;
 
 fail_fifo_reg:
+fail_pcopy1:
+	dev_priv->engines[PSCNV_ENGINE_COPY0]->chan_kill(dev_priv->engines[PSCNV_ENGINE_COPY0], chan);
+fail_pcopy0:	
 fail_fifo_init:
 	vunmap(pb_map);
 	pscnv_vspace_unmap(vspace, pb_mm->start);
@@ -149,10 +159,14 @@ int gdev_drv_chan_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_chan 
 	struct pscnv_chan *chan = (struct pscnv_chan *)drv_chan->priv;
 	struct pscnv_bo *ib_bo = (struct pscnv_bo *)drv_chan->ib_bo;
 	struct pscnv_bo *pb_bo = (struct pscnv_bo *)drv_chan->pb_bo;
+	struct drm_nouveau_private *dev_priv = chan->dev->dev_private;
 	uint32_t *ib_map = drv_chan->ib_map;
 	uint32_t *pb_map = drv_chan->pb_map;
 	uint64_t ib_base = drv_chan->ib_base;
 	uint64_t pb_base = drv_chan->pb_base;
+
+	dev_priv->engines[PSCNV_ENGINE_COPY0]->chan_kill(dev_priv->engines[PSCNV_ENGINE_COPY0], chan);
+	dev_priv->engines[PSCNV_ENGINE_COPY1]->chan_kill(dev_priv->engines[PSCNV_ENGINE_COPY1], chan);
 
 	vunmap(pb_map);
 	pscnv_vspace_unmap(vspace, pb_base);

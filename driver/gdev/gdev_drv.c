@@ -56,11 +56,9 @@ static dev_t dev;
 static struct cdev *cdevs; /* character devices for virtual devices */
 
 /**
- * pointers to callback functions.
+ * interrupt notify handler
  */
-void (*gdev_callback_notify)(int subc, uint32_t data);
-
-static void __gdev_notify_handler(int subc, uint32_t data)
+static void __gdev_notify_handler(int op, uint32_t data)
 {
 	struct gdev_device *gdev;
 	struct gdev_sched_entity *se;
@@ -69,15 +67,16 @@ static void __gdev_notify_handler(int subc, uint32_t data)
 	if (cid < GDEV_CONTEXT_MAX_COUNT) {
 		se = sched_entity_ptr[cid];
 		gdev = se->gdev;
-		switch (subc) {
-		case GDEV_SUBCH_COMPUTE:
+		switch (op) {
+		case GDEV_OP_COMPUTE:
+		case GDEV_OP_MEMCPY: /* memcpy is synchronous with compute */
 			wake_up_process(gdev->sched_com_thread);
 			break;
-		case GDEV_SUBCH_MEMCPY:
+		case GDEV_OP_MEMCPY_ASYNC:
 			wake_up_process(gdev->sched_mem_thread);
 			break;
 		default:
-			GDEV_PRINT("Unknown subchannel %d\n", subc);
+			GDEV_PRINT("Unknown operation %d\n", op);
 		}
 	}
 	else

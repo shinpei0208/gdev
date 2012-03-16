@@ -78,7 +78,7 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	   explicitly after the kernel is launched. */
 	compute->fence_reset(ctx, seq);
 	compute->launch(ctx, kern);
-	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
+	compute->fence_write(ctx, GDEV_OP_COMPUTE, seq);
 
 #ifndef GDEV_SCHED_DISABLED
 	/* set an interrupt to be caused when compute done. */
@@ -88,7 +88,7 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 	return seq;
 }
 
-/* asynchrounously copy data of @size from @src_addr to @dst_addr. */
+/* copy data of @size from @src_addr to @dst_addr. */
 uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
 	struct gdev_vas *vas = ctx->vas;
@@ -106,8 +106,32 @@ uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr,
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
 	compute->fence_reset(ctx, seq);
-	compute->fence_write(ctx, GDEV_SUBCH_MEMCPY, seq);
+	compute->fence_write(ctx, GDEV_OP_MEMCPY /* == M2MF */, seq);
 	compute->memcpy(ctx, dst_addr, src_addr, size);
+
+	return seq;
+}
+
+/* asynchronously copy data of @size from @src_addr to @dst_addr. */
+uint32_t gdev_memcpy_async(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+{
+	struct gdev_vas *vas = ctx->vas;
+	struct gdev_device *gdev = vas->gdev;
+	struct gdev_compute *compute = gdev->compute;
+	uint32_t seq;
+
+	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
+		ctx->fence.seq = 1;
+	seq = ctx->fence.seq;
+
+	compute->membar(ctx);
+	/* it's important to emit a fence *before* memcpy():
+	   the EXEC method of the PCOPY and M2MF engines is associated with
+	   the QUERY method, i.e., if QUERY is set, the sequence will be 
+	   written to the specified address when the data are transfered. */
+	compute->fence_reset(ctx, seq);
+	compute->fence_write(ctx, GDEV_OP_MEMCPY_ASYNC /* == PCOPY0 */, seq);
+	compute->memcpy_async(ctx, dst_addr, src_addr, size);
 
 	return seq;
 }
@@ -173,7 +197,7 @@ int gdev_barrier(struct gdev_ctx *ctx)
 	uint32_t seq = 0; /* 0 is a special sequence for barrier. */
 
 	compute->membar(ctx);
-	compute->fence_write(ctx, GDEV_SUBCH_COMPUTE, seq);
+	compute->fence_write(ctx, GDEV_OP_COMPUTE, seq);
 	while (seq != compute->fence_read(ctx, seq));
 
 	return 0;

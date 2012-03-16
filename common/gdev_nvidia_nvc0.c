@@ -252,16 +252,21 @@ static void nvc0_fence_write(struct gdev_ctx *ctx, int subch, uint32_t sequence)
 		__gdev_out_ring(ctx, sequence); /* QUERY_SEQUENCE */
 		__gdev_out_ring(ctx, intr << 20); /* QUERY_GET */
 		break;
-#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
 	case GDEV_SUBCH_NV_M2MF:
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0x32c, 3);
 		__gdev_out_ring(ctx, vm_addr >> 32); /* QUERY_ADDRESS HIGH */
 		__gdev_out_ring(ctx, vm_addr); /* QUERY_ADDRESS LOW */
 		__gdev_out_ring(ctx, sequence); /* QUERY_SEQUENCE */
 		break;
-#else
 	case GDEV_SUBCH_NV_PCOPY0:
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0x338, 3);
+		__gdev_out_ring(ctx, vm_addr >> 32); /* QUERY_ADDRESS HIGH */
+		__gdev_out_ring(ctx, vm_addr); /* QUERY_ADDRESS LOW */
+		__gdev_out_ring(ctx, sequence); /* QUERY_COUNTER */
+		break;
+#ifdef GDEV_NVIDIA_USE_PCOPY1
+	case GDEV_SUBCH_NV_PCOPY1:
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0x338, 3);
 		__gdev_out_ring(ctx, vm_addr >> 32); /* QUERY_ADDRESS HIGH */
 		__gdev_out_ring(ctx, vm_addr); /* QUERY_ADDRESS LOW */
 		__gdev_out_ring(ctx, sequence); /* QUERY_COUNTER */
@@ -277,7 +282,6 @@ static void nvc0_fence_reset(struct gdev_ctx *ctx, uint32_t sequence)
 	((struct gdev_nvc0_query*)(ctx->fence.map))[sequence].sequence = ~0;
 }
 
-#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
 static void nvc0_memcpy_m2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
 	uint32_t mode1 = 0x102110; /* QUERY_SHORT|QUERY_YES|SRC_LINEAR|DST_LINEAR */
@@ -325,7 +329,7 @@ static void nvc0_memcpy_m2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t s
 
 	__gdev_fire_ring(ctx);
 }
-#else
+
 static void nvc0_memcpy_pcopy0(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
 {
 	uint32_t mode = 0x3110; /* QUERY_SHORT|QUERY|SRC_LINEAR|DST_LINEAR */
@@ -370,7 +374,6 @@ static void nvc0_memcpy_pcopy0(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t
 		__gdev_fire_ring(ctx);
 	}
 }
-#endif
 
 static void nvc0_membar(struct gdev_ctx *ctx)
 {
@@ -415,14 +418,13 @@ static void nvc0_init(struct gdev_ctx *ctx)
 		/* setup subchannels. */
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
 		__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
-#ifdef GDEV_NVIDIA_MEMCPY_PCOPY
-		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
-		__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
-		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
-		__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
-#else
 		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
 		__gdev_out_ring(ctx, 0x9039); /* M2MF */
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
+		__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
+#ifdef GDEV_NVIDIA_USE_PCOPY1
+		__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
+		__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
 #endif
 		__gdev_fire_ring(ctx);
 	}
@@ -487,11 +489,8 @@ static struct gdev_compute gdev_compute_nvc0 = {
 	.fence_read = nvc0_fence_read,
 	.fence_write = nvc0_fence_write,
 	.fence_reset = nvc0_fence_reset,
-#ifndef GDEV_NVIDIA_MEMCPY_PCOPY
 	.memcpy = nvc0_memcpy_m2mf,
-#else
-	.memcpy = nvc0_memcpy_pcopy0,
-#endif
+	.memcpy_async = nvc0_memcpy_pcopy0,
 	.membar = nvc0_membar,
 	.notify_intr = nvc0_notify_intr,
 	.init = nvc0_init,

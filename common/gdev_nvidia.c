@@ -107,7 +107,7 @@ struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 
 	ctx->vas = vas;
 
-	/* initialize the channel. */
+	/* initialize the compute-related objects. this must follow ctx_new(). */
 	compute->init(ctx);
 
 	return ctx;
