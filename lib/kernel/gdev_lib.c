@@ -419,6 +419,39 @@ int gshmctl(struct gdev_handle *h, int id, int cmd, void *buf)
 	return 0;
 }
 
+uint64_t gref(struct gdev_handle *hmaster, uint64_t addr, uint64_t size, struct gdev_handle *hslave)
+{
+	struct gdev_ioctl_ref r;
+	struct gdev_ioctl_handle h;
+	int fd_master = hmaster->fd;
+	int fd_slave = hslave->fd;
+	int ret;
+
+	if ((ret = ioctl(fd_slave, GDEV_IOCTL_GET_HANDLE, &h)))
+		return ret;
+
+	r.addr = addr;
+	r.size = size;
+	r.handle_slave = h.handle;
+	if ((ret = ioctl(fd_master, GDEV_IOCTL_GREF, &r)))
+		return ret;
+
+	return r.addr_slave;
+}
+
+int gunref(struct gdev_handle *h, uint64_t addr)
+{
+	struct gdev_ioctl_unref r;
+	int fd = h->fd;
+	int ret;
+
+	r.addr = addr;
+	if ((ret = ioctl(fd, GDEV_IOCTL_GUNREF, &r)))
+		return ret;
+
+	return 0;
+}
+
 uint64_t gphysget(struct gdev_handle *h, void *p)
 {
 	struct gdev_map_bo *bo;

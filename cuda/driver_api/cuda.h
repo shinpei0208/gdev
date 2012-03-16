@@ -791,6 +791,13 @@ CUresult cuMemUnmap(void *buf);
 /* Memory mapped address - Gdev extension */
 CUresult cuMemGetPhysAddr(unsigned long long *addr, void *p);
 
+/* Stream Management */
+CUresult cuStreamCreate(CUstream *phStream, unsigned int Flags);
+CUresult cuStreamDestroy(CUstream hStream);
+CUresult cuStreamQuery(CUstream hStream);
+CUresult cuStreamSynchronize(CUstream hStream);
+CUresult cuStreamWaitEvent(CUstream hStream, CUevent hEvent, unsigned int Flags);
+
 /* Inter-Process Communication (IPC) - Gdev extension */
 CUresult cuShmGet(int *ptr, int key, size_t size, int flags);
 CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags);

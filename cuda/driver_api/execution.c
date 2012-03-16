@@ -146,7 +146,7 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	struct CUmod_st *mod = func->mod;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
-	struct gdev_cuda_launch *l;
+	struct gdev_cuda_fence *fence;
 	Ghandle handle;
 
 	if (!gdev_initialized)
@@ -155,7 +155,7 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func || grid_width <= 0 || grid_height <= 0)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (!(l = MALLOC(sizeof(*l))))
+	if (!(fence = (struct gdev_cuda_fence *)MALLOC(sizeof(*fence))))
 		return CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES;
 
 	k = &func->kernel;
@@ -169,10 +169,11 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (glaunch(handle, k, &l->id))
+	if (glaunch(handle, k, &fence->id))
 		return CUDA_ERROR_LAUNCH_FAILED;
-	gdev_list_init(&l->list_entry, l);
-	gdev_list_add(&l->list_entry, &ctx->sync_list);
+	fence->addr_ref = 0; /* no address to unreference later. */
+	gdev_list_init(&fence->list_entry, fence);
+	gdev_list_add(&fence->list_entry, &ctx->sync_list);
 
 	return CUDA_SUCCESS;
 }

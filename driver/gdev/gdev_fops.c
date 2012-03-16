@@ -85,6 +85,8 @@ static int gdev_ioctl
 	Ghandle handle = filp->private_data;
 
 	switch (cmd) {
+	case GDEV_IOCTL_GET_HANDLE: /* this is not Gdev API. */
+		return gdev_ioctl_get_handle(handle, arg);
 	case GDEV_IOCTL_GMALLOC:
 		return gdev_ioctl_gmalloc(handle, arg);
 	case GDEV_IOCTL_GFREE:
@@ -125,6 +127,10 @@ static int gdev_ioctl
 		return gdev_ioctl_gshmdt(handle, arg);
 	case GDEV_IOCTL_GSHMCTL:
 		return gdev_ioctl_gshmctl(handle, arg);
+	case GDEV_IOCTL_GREF:
+		return gdev_ioctl_gref(handle, arg);
+	case GDEV_IOCTL_GUNREF:
+		return gdev_ioctl_gunref(handle, arg);
 	case GDEV_IOCTL_GPHYSGET:
 		return gdev_ioctl_gphysget(handle, arg);
 	case GDEV_IOCTL_GVIRTGET:

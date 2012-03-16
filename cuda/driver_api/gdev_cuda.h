@@ -68,8 +68,9 @@ struct gdev_cuda_raw_func {
 	uint32_t local_size_neg;
 };
 
-struct gdev_cuda_launch {
-	uint32_t id; /* kernel ID returned by the launch function. */
+struct gdev_cuda_fence {
+	uint32_t id; /* fence ID returned by the Gdev API. */
+	uint64_t addr_ref; /* only used for asynchronous memcpy. */
 	struct gdev_list list_entry; /* entry to synchronization list. */
 };
 
@@ -87,6 +88,7 @@ struct CUctx_st {
 	struct gdev_list sync_list;
 	struct gdev_cuda_info cuda_info;
 	int launch_id;
+	int minor;
 };
 
 struct CUmod_st {
@@ -126,6 +128,9 @@ struct CUevent_st {
 };
 
 struct CUstream_st {
+	Ghandle gdev_handle;
+	struct CUctx_st *ctx;
+	struct gdev_list sync_list; /* for gdev_cuda_fence.list_entry */
 };
 
 struct CUgraphicsResource_st {
