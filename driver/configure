@@ -10,7 +10,7 @@ elif [ ! $nouveau_exist -eq 0 ] ; then
 	driver='nouveau'
 fi
 
-echo "Driver selected: $driver"
+echo "Detecting device driver... $driver"
 touch ./Driver.mk
 echo "DRIVER_NAME=$driver" > ./Driver.mk
 
