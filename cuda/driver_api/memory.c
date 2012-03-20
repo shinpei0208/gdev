@@ -245,11 +245,11 @@ CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int B
  */
 CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream)
 {
-	Ghandle handle, handle_ref;
+	Ghandle handle, handle_r;
 	struct CUstream_st *stream = hStream;
 	const void *src_buf = srcHost;
 	uint64_t dst_addr = dstDevice;
-	uint64_t dst_addr_ref;
+	uint64_t dst_addr_r, src_addr_r, src_addr;
 	uint32_t size = ByteCount;
 	struct gdev_cuda_fence *fence;
 	uint32_t id;
@@ -269,23 +269,36 @@ CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned 
 		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
 	
 	handle = gdev_ctx_current->gdev_handle;
-	handle_ref = stream->gdev_handle;
+	handle_r = stream->gdev_handle;
 
-	if (!(dst_addr_ref = gref(handle, dst_addr, size, handle_ref)))
+	/* reference the device memory address. */
+	if (!(dst_addr_r = gref(handle, dst_addr, size, handle_r)))
 		goto fail_gref;
 
-	if (gmemcpy_to_device_async(handle_ref, dst_addr_ref, src_buf, size, &id))
+	/* translate from buffer to address. */
+	if (!(src_addr = gvirtget(handle, src_buf)))
+		goto fail_gvirtget;
+
+	/* reference the host memory address. */
+	if (!(src_addr_r = gref(handle, src_addr, size, handle_r)))
+		goto fail_gref_dma;
+
+	/* now we can just copy data in the global address space. */
+	if (gmemcpy_async(handle_r, dst_addr_r, src_addr_r, size, &id))
 		goto fail_gmemcpy;
 
 	fence->id = id;
-	fence->addr_ref = dst_addr_ref;
+	fence->addr_ref = dst_addr_r;
 	gdev_list_init(&fence->list_entry, fence);
 	gdev_list_add(&fence->list_entry, &stream->sync_list);
 
 	return CUDA_SUCCESS;
 
 fail_gmemcpy:
-	gunref(handle_ref, dst_addr_ref);
+	gunref(handle_r, src_addr_r);
+fail_gvirtget:
+fail_gref_dma:
+	gunref(handle_r, dst_addr_r);
 fail_gref:
 	FREE(fence);
 
@@ -350,11 +363,11 @@ CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCou
  */
 CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream)
 {
-	Ghandle handle, handle_ref;
+	Ghandle handle, handle_r;
 	struct CUstream_st *stream = hStream;
 	void *dst_buf = dstHost;
 	uint64_t src_addr = srcDevice;
-	uint64_t src_addr_ref;
+	uint64_t src_addr_r, dst_addr_r, dst_addr;
 	uint32_t size = ByteCount;
 	struct gdev_cuda_fence *fence;
 	uint32_t id;
@@ -374,23 +387,36 @@ CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int By
 		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
 
 	handle = gdev_ctx_current->gdev_handle;
-	handle_ref = stream->gdev_handle;
+	handle_r = stream->gdev_handle;
 
-	if (!(src_addr_ref = gref(handle, src_addr, size, handle_ref)))
+	/* reference the device memory address. */
+	if (!(src_addr_r = gref(handle, src_addr, size, handle_r)))
 		goto fail_gref;
-	
-	if (gmemcpy_from_device_async(handle_ref, dst_buf, src_addr_ref, size, &id))
+
+	/* translate from buffer to address. */
+	if (!(dst_addr = gvirtget(handle, dst_buf)))
+		goto fail_gvirtget;
+
+	/* reference the host memory address. */
+	if (!(dst_addr_r = gref(handle, dst_addr, size, handle_r)))
+		goto fail_gref_dma;
+
+	/* now we can just copy data in the global address space. */
+	if (gmemcpy_async(handle_r, dst_addr_r, src_addr_r, size, &id))
 		goto fail_gmemcpy;
 
 	fence->id = id;
-	fence->addr_ref = src_addr_ref;
+	fence->addr_ref = src_addr_r;
 	gdev_list_init(&fence->list_entry, fence);
 	gdev_list_add(&fence->list_entry, &stream->sync_list);
 
 	return CUDA_SUCCESS;
 
 fail_gmemcpy:
-	gunref(handle_ref, src_addr_ref);
+	gunref(handle_r, dst_addr_r);
+fail_gref_dma:
+fail_gvirtget:
+	gunref(handle_r, src_addr_r);
 fail_gref:
 	FREE(fence);
 
@@ -428,7 +454,7 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
 
 	handle = gdev_ctx_current->gdev_handle;
 
-	if (gmemcpy_in_device(handle, dst_addr, src_addr, size))
+	if (gmemcpy(handle, dst_addr, src_addr, size))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;

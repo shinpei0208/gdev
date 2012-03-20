@@ -307,7 +307,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem)
 	struct gdev_drv_bo bo;
 	struct gdev_mem *new;
 	struct gdev_device *gdev = vas->gdev;
-	struct drm_device *drm = (struct drm_device *) gdev->priv;
+	struct drm_device *drm = (struct drm_device *)gdev->priv;
 
 	if (!(new = kzalloc(sizeof(*new), GFP_KERNEL)))
 		goto fail_mem;
@@ -348,8 +348,8 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 	vspace.priv = vas->pvas;
 	bo.priv = mem->bo;
 	bo.addr = mem->addr;
-	bo.size = mem->size;
-	bo.map = mem->map;
+	bo.size = mem->size; /* not really used. */
+	bo.map = mem->map; /* not really used. */
 
 	gdev_drv_bo_unbind(&vspace, &bo);
 	kfree(mem);

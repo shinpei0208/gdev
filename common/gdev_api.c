@@ -218,11 +218,17 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
 	if (size <= 4) {
 		gdev_write32(mem, dst_addr, ((uint32_t*)src_buf)[0]);
 		ret = 0;
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
 	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
 		ret = gdev_write(mem, dst_addr, src_buf, size);
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
-	else if ((hmem = gdev_mem_lookup(vas, (uint64_t)src_buf, GDEV_MEM_DMA))) {
+	else if ((hmem = gdev_mem_lookup_by_buf(vas, src_buf, GDEV_MEM_DMA))) {
 		ret = __gmemcpy_dma_to_device(ctx, dst_addr, hmem->addr, size, id);
 	}
 	else {
@@ -244,6 +250,10 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
 		/* free bounce buffer memory, if necessary. */
 		if (!dma_mem)
 			__free_dma(bmem, p_count);
+
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
 
 	return ret;
@@ -260,12 +270,13 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 #endif
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
-	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
+	gdev_mem_t *mem;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
 
+	mem = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DEVICE);
 	if (!mem)
 		return -ENOENT;
 
@@ -277,9 +288,8 @@ static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const v
 	gdev_mem_lock(mem);
 
 	gdev_shm_evict_conflict(ctx, mem); /* evict conflicting data. */
-	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, id, 
-									 ch_size, p_count, vas, mem, dma_mem, 
-									 host_copy);
+	ret = __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, id, ch_size, p_count, vas, mem, dma_mem, host_copy);
+
 	gdev_mem_unlock(mem);
 
 #ifndef GDEV_SCHED_DISABLED
@@ -419,11 +429,17 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
 	if (size <= 4) {
 		((uint32_t*)dst_buf)[0] = gdev_read32(mem, src_addr);
 		ret = 0;
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
 	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
 		ret = gdev_read(mem, dst_buf, src_addr, size);
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
-	else if ((hmem = gdev_mem_lookup(vas, (uint64_t)dst_buf, GDEV_MEM_DMA))) {
+	else if ((hmem = gdev_mem_lookup_by_buf(vas, dst_buf, GDEV_MEM_DMA))) {
 		ret = __gmemcpy_dma_from_device(ctx, hmem->addr, src_addr, size, id);
 	}
 	else {
@@ -444,6 +460,10 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
 		/* free bounce buffer memory, if necessary. */
 		if (!dma_mem)
 			__free_dma(bmem, p_count);
+
+		/* if @id is give while not asynchronous, give it zero. */
+		if (id)
+			*id = 0;
 	}
 
 	return ret;
@@ -460,12 +480,13 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 #endif
 	gdev_vas_t *vas = h->vas;
 	gdev_ctx_t *ctx = h->ctx;
-	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = h->dma_mem;
+	gdev_mem_t *mem;
 	uint32_t ch_size = h->chunk_size;
 	int p_count = h->pipeline_count;
 	int ret;
 
+	mem = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DEVICE);
 	if (!mem)
 		return -ENOENT;
 
@@ -498,10 +519,14 @@ int gdev_callback_save_to_host(void *h, void* dst_buf, uint64_t src_addr, uint64
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
-	gdev_mem_t *mem = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = ((struct gdev_handle*)h)->dma_mem;
+	gdev_mem_t *mem;
 	uint32_t ch_size = ((struct gdev_handle*)h)->chunk_size;
 	int p_count = ((struct gdev_handle*)h)->pipeline_count;
+
+	mem = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DEVICE);
+	if (!mem)
+		return -ENOENT;
 
 	return __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, NULL, ch_size, p_count, vas, mem, dma_mem, __f_memcpy);
 }
@@ -527,10 +552,14 @@ int gdev_callback_load_from_host(void *h, uint64_t dst_addr, void *src_buf, uint
 {
 	gdev_vas_t *vas = ((struct gdev_handle*)h)->vas;
 	gdev_ctx_t *ctx = ((struct gdev_handle*)h)->ctx;
-	gdev_mem_t *mem = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
 	gdev_mem_t **dma_mem = ((struct gdev_handle*)h)->dma_mem;
+	gdev_mem_t *mem;
 	uint32_t ch_size = ((struct gdev_handle*)h)->chunk_size;
 	int p_count = ((struct gdev_handle*)h)->pipeline_count;
+
+	mem = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DEVICE);
+	if (!mem)
+		return -ENOENT;
 
 	return __gmemcpy_to_device_locked(ctx, dst_addr, src_buf, size, NULL, ch_size, p_count, vas, mem, dma_mem, __f_memcpy);
 }
@@ -729,7 +758,7 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 	gdev_mem_t *mem;
 	uint64_t size;
 
-	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+	if (!(mem = gdev_mem_lookup_by_addr(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
@@ -777,7 +806,7 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 	gdev_mem_t *mem;
 	uint64_t size;
 
-	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, GDEV_MEM_DMA)))
+	if (!(mem = gdev_mem_lookup_by_buf(vas, buf, GDEV_MEM_DMA)))
 		goto fail;
 	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
@@ -800,7 +829,7 @@ void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
 	gdev_mem_t *mem;
 	uint64_t offset;
 	
-	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+	if (!(mem = gdev_mem_lookup_by_addr(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 
 	offset = addr - gdev_mem_getaddr(mem);
@@ -820,7 +849,7 @@ int gunmap(struct gdev_handle *h, void *buf)
 	gdev_mem_t *mem;
 	uint32_t type = GDEV_MEM_DEVICE | GDEV_MEM_DMA;
 	
-	if (!(mem = gdev_mem_lookup(vas, (uint64_t)buf, type)))
+	if (!(mem = gdev_mem_lookup_by_buf(vas, buf, type)))
 		goto fail;
 
 	gdev_mem_unmap(mem);
@@ -905,11 +934,11 @@ int gmemcpy_user_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_
 }
 
 /**
- * gmemcpy_in_device():
- * copy data of the given size within the device memory.
+ * gmemcpy():
+ * copy data of the given size within the global address space.
+ * this could be HtoD, DtoH, DtoD, and HtoH.
  */
-int gmemcpy_in_device
-(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+int gmemcpy(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 #ifndef GDEV_SCHED_DISABLED
 	struct gdev_sched_entity *se = h->se;
@@ -917,12 +946,23 @@ int gmemcpy_in_device
 #endif
 	gdev_ctx_t *ctx = h->ctx;
 	gdev_vas_t *vas = h->vas;
-	gdev_mem_t *dst = gdev_mem_lookup(vas, dst_addr, GDEV_MEM_DEVICE);
-	gdev_mem_t *src = gdev_mem_lookup(vas, src_addr, GDEV_MEM_DEVICE);
+	gdev_mem_t *dst;
+	gdev_mem_t *src;
 	uint32_t fence;
 
-	if (!dst || !src)
-		return -ENOENT;
+	dst = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DEVICE);
+	if (!dst) {
+		dst = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DMA);
+		if (!dst)
+			return -ENOENT;
+	}
+
+	src = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DEVICE);
+	if (!src) {
+		src = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DMA);
+		if (!src)
+			return -ENOENT;
+	}
 
 #ifndef GDEV_SCHED_DISABLED
 	/* decide if the context needs to stall or not. */
@@ -942,6 +982,60 @@ int gmemcpy_in_device
 	/* select the next context by itself, since memcpy is synchronous. */
 	gdev_select_next_memory(gdev);
 #endif
+
+	return 0;
+}
+
+/**
+ * gmemcpy_async():
+ * asynchronously copy data of the given size within the global address space.
+ * this could be HtoD, DtoH, DtoD, and HtoH.
+ */
+int gmemcpy_async(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size, uint32_t *id)
+{
+#ifndef GDEV_SCHED_DISABLED
+	struct gdev_sched_entity *se = h->se;
+	struct gdev_device *gdev = h->gdev;
+#endif
+	gdev_ctx_t *ctx = h->ctx;
+	gdev_vas_t *vas = h->vas;
+	gdev_mem_t *dst;
+	gdev_mem_t *src;
+	uint32_t fence;
+
+	dst = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DEVICE);
+	if (!dst) {
+		dst = gdev_mem_lookup_by_addr(vas, dst_addr, GDEV_MEM_DMA);
+		if (!dst)
+			return -ENOENT;
+	}
+
+	src = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DEVICE);
+	if (!src) {
+		src = gdev_mem_lookup_by_addr(vas, src_addr, GDEV_MEM_DMA);
+		if (!src)
+			return -ENOENT;
+	}
+
+#ifndef GDEV_SCHED_DISABLED
+	/* decide if the context needs to stall or not. */
+	gdev_schedule_memory(se);
+#endif
+
+	gdev_mem_lock(dst);
+	gdev_mem_lock(src);
+
+	fence = gdev_memcpy_async(ctx, dst_addr, src_addr, size); 
+
+	gdev_mem_unlock(src);
+	gdev_mem_unlock(dst);
+
+#ifndef GDEV_SCHED_DISABLED
+	/* this should be done upon interrupt. */
+	gdev_select_next_memory(gdev);
+#endif
+
+	*id = fence;
 
 	return 0;
 }
@@ -980,6 +1074,9 @@ int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
  */
 int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 {
+	/* @id could be zero if users have called memcpy_async in a wrong way. */
+	if (id == 0)
+		return 0;
 	return gdev_poll(h->ctx, id, timeout);
 }
 
@@ -1052,6 +1149,9 @@ int gshmget(Ghandle h, int key, uint64_t size, int flags)
 	gdev_vas_t *vas = h->vas;
 	int id;
 
+	if (key == 0 || size == 0)
+		return -EINVAL;
+
 	gdev_mutex_lock(&gdev->shm_mutex);
 	id = gdev_shm_create(gdev, vas, key, size, flags);
 	gdev_mutex_unlock(&gdev->shm_mutex);
@@ -1095,7 +1195,7 @@ int gshmdt(Ghandle h, uint64_t addr)
 	gdev_mem_t *mem;
 
 	gdev_mutex_lock(&gdev->shm_mutex);
-	if (!(mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE)))
+	if (!(mem = gdev_mem_lookup_by_addr(vas, addr, GDEV_MEM_DEVICE)))
 		goto fail;
 	gdev_shm_detach(mem);
 	gdev_mutex_unlock(&gdev->shm_mutex);
@@ -1141,16 +1241,19 @@ fail:
 
 /**
  * gref():
- * reference device virtual memory of handle @hsrc from handle @hdst.
- * this API can be used alone - no need to call other gshm* APIs a priori.
+ * reference virtual memory from handle @hsrc to handle @hdst.
  */
 uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave)
 {
 	gdev_mem_t *mem, *new;
 	
-	mem = gdev_mem_lookup(hmaster->vas, addr, GDEV_MEM_DEVICE);
-	if (!mem)
-		return 0;
+	mem = gdev_mem_lookup_by_addr(hmaster->vas, addr, GDEV_MEM_DEVICE);
+	if (!mem) {
+		/* try to find a host DMA memory object. */
+		mem = gdev_mem_lookup_by_addr(hmaster->vas, addr, GDEV_MEM_DMA);
+		if (!mem)
+			return 0;
+	}
 
 	new = gdev_shm_attach(hslave->vas, mem, size);
 	if (!new)
@@ -1161,16 +1264,20 @@ uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave)
 
 /**
  * gunref():
- * unreference device virtual memory from the shared region.
+ * unreference virtual memory from the shared region.
  */
 int gunref(Ghandle h, uint64_t addr)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 	
-	mem = gdev_mem_lookup(vas, addr, GDEV_MEM_DEVICE);
-	if (!mem)
-		return -ENOENT;
+	mem = gdev_mem_lookup_by_addr(vas, addr, GDEV_MEM_DEVICE);
+	if (!mem) {
+		/* try to find a host DMA memory object. */
+		mem = gdev_mem_lookup_by_addr(vas, addr, GDEV_MEM_DMA);
+		if (!mem)
+			return -ENOENT;
+	}
 
 	gdev_shm_detach(mem);
 
@@ -1181,24 +1288,20 @@ int gunref(Ghandle h, uint64_t addr)
  * gphysget():
  * get the physical (PCI) bus address associated with buffer pointer @p
  */
-uint64_t gphysget(Ghandle h, void *p)
+uint64_t gphysget(Ghandle h, const void *p)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	uint32_t type = GDEV_MEM_DMA;
 	uint64_t offset;
 	
-	mem = gdev_mem_lookup(vas, (uint64_t)p, type);
-	if (mem)
-		offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
-	else {
-		type |= GDEV_MEM_DEVICE;
-		mem = gdev_mem_lookup(vas, (uint64_t)p, type);
-		if (mem)
-			offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
-		else
+	mem = gdev_mem_lookup_by_buf(vas, p, GDEV_MEM_DEVICE);
+	if (!mem) {
+		mem = gdev_mem_lookup_by_buf(vas, p, GDEV_MEM_DMA);
+		if (!mem)
 			goto fail;
 	}
+
+	offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
 
 	return gdev_mem_phys_getaddr(mem, offset);
 	
@@ -1210,24 +1313,20 @@ fail:
  * gvirtget():
  * get the unified virtual address associated with buffer pointer @p
  */
-uint64_t gvirtget(Ghandle h, void *p)
+uint64_t gvirtget(Ghandle h, const void *p)
 {
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
-	uint32_t type = GDEV_MEM_DMA;
 	uint64_t offset;
 	
-	mem = gdev_mem_lookup(vas, (uint64_t)p, type);
-	if (mem)
-		offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
-	else {
-		type |= GDEV_MEM_DEVICE;
-		mem = gdev_mem_lookup(vas, (uint64_t)p, type);
-		if (mem)
-			offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
-		else
+	mem = gdev_mem_lookup_by_buf(vas, p, GDEV_MEM_DEVICE);
+	if (!mem) {
+		mem = gdev_mem_lookup_by_buf(vas, p, GDEV_MEM_DMA);
+		if (!mem)
 			goto fail;
 	}
+
+	offset = (uint64_t)p - (uint64_t)gdev_mem_getbuf(mem);
 
 	return gdev_mem_getaddr(mem) + offset;
 	

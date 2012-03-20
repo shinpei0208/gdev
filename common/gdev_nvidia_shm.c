@@ -261,13 +261,21 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 
 	if (!mem) {
 		/* select a victim memory object. victim->shm will be newly 
-		   allocated if NULL, with shm->users being incremented. */
+		   allocated if NULL. */
 		if (!(mem = __gdev_shm_find_victim(vas, size)))
 			goto fail_victim;
 		implicit = 1;
 	}
-	else
+	else {
+		if (!mem->shm) {
+			struct gdev_shm *shm;
+			if (!(shm = MALLOC(sizeof(*shm))))
+				goto fail_heap;
+			/* initialize shared memory, but don't add it to the list. */
+			__gdev_shm_init(mem, shm);
+		}
 		implicit = 0;
+	}
 
 	/* borrow the same (physical) memory space by sharing. */
 	if (!(new = gdev_raw_mem_share(vas, mem)))
@@ -303,6 +311,7 @@ fail_swap:
 	gdev_raw_mem_unshare(new);
 fail_shm:
 	mem->shm->users--;
+fail_heap:
 fail_victim:
 
 	return NULL;
@@ -327,6 +336,7 @@ void gdev_shm_detach(struct gdev_mem *mem)
 	gdev_list_del(&mem->list_entry_shm);
 	if (shm->implicit)
 		__gdev_swap_detach(mem);
+
 	/* if the memory object is shared but no users, free it. 
 	   since users == 0, no one else will use mem->shm. */
 	if (shm->users == 0) {

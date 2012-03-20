@@ -168,9 +168,6 @@ CUresult cuStreamSynchronize(CUstream hStream)
 		FREE(f);
 	}
 
-	if (gbarrier(handle))
-		return CUDA_ERROR_UNKNOWN;
-
 	return CUDA_SUCCESS;
 }
 
