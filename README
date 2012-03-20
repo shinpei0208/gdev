@@ -128,7 +128,16 @@ Ocelot, which can translate CUDA Drier API to Runtime API.
 cd $(TOPDIR)/gdev/cuda
 mkdir build
 cd build
-../configure # if you want to run CUDA in OS, specify --target=kcuda
+../configure
+make
+sudo make install
+
+Gdev also supports CUDA in the operating system. You are required to
+install "kcuda" module to use this functionality.
+
+cd $(TOPDIR)/gdev/cuda
+mkdir kbuild
+../configure --target=kcuda
 make
 sudo make install
 
@@ -137,4 +146,15 @@ sudo make install
 cd $(TOPDIR)/test/cuda/user/madd
 make
 ./user_test 256 # a[256] x b[256] = c[256]
+
+8. CUDA Driver API test (OS-space programs)
+
+cd $(TOPDIR)/test/cuda/kernel/memcpy
+make
+sudo insmod ./kernel_test.ko size=10000 # copy 0x10000 size
+
+NOTE: Please be careful when doing this test as it runs a program
+in module_init(). If you run a very long program as it is, you may
+crash your system. If you want to run a very long program, you must
+provide a proper module implementation, e.g., using kernel threads.
 
