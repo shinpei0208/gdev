@@ -101,5 +101,27 @@ EXPORT_SYMBOL(cuMemFree);
 EXPORT_SYMBOL(cuMemAllocHost);
 EXPORT_SYMBOL(cuMemFreeHost);
 EXPORT_SYMBOL(cuMemcpyDtoH);
+EXPORT_SYMBOL(cuMemcpyDtoHAsync);
 EXPORT_SYMBOL(cuMemcpyHtoD);
+EXPORT_SYMBOL(cuMemcpyHtoDAsync);
 EXPORT_SYMBOL(cuMemcpyDtoD);
+EXPORT_SYMBOL(cuMemHostAlloc);
+EXPORT_SYMBOL(cuMemHostGetDevicePointer);
+/* Memory mapping - Gdev extension */
+EXPORT_SYMBOL(cuMemMap);
+EXPORT_SYMBOL(cuMemUnmap);
+/* Memory mapped address - Gdev extension */
+EXPORT_SYMBOL(cuMemGetPhysAddr);
+
+/* Stream Management */
+EXPORT_SYMBOL(cuStreamCreate);
+EXPORT_SYMBOL(cuStreamDestroy);
+EXPORT_SYMBOL(cuStreamQuery);
+EXPORT_SYMBOL(cuStreamSynchronize);
+EXPORT_SYMBOL(cuStreamWaitEvent);
+
+/* Inter-Process Communication (IPC) - Gdev extension */
+EXPORT_SYMBOL(cuShmGet);
+EXPORT_SYMBOL(cuShmAt);
+EXPORT_SYMBOL(cuShmDt);
+EXPORT_SYMBOL(cuShmCtl);

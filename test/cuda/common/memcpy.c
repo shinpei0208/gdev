@@ -2,7 +2,7 @@
 #ifdef __KERNEL__ /* just for measurement */
 #include <linux/vmalloc.h>
 #include <linux/time.h>
-#define printf printk
+#define printf printk /* note that "%f" doesn't work. */
 #define malloc vmalloc
 #define free vfree
 #define gettimeofday(x, y) do_gettimeofday(x)
