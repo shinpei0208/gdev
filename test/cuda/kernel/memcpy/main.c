@@ -9,7 +9,7 @@ MODULE_AUTHOR("Shinpei Kato");
 int cuda_test_memcpy(uint32_t);
 
 struct task_struct *test_thread = NULL;
-static unsigned int size = 0x10000000; /* 256MB */
+static unsigned int size = 0x10000;
 module_param(size, int, 0444);
 MODULE_PARM_DESC(size, "data size (in hex)");
 
