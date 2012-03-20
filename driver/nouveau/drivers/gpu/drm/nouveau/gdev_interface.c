@@ -264,6 +264,7 @@ EXPORT_SYMBOL(gdev_drv_bo_bind);
 
 int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
+#if 0 /* this will crush the system... */
 	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
 	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
 	struct nouveau_vma *vma;
@@ -275,6 +276,7 @@ int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *d
 	}
 	else
 		return -ENOENT;
+#endif
 	
 	return 0;
 }

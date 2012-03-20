@@ -49,6 +49,25 @@ struct gdev_handle {
 	struct gdev_list map_bo_list;
 };
 
+/* return "OS-space" buffer address, if @addr is associated with DMA buffer. */
+static uint64_t __gdev_lookup_dma_buf(struct gdev_handle *h, uint64_t addr)
+{
+	struct gdev_map_bo *bo;
+	uint64_t buf_addr;
+
+	/* look up if @addr is associated with DMA buffer. */
+	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
+		buf_addr = (uint64_t)bo->buf;
+		if ((addr >= buf_addr) && (addr < buf_addr + bo->size))
+			break;
+	}
+	
+	if (bo)
+		return bo->addr + addr - buf_addr;
+	else
+		return 0; /* means NULL. */
+}
+
 struct gdev_handle *gopen(int minor)
 {
 	char devname[32];
@@ -114,12 +133,12 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	if (buf == MAP_FAILED)
 		goto fail_map;
 
-	bo = (struct gdev_map_bo*) malloc(sizeof(*bo));
+	bo = (struct gdev_map_bo *)malloc(sizeof(*bo));
 	if (!bo)
 		goto fail_malloc;
 	gdev_list_init(&bo->list_entry, bo);
 	gdev_list_add(&bo->list_entry, &h->map_bo_list);
-	bo->addr = mem.addr; /* buffer pointer address valid in OS-space */
+	bo->addr = mem.addr; /* "OS-space" buffer address */
 	bo->size = size; /* could be different from mem.size */
 	bo->buf = buf;
 
@@ -174,12 +193,12 @@ void *gmap(struct gdev_handle *h, uint64_t addr, uint64_t size)
 	if (buf == MAP_FAILED)
 		goto fail_map;
 
-	bo = (struct gdev_map_bo*) malloc(sizeof(*bo));
+	bo = (struct gdev_map_bo *)malloc(sizeof(*bo));
 	if (!bo)
 		goto fail_malloc;
 	gdev_list_init(&bo->list_entry, bo);
 	gdev_list_add(&bo->list_entry, &h->map_bo_list);
-	bo->addr = map.buf; /* buffer pointer address valid in OS-space */
+	bo->addr = map.buf; /* "OS-space" buffer address */
 	bo->size = size;
 	bo->buf = buf;
 
@@ -211,7 +230,7 @@ unmap:
 	munmap(buf, bo->size);
 	map.addr = 0; /* unused */
 	map.size = 0; /* unused */
-	map.buf = bo->addr; /* bo->addr holds kernel-space buffer pointer */
+	map.buf = bo->addr; /* "OS-space" buffer address */
 	free(bo);
 
 	return ioctl(fd, GDEV_IOCTL_GUNMAP, &map);
@@ -219,25 +238,20 @@ unmap:
 
 static int __gmemcpy_to_device(struct gdev_handle *h, uint64_t dst_addr, const void *src_buf, uint64_t size, uint32_t *id, int ioctl_cmd)
 {
-	struct gdev_map_bo *bo;
 	struct gdev_ioctl_dma dma;
 	uint64_t src_addr = (uint64_t)src_buf;
-	uint64_t buf_addr;
+	uint64_t dma_addr;
 	int fd = h->fd;
 
-	/* look up if @src_buf is allocated on host DMA buffer already. */
-	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		buf_addr = (uint64_t)bo->buf;
-		if ((src_addr >= buf_addr) && (src_addr < buf_addr + bo->size))
-			break;
-	}
+	/* look up if @src_buf is allocated on DMA buffer already. */
+	dma_addr = __gdev_lookup_dma_buf(h, src_addr);
 	
 	dma.dst_addr = dst_addr;
-	if (bo)
-		/* this is "PCI-space" host address */
-		dma.src_buf = (void *)(bo->addr + (src_addr - buf_addr));
+	if (dma_addr)
+		/* this is "OS-space" buffer address associated with DMA buffer. */
+		dma.src_buf = (void *)dma_addr;
 	else
-		/* this is "user-space" buffer */
+		/* this is "user-space" buffer address. */
 		dma.src_buf = src_buf;
 	dma.size = size;
 	dma.id = id;
@@ -257,25 +271,20 @@ int gmemcpy_to_device_async(struct gdev_handle *h, uint64_t dst_addr, const void
 
 static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id, int ioctl_cmd)
 {
-	struct gdev_map_bo *bo;
 	struct gdev_ioctl_dma dma;
 	uint64_t dst_addr = (uint64_t)dst_buf;
-	uint64_t buf_addr;
+	uint64_t dma_addr;
 	int fd = h->fd;
 
-	/* look up if @dst_buf is allocated on host DMA buffer already. */
-	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		buf_addr = (uint64_t)bo->buf;
-		if ((dst_addr >= buf_addr) && (dst_addr < buf_addr + bo->size))
-			break;
-	}
+	/* look up if @dst_buf is allocated on DMA buffer already. */
+	dma_addr = __gdev_lookup_dma_buf(h, dst_addr);
 	
 	dma.src_addr = src_addr;
-	if (bo)
-		/* this is "PCI-space" host address */
-		dma.dst_buf = (void *)(bo->addr + (dst_addr - buf_addr));
+	if (dma_addr)
+		/* this is "OS-space" buffer address associated with DMA buffer. */
+		dma.dst_buf = (void *)dma_addr;
 	else
-		/* this is "user-space" buffer */
+		/* this is "user-space" buffer address. */
 		dma.dst_buf = dst_buf;
 	dma.size = size;
 	dma.id = id;
@@ -293,7 +302,7 @@ int gmemcpy_from_device_async(struct gdev_handle *h, void *dst_buf, uint64_t src
 	return __gmemcpy_from_device(h, dst_buf, src_addr, size, id, GDEV_IOCTL_GMEMCPY_FROM_DEVICE_ASYNC);
 }
 
-int gmemcpy_in_device(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
+int gmemcpy(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size)
 {
 	struct gdev_ioctl_dma dma;
 	int fd = h->fd;
@@ -301,8 +310,22 @@ int gmemcpy_in_device(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_add
 	dma.dst_addr = dst_addr;
 	dma.src_addr = src_addr;
 	dma.size = size;
+	dma.id = NULL;
 
-	return ioctl(fd, GDEV_IOCTL_GMEMCPY_IN_DEVICE, &dma);
+	return ioctl(fd, GDEV_IOCTL_GMEMCPY, &dma);
+}
+
+int gmemcpy_async(struct gdev_handle *h, uint64_t dst_addr, uint64_t src_addr, uint64_t size, uint32_t *id)
+{
+	struct gdev_ioctl_dma dma;
+	int fd = h->fd;
+
+	dma.dst_addr = dst_addr;
+	dma.src_addr = src_addr;
+	dma.size = size;
+	dma.id = id;
+
+	return ioctl(fd, GDEV_IOCTL_GMEMCPY_ASYNC, &dma);
 }
 
 int glaunch(struct gdev_handle *h, struct gdev_kernel *kernel, uint32_t *id)
@@ -423,6 +446,7 @@ uint64_t gref(struct gdev_handle *hmaster, uint64_t addr, uint64_t size, struct 
 {
 	struct gdev_ioctl_ref r;
 	struct gdev_ioctl_handle h;
+	uint64_t dma_addr;
 	int fd_master = hmaster->fd;
 	int fd_slave = hslave->fd;
 	int ret;
@@ -430,7 +454,13 @@ uint64_t gref(struct gdev_handle *hmaster, uint64_t addr, uint64_t size, struct 
 	if ((ret = ioctl(fd_slave, GDEV_IOCTL_GET_HANDLE, &h)))
 		return ret;
 
-	r.addr = addr;
+	/* lookup if @addr is associated with DMA buffer. */
+	dma_addr = __gdev_lookup_dma_buf(hmaster, addr);
+
+	if (dma_addr)
+		r.addr = dma_addr; /* "OS-space" buffer address */
+	else
+		r.addr = addr;
 	r.size = size;
 	r.handle_slave = h.handle;
 	if ((ret = ioctl(fd_master, GDEV_IOCTL_GREF, &r)))
@@ -452,47 +482,41 @@ int gunref(struct gdev_handle *h, uint64_t addr)
 	return 0;
 }
 
-uint64_t gphysget(struct gdev_handle *h, void *p)
+uint64_t gphysget(struct gdev_handle *h, const void *p)
 {
-	struct gdev_map_bo *bo;
 	struct gdev_ioctl_phys phys;
 	int fd = h->fd;
 	uint64_t p_addr = (uint64_t)p;
-	uint64_t buf_addr;
+	uint64_t dma_addr;
 
-	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		buf_addr = (uint64_t)bo->buf;
-		if ((p_addr >= buf_addr) && (p_addr < buf_addr + bo->size))
-			goto physget;
-	}
+	dma_addr = __gdev_lookup_dma_buf(h, p_addr);
+	if (dma_addr)
+		goto physget;
+
 	return 0;
 
 physget:
-	/* bo->addr is buffer pointer address valid in OS-space. */
-	phys.addr = bo->addr + (p_addr - buf_addr);
+	phys.addr = dma_addr; /* "OS-space" buffer address */
 	ioctl(fd, GDEV_IOCTL_GPHYSGET, &phys);
 
 	return phys.phys;
 }
 
-uint64_t gvirtget(struct gdev_handle *h, void *p)
+uint64_t gvirtget(struct gdev_handle *h, const void *p)
 {
-	struct gdev_map_bo *bo;
 	struct gdev_ioctl_virt virt;
 	int fd = h->fd;
 	uint64_t p_addr = (uint64_t)p;
-	uint64_t buf_addr;
+	uint64_t dma_addr;
 
-	gdev_list_for_each (bo, &h->map_bo_list, list_entry) {
-		buf_addr = (uint64_t)bo->buf;
-		if ((p_addr >= buf_addr) && (p_addr < buf_addr + bo->size))
-			goto physget;
-	}
+	dma_addr = __gdev_lookup_dma_buf(h, p_addr);
+	if (dma_addr)
+		goto virtget;
+
 	return 0;
 
-physget:
-	/* bo->addr is buffer pointer address valid in OS-space. */
-	virt.addr = bo->addr + (p_addr - buf_addr);
+virtget:
+	virt.addr = dma_addr; /* "OS-space" buffer address */
 	ioctl(fd, GDEV_IOCTL_GVIRTGET, &virt);
 
 	return virt.virt;

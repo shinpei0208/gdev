@@ -58,7 +58,8 @@ int gmemcpy_from_device(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t si
 int gmemcpy_from_device_async(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id);
 int gmemcpy_user_from_device(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size);
 int gmemcpy_user_from_device_async(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size, uint32_t *id);
-int gmemcpy_in_device(Ghandle h, uint64_t dst_addr, uint64_t src_addr, uint64_t size);
+int gmemcpy(Ghandle h, uint64_t dst_addr, uint64_t src_addr, uint64_t size);
+int gmemcpy_async(Ghandle h, uint64_t dst_addr, uint64_t src_addr, uint64_t size, uint32_t *id);
 int glaunch(Ghandle h, struct gdev_kernel *kernel, uint32_t *id);
 int gsync(Ghandle h, uint32_t id, struct gdev_time *timeout);
 int gbarrier(Ghandle h);
@@ -70,8 +71,8 @@ int gshmdt(Ghandle h, uint64_t addr);
 int gshmctl(Ghandle h, int id, int cmd, void *buf);
 uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave);
 int gunref(Ghandle h, uint64_t addr);
-uint64_t gphysget(Ghandle h, void *p);
-uint64_t gvirtget(Ghandle h, void *p);
+uint64_t gphysget(Ghandle h, const void *p);
+uint64_t gvirtget(Ghandle h, const void *p);
 
 
 /**

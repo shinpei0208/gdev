@@ -246,26 +246,49 @@ void gdev_mem_unmap(struct gdev_mem *mem)
 	}
 }
 
-/* look up the memory object allocated at the specified address. */
-struct gdev_mem *gdev_mem_lookup(struct gdev_vas *vas, uint64_t addr, int type)
+/* look up a memory object associated with device virtual memory address. */
+struct gdev_mem *gdev_mem_lookup_by_addr(struct gdev_vas *vas, uint64_t addr, int type)
 {
 	struct gdev_mem *mem = NULL;
 	unsigned long flags;
 
 	switch (type) {
-	case (GDEV_MEM_DEVICE | GDEV_MEM_DMA):
-		gdev_lock_save(&vas->lock, &flags);
-		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
-			uint64_t map_addr = (uint64_t)mem->map;
-			if ((addr >= map_addr) && (addr < map_addr + mem->size))
-				break;
-		}
-		gdev_unlock_restore(&vas->lock, &flags);
-		break;
 	case GDEV_MEM_DEVICE:
 		gdev_lock_save(&vas->lock, &flags);
 		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
 			if ((addr >= mem->addr) && (addr < mem->addr + mem->size))
+				break;
+		}
+		gdev_unlock_restore(&vas->lock, &flags);
+		break;
+	case GDEV_MEM_DMA:
+		gdev_lock_save(&vas->lock, &flags);
+		gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
+			if ((addr >= mem->addr) && (addr < mem->addr + mem->size))
+				break;
+		}
+		gdev_unlock_restore(&vas->lock, &flags);
+		break;
+	default:
+		GDEV_PRINT("Memory type not supported\n");
+	}
+
+	return mem;
+}
+
+/* look up a memory object associated with host buffer address. */
+struct gdev_mem *gdev_mem_lookup_by_buf(struct gdev_vas *vas, const void *buf, int type)
+{
+	struct gdev_mem *mem = NULL;
+	uint64_t addr = (uint64_t)buf;
+	unsigned long flags;
+
+	switch (type) {
+	case GDEV_MEM_DEVICE:
+		gdev_lock_save(&vas->lock, &flags);
+		gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+			uint64_t map_addr = (uint64_t)mem->map;
+			if ((addr >= map_addr) && (addr < map_addr + mem->size))
 				break;
 		}
 		gdev_unlock_restore(&vas->lock, &flags);

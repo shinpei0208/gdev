@@ -107,8 +107,10 @@ static int gdev_ioctl
 		return gdev_ioctl_gmemcpy_from_device(handle, arg);
 	case GDEV_IOCTL_GMEMCPY_FROM_DEVICE_ASYNC:
 		return gdev_ioctl_gmemcpy_from_device_async(handle, arg);
-	case GDEV_IOCTL_GMEMCPY_IN_DEVICE:
-		return gdev_ioctl_gmemcpy_in_device(handle, arg);
+	case GDEV_IOCTL_GMEMCPY:
+		return gdev_ioctl_gmemcpy(handle, arg);
+	case GDEV_IOCTL_GMEMCPY_ASYNC:
+		return gdev_ioctl_gmemcpy_async(handle, arg);
 	case GDEV_IOCTL_GLAUNCH:
 		return gdev_ioctl_glaunch(handle, arg);
 	case GDEV_IOCTL_GSYNC:

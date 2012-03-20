@@ -306,14 +306,33 @@ int gdev_ioctl_gmemcpy_from_device_async(Ghandle handle, unsigned long arg)
 	return 0;
 }
 
-int gdev_ioctl_gmemcpy_in_device(Ghandle handle, unsigned long arg)
+int gdev_ioctl_gmemcpy(Ghandle handle, unsigned long arg)
 {
 	struct gdev_ioctl_dma dma;
 
 	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
 		return -EFAULT;
 
-	return gmemcpy_in_device(handle, dma.dst_addr, dma.src_addr, dma.size);
+	return gmemcpy(handle, dma.dst_addr, dma.src_addr, dma.size);
+}
+
+int gdev_ioctl_gmemcpy_async(Ghandle handle, unsigned long arg)
+{
+	struct gdev_ioctl_dma dma;
+	int id;
+	int ret;
+
+	if (copy_from_user(&dma, (void __user *)arg, sizeof(dma)))
+		return -EFAULT;
+
+	ret = gmemcpy_async(handle, dma.dst_addr, dma.src_addr, dma.size, &id);
+	if (ret)
+		return ret;
+
+	if (copy_to_user((void __user *)dma.id, &id, sizeof(id)))
+		return -EFAULT;
+
+	return 0;
 }
 
 int gdev_ioctl_glaunch(Ghandle handle, unsigned long arg)
