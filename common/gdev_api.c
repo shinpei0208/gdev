@@ -1148,7 +1148,7 @@ int gshmget(Ghandle h, int key, uint64_t size, int flags)
 	gdev_vas_t *vas = h->vas;
 	int id;
 
-	if (key == 0 || size == 0)
+	if (key < 0 || size == 0)
 		return -EINVAL;
 
 	gdev_mutex_lock(&gdev->shm_mutex);
