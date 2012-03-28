@@ -210,6 +210,7 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 
 	if (addr) {
 		vma = nouveau_bo_vma_find(bo, chan->vm);
+#if 0 /* this function call crushes the system sometimes... */
 		if (vma) {
 			nouveau_bo_vma_del(bo, vma);
 			kfree(vma);
@@ -217,6 +218,7 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 		else {
 			return -ENOENT;
 		}
+#endif
 	}
 
 	nouveau_bo_ref(NULL, &bo);
@@ -264,19 +266,19 @@ EXPORT_SYMBOL(gdev_drv_bo_bind);
 
 int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 {
-#if 0 /* this will crush the system... */
 	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
 	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
 	struct nouveau_vma *vma;
 
 	vma = nouveau_bo_vma_find(bo, chan->vm);
 	if (vma) {
+#if 0 /* this function call crushes the system sometimes... */
 		nouveau_bo_vma_del(bo, vma);
 		kfree(vma);
+#endif
 	}
 	else
 		return -ENOENT;
-#endif
 	
 	return 0;
 }
