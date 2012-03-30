@@ -1,19 +1,14 @@
 #!/bin/sh
 
-pscnv_exist=$(lsmod | grep pscnv | wc -l)
-nouveau_exist=$(lsmod | grep nouveau | wc -l)
-nvidia_exist=$(lsmod | grep nvidia | wc -l)
-driver=''
-
-if [ ! $pscnv_exist -eq 0 ] ; then
-	driver='pscnv'
-	DRIVER='PSCNV'
-elif [ ! $nouveau_exist -eq 0 ] ; then
-	driver='nouveau'
-	DRIVER='NOUVEAU'
-elif [ ! $nvidia_exist -eq 0 ] ; then
+if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
 	driver='nvi'
 	DRIVER='NVI'
+elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
+	driver='nouveau'
+	DRIVER='NOUVEAU'
+elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
+	driver='pscnv'
+	DRIVER='PSCNV'
 fi
 
 echo "Detecting device driver... $driver"
