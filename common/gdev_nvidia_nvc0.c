@@ -30,6 +30,7 @@
 #define __GDEV_NVIDIA_NVC0_H__
 
 #include "gdev_device.h"
+#include "gdev_conf.h"
 
 /* static objects. */
 static struct gdev_compute gdev_compute_nvc0;
