@@ -6,9 +6,13 @@
 # Copyright (C) Shinpei Kato
 # University of California, Santa Cruz
 # Systems Research Lab.
-# In collaboration with PathScale Inc.
 #
 # All Rights Reserved.
+#
+#
+# This project is in collaboration with PathScale Inc.
+# Many interesting solutions for GPU programming can be found at:
+# http://www.pathscale.com/
 #
 
 Gdev is a runtime-unified operating system module that manages GPUs 
