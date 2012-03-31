@@ -82,7 +82,7 @@ sudo shutdown -r now # will reboot your machine
 3.2. When you use nouveau
 
 cd $(TOPDIR)/gdev/driver/nouveau
-make NOUVEAUROOTDIR=.
+make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
 sudo make install NOUVEAUROOTDIR=.
 cd drivers/gpu/drm/nouveau
 sudo sh gdev.sh
@@ -90,6 +90,20 @@ sudo shutdown -r now # will reboot your machine
 
 If you are not sure if Nouveau is loaded successfully, do:
 modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
+
+3.3. When you use very latest kernels
+
+cd $(TOPDIR)
+git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
+cd linux-2.6
+git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
+git remote update
+git checkout -b nouveau-master nouveau/master
+patch -p0 < $(TOPDIR)/gdev/driver/patches/gdev-nouveau.patch 
+make menuconfig
+make 
+sudo make modules_install install
+sudo shutdown -r now # will reboot your machine
 
 4. Gdev Module
 
