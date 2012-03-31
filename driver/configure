@@ -1,19 +1,5 @@
 #!/bin/sh
 
-pscnv_exist=$(lsmod | grep pscnv | wc -l)
-nouveau_exist=$(lsmod | grep nouveau | wc -l)
-driver=''
-
-if [ ! $pscnv_exist -eq 0 ] ; then
-	driver='pscnv'
-elif [ ! $nouveau_exist -eq 0 ] ; then
-	driver='nouveau'
-fi
-
-echo "Detecting device driver... $driver"
-touch ./Driver.mk
-echo "DRIVER_NAME=$driver" > ./Driver.mk
-
 gdev='gdev'
 common='common'
 
@@ -34,5 +20,9 @@ do
   esac
 done
 
+# copy driver-independent files
 cp -fr ../$gdev/* ./
 cp -fr ../../$common/* ./
+
+# detect which driver to be used
+sh ./autogen.sh
