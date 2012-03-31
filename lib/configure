@@ -33,7 +33,6 @@ elif [ $target = 'user' ] ; then
 cp -f ../user/gdev/* .
 cp -f $topdir/$common/* .
 # detect which driver to be used
-echo 'hello'
 sh ./autogen.sh
 . ./Driver.mk
 # copy driver-dependent files
