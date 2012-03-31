@@ -25,6 +25,7 @@
 #ifndef __GDEV_CONF_H__
 #define __GDEV_CONF_H__
 
+#include "gdev_autogen.h"
 #include "gdev_nvidia.h"
 // #include "gdev_amd.h"
 // #include "gdev_intel.h"

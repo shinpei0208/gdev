@@ -3,11 +3,7 @@
 topdir='../..'
 common='common'
 
-# kernel-space Gdev or user-space Gdev
 target='kernel'
-# pscnv or nouveau
-backend='pscnv'
-# debug on/off
 debug=0
 
 # parse the given options.
@@ -29,14 +25,19 @@ do
 done
 
 if [ $target = 'kernel' ] ; then
+# all files are driver-independent 
 cp -f ../kernel/* .
 cp -f $topdir/$common/*.h .
 elif [ $target = 'user' ] ; then
+# copy driver-independent files
 cp -f ../user/gdev/* .
-cp -f ../user/$backend/* .
 cp -f $topdir/$common/* .
-touch backend.mk
-echo "BACKEND=$backend" > backend.mk
+# detect which driver to be used
+echo 'hello'
+sh ./autogen.sh
+. ./Driver.mk
+# copy driver-dependent files
+cp -f ../user/$DRIVER_NAME/* .
 else
 echo "Error: invalid target '$target'"
 fi
