@@ -9,9 +9,12 @@ elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
 elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
 	driver='pscnv'
 	DRIVER='PSCNV'
+else
+	echo "Device driver not found"
+	exit
 fi
 
-echo "Detecting device driver... $driver"
+echo "Device driver detected: $driver"
 
 # create Driver.mk
 cat > Driver.mk << EOF
