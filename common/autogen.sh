@@ -2,13 +2,10 @@
 
 if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
 	driver='nvi'
-	DRIVER='NVI'
 elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
 	driver='nouveau'
-	DRIVER='NOUVEAU'
 elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
 	driver='pscnv'
-	DRIVER='PSCNV'
 else
 	echo "Device driver not found"
 	exit
@@ -27,6 +24,8 @@ cat > Driver.mk << EOF
 
 DRIVER_NAME=$driver
 EOF
+
+DRIVER=$(echo $driver | tr "a-z" "A-Z")
 
 # create gdev_autogen.h
 cat > gdev_autogen.h << EOF
