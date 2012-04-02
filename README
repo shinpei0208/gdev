@@ -177,3 +177,22 @@ in module_init(). If you run a very long program as it is, you may
 crash your system. If you want to run a very long program, you must
 provide a proper module implementation, e.g., using kernel threads.
 
+9. Reclock
+
+NVIDIA's graphics cards are set very low clocks by default. To get
+performance, you need to reclock your card at the maximum level.
+How? Be root first, and then echo 3 to the following file:
+
+echo 3 > /sys/class/drm/card0/device/performance_level
+
+You can downclock your card by echoing 0 to the same file, i.e.,
+
+echo 0 > /sys/class/drm/card0/device/performance_level
+
+There are middleground levels 1 and 2, too. Note that Reclocking
+is not completely supported by the open-source solution yet.
+There are still some performance levels missing, and hence you may
+not get as high performance as the blob. If you really need the same
+level of performance as the blob, you can run some long-running
+CUDA program with the blob, and do kexec -f your kernel before the
+program is finished. Then the clock remains at the maximum level.
