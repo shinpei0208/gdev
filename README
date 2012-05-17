@@ -73,7 +73,7 @@ See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
 
 3.1. When you use pscnv
 
-cd $(TOPDIR)/gdev/driver/pscnv
+cd $(TOPDIR)/gdev/mod/pscnv
 ./configure
 make
 sudo make modules_install
@@ -81,7 +81,7 @@ sudo shutdown -r now # will reboot your machine
 
 3.2. When you use nouveau
 
-cd $(TOPDIR)/gdev/driver/nouveau
+cd $(TOPDIR)/gdev/mod/nouveau
 make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
 sudo make install NOUVEAUROOTDIR=.
 cd drivers/gpu/drm/nouveau
@@ -99,7 +99,7 @@ cd linux-2.6
 git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
 git remote update
 git checkout -b nouveau-master nouveau/master
-patch -p0 < $(TOPDIR)/gdev/driver/patches/gdev-nouveau.patch 
+patch -p0 < $(TOPDIR)/gdev/mod/patches/gdev-nouveau.patch 
 make menuconfig
 make 
 sudo make modules_install install
@@ -111,7 +111,7 @@ Gdev is double-edge, i.e., it provides a runtime-unified operating
 system approach as well as a typical user-space runtime approach.
 The following installation is required only for the former.
 
-cd $(TOPDIR)/gdev/driver
+cd $(TOPDIR)/gdev/mod
 mkdir build
 cd build
 ../configure
