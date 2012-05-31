@@ -25,7 +25,7 @@ static inline void tvsub(struct timeval *x,
 	}
 }
 
-int cuda_test_madd(unsigned int n, char *path)
+int cuda_test_mmul_host(unsigned int n, char *path)
 {
 	int i, j, idx;
 	CUresult res;
@@ -34,9 +34,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	CUfunction function;
 	CUmodule module;
 	CUdeviceptr a_dev, b_dev, c_dev;
-	unsigned int *a = (unsigned int *) malloc (n*n * sizeof(unsigned int));
-	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
-	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
+	unsigned int *a_buf, *b_buf, *c_buf;
 	int block_x, block_y, grid_x, grid_y;
 	char fname[256];
 	struct timeval tv;
@@ -60,7 +58,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	float data_read;
 
 	unsigned int dummy_b, dummy_c;
-	
+		
 
 	/* block_x * block_y should not exceed 512. */
 	block_x = n < 16 ? n : 16;
@@ -71,8 +69,6 @@ int cuda_test_madd(unsigned int n, char *path)
 	grid_y = n / block_y;
 	if (n % block_y != 0)
 		grid_y++;
-	printf("block = (%d, %d)\n", block_x, block_y);
-	printf("grid = (%d, %d)\n", grid_x, grid_y);
 
 	gettimeofday(&tv_total_start, NULL);
 
@@ -94,13 +90,13 @@ int cuda_test_madd(unsigned int n, char *path)
 		return -1;
 	}
 
-	sprintf(fname, "%s/madd_gpu.cubin", path);
+	sprintf(fname, "%s/mmul_gpu.cubin", path);
 	res = cuModuleLoad(&module, fname);
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleLoad() failed\n");
 		return -1;
 	}
-	res = cuModuleGetFunction(&function, module, "_Z3addPjS_S_j");
+	res = cuModuleGetFunction(&function, module, "multiply");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction() failed\n");
 		return -1;
@@ -119,23 +115,37 @@ int cuda_test_madd(unsigned int n, char *path)
 
 	gettimeofday(&tv_mem_alloc_start, NULL);
 
-
 	/* a[] */
-	res = cuMemAlloc(&a_dev, n*n * sizeof(unsigned int));
+	res = cuMemHostAlloc((void **)&a_buf, n*n * sizeof(unsigned int), CU_MEMHOSTALLOC_DEVICEMAP);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemAlloc (a) failed\n");
+		printf("cuMemHostAlloc (a) failed\n");
+		return -1;
+	}
+	res = cuMemHostGetDevicePointer(&a_dev, (void *)a_buf, 0);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemHostGetDevicePointer (a) failed\n");
 		return -1;
 	}
 	/* b[] */
-	res = cuMemAlloc(&b_dev, n*n * sizeof(unsigned int));
+	res = cuMemHostAlloc((void **)&b_buf, n*n * sizeof(unsigned int), CU_MEMHOSTALLOC_DEVICEMAP);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemAlloc (b) failed\n");
+		printf("cuMemHostAlloc (b) failed\n");
+		return -1;
+	}
+	res = cuMemHostGetDevicePointer(&b_dev, (void *)b_buf, 0);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemHostGetDevicePointer (b) failed\n");
 		return -1;
 	}
 	/* c[] */
-	res = cuMemAlloc(&c_dev, n*n * sizeof(unsigned int));
+	res = cuMemHostAlloc((void **)&c_buf, n*n * sizeof(unsigned int), CU_MEMHOSTALLOC_DEVICEMAP);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemAlloc (c) failed\n");
+		printf("cuMemHostAlloc (c) failed\n");
+		return -1;
+	}
+	res = cuMemHostGetDevicePointer(&c_dev, (void *)c_buf, 0);
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemHostGetDevicePointer (c) failed\n");
 		return -1;
 	}
 
@@ -145,29 +155,18 @@ int cuda_test_madd(unsigned int n, char *path)
 	for (i = 0; i < n; i++) {
 		idx = i*n;
 		for(j = 0; j < n; j++) {			
-			a[idx++] = i;
+			a_buf[idx++] = i;
 		}
 	}
 	for (i = 0; i < n; i++) {
 		idx = i*n;
 		for(j = 0; j < n; j++) {
-			b[idx++] = i;
+			b_buf[idx++] = i;
 		}
 	}
 
 
 	gettimeofday(&tv_h2d_start, NULL);
-	/* upload a[] and b[] */
-	res = cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (a) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	res = cuMemcpyHtoD(b_dev, b, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (b) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
 	gettimeofday(&tv_h2d_end, NULL);
 
 	gettimeofday(&tv_conf_kern_start, NULL);
@@ -224,38 +223,33 @@ int cuda_test_madd(unsigned int n, char *path)
 	cuCtxSynchronize();
 	gettimeofday(&tv_exec_end, NULL);
 
+
 	gettimeofday(&tv_d2h_start, NULL);
-	/* download c[] */
-	res = cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyDtoH (c) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
 	gettimeofday(&tv_d2h_end, NULL);
 
-	/* Read back */
+	/* Read back  */
 	for (i = 0; i < n; i++) {
 		idx = i*n;
 		for(j = 0; j < n; j++) {			
-			dummy_c = c[idx++];
+			dummy_c = c_buf[idx++];
 		}
 	}
 
 	gettimeofday(&tv_close_start, NULL);
 
-	res = cuMemFree(a_dev);
+	res = cuMemFreeHost((void *)a_buf);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFreeHost (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuMemFree(b_dev);
+	res = cuMemFreeHost((void *)b_buf);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (b) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFreeHost (b) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuMemFree(c_dev);
+	res = cuMemFreeHost((void *)c_buf);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (c) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFreeHost (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 
@@ -270,12 +264,9 @@ int cuda_test_madd(unsigned int n, char *path)
 		printf("cuCtxDestroy failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-
-	free(a);
-	free(b);
-	free(c);
-
 	gettimeofday(&tv_total_end, NULL);
+
+
 
 
 	tvsub(&tv_mem_alloc_start, &tv_total_start, &tv);
@@ -318,6 +309,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	printf("DataRead: %f\n", data_read);
 	printf("Close: %f\n", close_gpu);
 	printf("Total: %f\n", total);
+
 
 	return 0;
 }

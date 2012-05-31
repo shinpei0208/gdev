@@ -9,10 +9,12 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		n = atoi(argv[1]);
 
-	if (cuda_test_madd_host(n, ".") < 0)
+	int rc = cuda_test_madd_host(n, ".");
+	if ( rc != 0)
 		printf("Test failed\n");
 	else
 		printf("Test passed\n");
 	
-	return 0;
+	return rc;
+
 }

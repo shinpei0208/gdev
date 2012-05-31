@@ -47,7 +47,20 @@ int cuda_test_mmul(unsigned int n, char *path)
 	struct timeval tv_d2h_start, tv_d2h_end;
 	float d2h;
 	struct timeval tv_exec_start, tv_exec_end;
+	struct timeval tv_data_init_start;
+	float data_init;
+	struct timeval tv_mem_alloc_start;
+	struct timeval tv_conf_kern_start;
+	struct timeval tv_close_start;
+	float mem_alloc;
 	float exec;
+	float init_gpu;
+	float configure_kernel;
+	float close_gpu;
+	float data_read;
+
+	unsigned int dummy_b, dummy_c;
+		
 
 	/* block_x * block_y should not exceed 512 (16 warps). 
 	   fermi allows 1024 threads (32 warps). */
@@ -88,21 +101,24 @@ int cuda_test_mmul(unsigned int n, char *path)
 		printf("cuModuleLoad() failed\n");
 		return -1;
 	}
-	res = cuModuleGetFunction(&function, module, "_Z8multiplyPjS_S_i");
+	res = cuModuleGetFunction(&function, module, "multiply");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction() failed\n");
 		return -1;
 	}
-	res = cuFuncSetSharedSize(function, 0x40); /* just random */
+/*	res = cuFuncSetSharedSize(function, 0x40); /* just random 
 	if (res != CUDA_SUCCESS) {
 		printf("cuFuncSetSharedSize() failed\n");
 		return -1;
 	}
+*/
 	res = cuFuncSetBlockShape(function, block_x, block_y, 1);
 	if (res != CUDA_SUCCESS) {
 		printf("cuFuncSetBlockShape() failed\n");
 		return -1;
 	}
+
+	gettimeofday(&tv_mem_alloc_start, NULL);
 
 	/* a[] */
 	res = cuMemAlloc(&a_dev, n*n * sizeof(unsigned int));
@@ -123,6 +139,24 @@ int cuda_test_mmul(unsigned int n, char *path)
 		return -1;
 	}
 
+	gettimeofday(&tv_data_init_start, NULL);
+
+	/* initialize A[] & B[] */
+	for (i = 0; i < n; i++) {
+		idx = i*n;
+		for(j = 0; j < n; j++) {			
+			a[idx++] = i;
+		}
+	}
+	for (i = 0; i < n; i++) {
+		idx = i*n;
+		for(j = 0; j < n; j++) {
+			b[idx++] = i;
+		}
+	}
+
+
+
 	gettimeofday(&tv_h2d_start, NULL);
 	/* upload a[] and b[] */
 	res = cuMemcpyHtoD(a_dev, a, n*n * sizeof(unsigned int));
@@ -136,6 +170,8 @@ int cuda_test_mmul(unsigned int n, char *path)
 		return -1;
 	}
 	gettimeofday(&tv_h2d_end, NULL);
+
+	gettimeofday(&tv_conf_kern_start, NULL);
 
 	/* set kernel parameters */
 	res = cuParamSeti(function, 0, a_dev);	
@@ -198,6 +234,18 @@ int cuda_test_mmul(unsigned int n, char *path)
 	}
 	gettimeofday(&tv_d2h_end, NULL);
 
+	/* Read back */
+	for (i = 0; i < n; i++) {
+		idx = i*n;
+		for(j = 0; j < n; j++) {			
+			dummy_c = c[idx++];
+		}
+	}
+
+
+
+	gettimeofday(&tv_close_start, NULL);
+
 	res = cuMemFree(a_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
@@ -226,39 +274,54 @@ int cuda_test_mmul(unsigned int n, char *path)
 		return -1;
 	}
 
-	gettimeofday(&tv_total_end, NULL);
-
-	/* check the results */
-	i = j = idx = 0;
-	while (i < n) {
-		while (j < n) {
-			idx = i * n + j;
-			if (c[idx] != a[idx] * b[idx]) {
-				return -1;
-			}
-			j++;
-		}
-		i++;
-	}
-
 	free(a);
 	free(b);
 	free(c);
 
+	gettimeofday(&tv_total_end, NULL);
+
+
+	tvsub(&tv_mem_alloc_start, &tv_total_start, &tv);
+	init_gpu = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_data_init_start, &tv_mem_alloc_start, &tv);
+	mem_alloc = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_h2d_start, &tv_data_init_start, &tv);
+	data_init = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
 	tvsub(&tv_h2d_end, &tv_h2d_start, &tv);
 	h2d = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
-	tvsub(&tv_d2h_end, &tv_d2h_start, &tv);
-	d2h = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_exec_start, &tv_conf_kern_start, &tv);
+	configure_kernel = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
 	tvsub(&tv_exec_end, &tv_exec_start, &tv);
 	exec = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_d2h_end, &tv_d2h_start, &tv);
+	d2h = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_close_start, &tv_d2h_end, &tv);
+	data_read = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
+	tvsub(&tv_total_end, &tv_close_start, &tv);
+	close_gpu = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
+
 	tvsub(&tv_total_end, &tv_total_start, &tv);
 	total = tv.tv_sec * 1000.0 + (float) tv.tv_usec / 1000.0;
 
+	printf("Init: %f\n", init_gpu);
+	printf("MemAlloc: %f\n", mem_alloc);
+	printf("DataInit: %f\n", data_init);
 	printf("HtoD: %f\n", h2d);
-	printf("DtoH: %f\n", d2h);
+	printf("KernConf: %f\n", configure_kernel);
 	printf("Exec: %f\n", exec);
-	printf("Time (Memcpy + Launch): %f\n", h2d + d2h + exec);
+	printf("DtoH: %f\n", d2h);
+	printf("DataRead: %f\n", data_read);
+	printf("Close: %f\n", close_gpu);
 	printf("Total: %f\n", total);
+
 
 	return 0;
 }
