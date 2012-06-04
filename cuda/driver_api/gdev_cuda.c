@@ -26,6 +26,7 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
+#include <sys/errno.h>
 
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
@@ -74,32 +75,36 @@ typedef struct symbol_entry {
 	uint32_t sym_idx;
 } symbol_entry_t;
 
-static CUresult load_bin(char **pbin, file_t **pfp, const char *fname)
+/* prototype definition. */
+static int cubin_func_type
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func);
+
+static int load_bin(char **pbin, file_t **pfp, const char *fname)
 {
 	char *bin;
 	file_t *fp;
 	uint32_t len;
 
 	if (!(fp = FOPEN(fname)))
-		return CUDA_ERROR_FILE_NOT_FOUND;
+		return -ENOENT;
 
 	FSEEK(fp, 0, SEEK_END);
 	len = FTELL(fp);
 	FSEEK(fp, 0, SEEK_SET);
 
 	if (!(bin = (char *) MALLOC(len + 1)))
-		return CUDA_ERROR_OUT_OF_MEMORY;
+		return -ENOMEM;
 
 	if (!FREAD(bin, len, fp)) {
 		FREE(bin);
 		FCLOSE(fp);
-		return CUDA_ERROR_UNKNOWN;
+		return -EIO;
 	}
 
 	*pbin = bin;
 	*pfp = fp;
 
-	return CUDA_SUCCESS;
+	return 0;
 }
 
 static void unload_bin(char *bin, file_t *fp)
@@ -108,7 +113,7 @@ static void unload_bin(char *bin, file_t *fp)
 	FCLOSE(fp);
 }
 
-static CUresult cubin_func_skip(char **pos, section_entry_t *e)
+static void cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
 //#define GDEV_DEBUG
@@ -132,75 +137,56 @@ static CUresult cubin_func_skip(char **pos, section_entry_t *e)
 #endif
 #endif
 	*pos += e->size;
-	return CUDA_SUCCESS;
 }
 
-static CUresult cubin_func_unknown(char **pos, section_entry_t *e)
+static void cubin_func_unknown(char **pos, section_entry_t *e)
 {
 	GDEV_PRINT("/* nv.info: unknown entry type: 0x%.4x, size=0x%x */\n",
 			   e->type, e->size);
-	return cubin_func_skip(pos, e);
+	cubin_func_skip(pos, e);
 }
 
-static void cubin_func_0a04
-(char **pos, section_entry_t *e, char *bin, struct gdev_cuda_raw_func *raw_func)
+static int cubin_func_0a04
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
 	const_entry_t *ce;
 
 	*pos += sizeof(section_entry_t);
-	ce = (const_entry_t *) *pos;
+	ce = (const_entry_t *)*pos;
 	raw_func->param_base = ce->base;
 	raw_func->param_size = ce->size;
 	*pos += e->size;
-}
 
-static void cubin_func_1704
-(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
-{
-	param_entry_t *pe;
-
-	*pos += sizeof(section_entry_t);
-	pe = (param_entry_t*)*pos;
-
-	/* maybe useful to check parameter format later? */
-	raw_func->param_info[pe->idx].offset = pe->offset;
-	raw_func->param_info[pe->idx].size = pe->size >> 18;
-	raw_func->param_info[pe->idx].flags = pe->size & 0x2ffff;
-
-	*pos += e->size;
-}
-
-static void cubin_func_1903
-(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
-{
-	int i;
-	char *pos2;
-
-	*pos += sizeof(section_entry_t);
-	pos2 = *pos;
-
-	for (i = 0; i < raw_func->param_count; i++) {
-		section_entry_t *sh_e = (section_entry_t*) pos2;
-		switch (sh_e->type) {
-		case 0x1704:
-			cubin_func_1704(&pos2, sh_e, raw_func);
-			break;
-		default: /* real unknown */
-			cubin_func_unknown(&pos2, sh_e);
-			break;
+	if (raw_func->param_count == 0 && !raw_func->param_info) {
+		raw_func->param_count = ce->size / 4;
+		raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
+		if (!raw_func->param_info) {
+			GDEV_PRINT("/* nv.info: entry type: 0x0a04: Out of memory */\n");
+			return -ENOMEM;
 		}
 	}
 
-	/* just check if the parameter size matches. */
-	if (raw_func->param_size != e->size) {
-		GDEV_PRINT("Parameter size mismatched\n");
-		GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
-	}
-
-	*pos = pos2 + e->size; /* need to check if this is correct! */
+	return 0;
 }
 
-static void cubin_func_0d04
+static int cubin_func_0c04
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
+{
+	cubin_func_skip(pos, e);
+
+	if (raw_func->param_count == 0 && !raw_func->param_info) {
+		raw_func->param_count = e->size / 4;
+		raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
+		if (!raw_func->param_info) {
+			GDEV_PRINT("/* nv.info: entry type: 0x0c04: Out of memory */\n");
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static int cubin_func_0d04
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
 	stack_entry_t *se;
@@ -211,6 +197,96 @@ static void cubin_func_0d04
 	/* what is se->unk16 and se->unk32... */
 
 	*pos += e->size;
+
+	return 0;
+}
+
+static int cubin_func_1704
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
+{
+	param_entry_t *pe;
+
+	*pos += sizeof(section_entry_t);
+	pe = (param_entry_t *)*pos;
+
+	/* maybe useful to check parameter format later? */
+	raw_func->param_info[pe->idx].offset = pe->offset;
+	raw_func->param_info[pe->idx].size = pe->size >> 18;
+	raw_func->param_info[pe->idx].flags = pe->size & 0x2ffff;
+
+	*pos += e->size;
+
+	return 0;
+}
+
+static int cubin_func_1903
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
+{
+	int i, ret;;
+	char *pos2;
+
+	*pos += sizeof(section_entry_t);
+	pos2 = *pos;
+
+	for (i = 0; i < raw_func->param_count; i++) {
+		section_entry_t *sh_e = (section_entry_t *)pos2;
+		ret = cubin_func_type(&pos2, sh_e, raw_func);
+		if (ret)
+			return ret;
+	}
+
+	/* just check if the parameter size matches. */
+	if (raw_func->param_size != e->size) {
+		GDEV_PRINT("Parameter size mismatched\n");
+		GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
+	}
+
+	*pos = pos2 + e->size; /* need to check if this is correct! */
+
+	return 0;
+}
+
+static int cubin_func_type
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
+{
+	switch (e->type) {
+	case 0x0204: /* textures */
+		cubin_func_skip(pos, e);
+		break;
+	case 0x0a04: /* kernel parameters base and size */
+		return cubin_func_0a04(pos, e, raw_func);
+	case 0x0c04: /* 4-byte align data relevant to params. */
+		return cubin_func_0c04(pos, e, raw_func);
+	case 0x0d04: /* stack information, hmm... */
+		return cubin_func_0d04(pos, e, raw_func);
+	case 0x1104: /* ignore recursive call */
+		cubin_func_skip(pos, e);
+		break;
+	case 0x1204: /* some counters but what is this? */
+		cubin_func_skip(pos, e);
+		break;
+	case 0x1903: /* kernel parameters itself */
+		return cubin_func_1903(pos, e, raw_func);
+	case 0x1704: /* each parameter information */
+		return cubin_func_1704(pos, e, raw_func);
+	case 0x0001: /* unknown */
+		cubin_func_skip(pos, e);
+		break;
+	case 0x080d: /* unknown */
+		cubin_func_skip(pos, e);
+		break;
+	case 0xf000: /* maybe just padding??? */
+		*pos += 4;
+		break;
+	case 0xffff: /* unknown */
+		cubin_func_skip(pos, e);
+		break;
+	default: /* real unknown */
+		cubin_func_unknown(pos, e);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
@@ -284,14 +360,15 @@ static void init_raw_func(struct gdev_cuda_raw_func *f)
 	f->param_base = 0;
 	f->param_size = 0;
 	f->param_count = 0;
+	f->param_info = NULL;
 	f->local_size = 0;
 	f->local_size_neg = 0;
 }
 
-static CUresult cubin_func
+static int cubin_func
 (char **pos, section_entry_t *e, Elf_Sym *symbols, Elf_Ehdr *ehead, Elf_Shdr *sheads, char *strings, char *shstrings, char *bin, struct CUmod_st *mod)
 {
-	int i;
+	int i, ret;
 	int sh_text_idx;
 	char *sh_text_name;
 	uint32_t code_idx;
@@ -306,7 +383,7 @@ static CUresult cubin_func
 	/* there are some __device__ functions included, but we can just ignore 
 	   them... */
 	if (!(symbols[fe->sym_idx].st_other & NV_GLOBAL)) {
-		return CUDA_SUCCESS; 
+		return 0;
 	}
 
 	/* allocate memory for a new function. */
@@ -334,7 +411,7 @@ static CUresult cubin_func
 
 	for (i = 0; i < ehead->e_shnum; i++) {
 		char *sh_name = (char*)(shstrings + sheads[i].sh_name);
-		
+
 		/* nv.shared section */
 		if (strncmp(sh_name, SH_SHARED, strlen(SH_SHARED)) == 0) {
 			if (strcmp(sh_name + strlen(SH_SHARED), raw_func->name) == 0) {
@@ -377,45 +454,9 @@ static CUresult cubin_func
 			/* look into the nv.info.@raw_func->name information. */
 			while (sh_pos < sh + sheads[i].sh_size) {
 				section_entry_t *sh_e = (section_entry_t*)sh_pos;
-				switch (sh_e->type) {
-				case 0x0c04: /* 4-byte align data relevant to params. */
-					cubin_func_skip(&sh_pos, sh_e);
-					raw_func->param_count = sh_e->size / 4;
-					raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
-					if (!raw_func->param_info)
-						goto fail_malloc_param_info;
-					break;
-				case 0x0a04: /* kernel parameters base and size */
-					cubin_func_0a04(&sh_pos, sh_e, bin, raw_func);
-					break;
-				case 0x1903: /* kernel parameters itself */
-					cubin_func_1903(&sh_pos, sh_e, raw_func);
-					break;
-				case 0x1704: /* each parameter information */
-					cubin_func_1704(&sh_pos, sh_e, raw_func);
-					break;
-				case 0x0d04: /* stack information, hmm... */
-					cubin_func_0d04(&sh_pos, sh_e, raw_func);
-					break;
-				case 0x0204: /* textures */
-					cubin_func_skip(&sh_pos, sh_e);
-					break;
-				case 0xf000: /* maybe just padding??? */
-					sh_pos += 4;
-					break;
-				case 0x0001: /* unknown */
-					cubin_func_skip(&sh_pos, sh_e);
-					break;
-				case 0x080d: /* unknown */
-					cubin_func_skip(&sh_pos, sh_e);
-					break;
-				case 0xffff: /* unknown */
-					cubin_func_skip(&sh_pos, sh_e);
-					break;
-				default: /* real unknown */
-					cubin_func_unknown(&sh_pos, sh_e);
-					break;
-				}
+				ret = cubin_func_type(&sh_pos, sh_e, raw_func);
+				if (ret)
+					goto fail_cubin_func;
 			}
 		}
 	}
@@ -425,17 +466,16 @@ static CUresult cubin_func
 	mod->func_count++;
 	func->mod = mod;
 
-	return CUDA_SUCCESS;
+	return 0;
 
-fail_malloc_param_info:
+fail_cubin_func:
 	FREE(func);
 fail_malloc_func:
-	return CUDA_ERROR_OUT_OF_MEMORY;
+	return ret;
 }
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 {
-	CUresult res;
 	Elf_Ehdr *ehead;
 	Elf_Shdr *sheads;
 	Elf_Phdr *pheads;
@@ -450,18 +490,19 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 	char *pos;
 	char *bin;
 	file_t *fp;
-	int i;
+	int i, ret;
 
-	if ((res = load_bin(&bin, &fp, fname)) != CUDA_SUCCESS)
+	ret = load_bin(&bin, &fp, fname);
+	if (ret)
 		goto fail_load_bin;
 
 	/* initialize module. */
 	init_mod(mod, bin, fp);
 
 	/* initialize ELF variables. */
-	ehead = (Elf_Ehdr*)bin;
-	sheads = (Elf_Shdr*)(bin + ehead->e_shoff);
-	pheads = (Elf_Phdr*)(bin + ehead->e_phoff);
+	ehead = (Elf_Ehdr *)bin;
+	sheads = (Elf_Shdr *)(bin + ehead->e_shoff);
+	pheads = (Elf_Phdr *)(bin + ehead->e_phoff);
 	symbols = NULL;
 	strings = NULL;
 	nvinfo = NULL;
@@ -478,13 +519,13 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 
 	/* seek the ELF header. */
 	for (i = 0; i < ehead->e_shnum; i++) {
-		char *name = (char*)(shstrings + sheads[i].sh_name);
+		char *name = (char *)(shstrings + sheads[i].sh_name);
 		void *section = bin + sheads[i].sh_offset;
 		/* the following are function-independent sections. */
 		switch (sheads[i].sh_type) {
 		case SHT_SYMTAB: /* symbol table */
 			symbols_idx = i;
-			symbols = (Elf_Sym*)section;
+			symbols = (Elf_Sym *)section;
 			break;
 		case SHT_STRTAB: /* string table */
 			strings_idx = i;
@@ -529,8 +570,8 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 	}
 
 	/* nv.rel... "__device__" symbols? */
-	for (sym_entry = (symbol_entry_t*)nvrel; 
-		 (void*)sym_entry < (void*)nvrel + sheads[nvrel_idx].sh_size;
+	for (sym_entry = (symbol_entry_t *)nvrel; 
+		 (void *)sym_entry < (void *)nvrel + sheads[nvrel_idx].sh_size;
 		 sym_entry++) {
 		/*
 		 char *sym_name, *sh_name;
@@ -558,8 +599,10 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			 else { /* __constant__ */
 				 int x;
 				 struct gdev_cuda_const_symbol *cs = MALLOC(sizeof(*cs));
-				 if (!cs)
-					 return CUDA_ERROR_OUT_OF_MEMORY;
+				 if (!cs) {
+					 ret = -ENOMEM;
+					 goto fail_symbol;
+				 }
 				 sscanf(sh_name, SH_CONST"%d", &x);
 				 cs->idx = x;
 				 cs->name = sym_name;
@@ -574,6 +617,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			 break;
 		 default: /* ??? */
 			 GDEV_PRINT("/* unknown symbols: 0x%x\n */", sym->st_info);
+			 goto fail_symbol;
 		 }
 	}
 
@@ -583,28 +627,37 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 		section_entry_t *e = (section_entry_t*) pos;
 		switch (e->type) {
 		case 0x0704: /* texture */
-			res = cubin_func_skip(&pos, e);
+			cubin_func_skip(&pos, e);
 			break;
 		case 0x1104:  /* function */
-			res = cubin_func(&pos, e, symbols, ehead, sheads, strings, 
+			ret = cubin_func(&pos, e, symbols, ehead, sheads, strings, 
 							 shstrings, bin, mod);
+			if (ret)
+				goto fail_function;
 			break;
 		case 0x1204: /* some counters but what is this? */
-			res = cubin_func_skip(&pos, e);
+			cubin_func_skip(&pos, e);
 			break;
 		default:
-			res = cubin_func_unknown(&pos, e);
-			break;
-		}
-		if (res != CUDA_SUCCESS)
+			cubin_func_unknown(&pos, e);
 			goto fail_function;
+		}
 	}
 
-	return 0;
+	return CUDA_SUCCESS;
 
 fail_function:
+fail_symbol:
+	unload_bin(bin, fp);
 fail_load_bin:
-	return res;
+	switch (ret) {
+	case -ENOMEM:
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	case -ENOENT:
+		return CUDA_ERROR_FILE_NOT_FOUND;
+	default:
+		return CUDA_ERROR_UNKNOWN;
+	}
 }
 
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
