@@ -758,9 +758,9 @@ CUresult gdev_cuda_construct_kernels
 		/* FIXME: what is the right local memory size?
 		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. */
 		k->lmem_size = gdev_cuda_align_lmem_size(f->local_size);
+		//k->lmem_size = 0xf0;
 		k->lmem_size_neg = gdev_cuda_align_lmem_size(f->local_size_neg);
-		//k->lmem_size = k->lmem_size < 0xf0 ? 0xf0 : k->lmem_size;
-		//k->lmem_size_neg = k->lmem_size < 0x7c0 ? 0x7c0 : k->lmem_size_neg;
+		//k->lmem_size_neg = 0x7fc;
 
 		/* shared memory size. */
 		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);

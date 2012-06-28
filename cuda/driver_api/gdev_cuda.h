@@ -154,68 +154,65 @@ CUresult gdev_cuda_search_function
 CUresult gdev_cuda_search_symbol
 (uint64_t *addr, uint32_t *size, struct CUmod_st *mod, const char *name);
 
+static inline uint32_t __gdev_cuda_align_pow2(uint32_t val, uint32_t pow)
+{
+	if (val & (pow - 1))
+		val = (val + pow) & (~(pow - 1));
+	return val;
+}
+
+static inline uint32_t __gdev_cuda_align_pow2_up(uint32_t val, uint32_t pow)
+{
+	val = (val == 0) ? 1 : val;
+	return __gdev_cuda_align_pow2(val, pow);
+}
+
 /* code alignement. */
 static inline uint32_t gdev_cuda_align_code_size(uint32_t size)
 {
-	if (size & 0xff)
-		size = (size + 0x100) & ~0xff;
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x100);
 }
 
 /* constant memory alignement. */
 static inline uint32_t gdev_cuda_align_cmem_size(uint32_t size)
 {
-	if (size & 0xff)
-		size = (size + 0x100) & ~0xff;
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x100);
 }
 
 /* local memory alignement. */
 static inline uint32_t gdev_cuda_align_lmem_size(uint32_t size)
 {
-	if (size & 0xf)
-		size = (size + 0x10) & ~0xf;
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x10);
 }
 
 /* total local memory alignement. */
 static inline uint32_t gdev_cuda_align_lmem_size_total(uint32_t size)
 {
-	if (size & 0x3ffff)
-		size = (size + 0x40000) & ~0x3ffff;
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x20000 /* 0x40000 */);
 }
 
 /* shared memory alignement. */
 static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 {
-	if (size & 0x7f)
-		size = (size + 0x80) & (~0x7f);
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x80);
 }
 
 /* stack alignement. */
 static inline uint32_t gdev_cuda_align_stack_size(uint32_t size)
 {
-	if (size & 0xfff || size == 0)
-		size = (size + 0x1000) & (~0xfff);
-	return size;
+	return __gdev_cuda_align_pow2_up(size, 0x1000);
 }
 
 /* warp alignement. */
 static inline uint32_t gdev_cuda_align_warp_size(uint32_t size)
 {
-	if (size & 0x7ff)
-		size = (size + 0x800) & (~0x7ff);
-	return size;
+	return __gdev_cuda_align_pow2(size, 0x800);
 }
 
 /* memory base alignement. */
 static inline uint32_t gdev_cuda_align_base(uint32_t size)
 {
-	if (size & 0xffffff || size == 0)
-		size = (size + 0x1000000) & (~0xffffff);
-	return size;
+	return __gdev_cuda_align_pow2_up(size, 0x1000000);
 }
 
 #endif
