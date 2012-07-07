@@ -325,7 +325,23 @@ CUresult cuLaunchKernel
 
 CUresult cuParamSetf(CUfunction hfunc, int offset, float value)
 {
-	GDEV_PRINT("cuParamSetf: Not Implemented Yet\n");
+	struct CUfunc_st *func = hfunc;
+	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *ctx = mod->ctx;
+	struct gdev_kernel *k;
+	struct gdev_cuda_raw_func *f;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!ctx || ctx != gdev_ctx_current)
+		return CUDA_ERROR_INVALID_CONTEXT;
+	if (!func)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	k = &func->kernel;
+	f = &func->raw_func;
+	((float *)k->param_buf)[(f->param_base + offset) / 4] = value;
+	
 	return CUDA_SUCCESS;
 }
 
