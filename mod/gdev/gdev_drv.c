@@ -53,6 +53,7 @@ MODULE_AUTHOR("Shinpei Kato");
  * global variables.
  */
 static dev_t dev;
+static int cdevs_registered = 0;
 static struct cdev *cdevs; /* character devices for virtual devices */
 
 /**
@@ -395,6 +396,12 @@ int gdev_minor_exit(int physid)
 {
 	int i;
 
+	if (!gdevs) {
+		GDEV_PRINT("Failed to exit minor device %d, "
+		           "major already exited\n", physid);
+		return -EINVAL;
+	}
+
 	if (gdevs[physid].users) {
 		GDEV_PRINT("Device %d has %d users\n", physid, gdevs[physid].users);
 	}
@@ -437,6 +444,7 @@ int gdev_major_init(void)
 		GDEV_PRINT("Failed to allocate module.\n");
 		goto fail_alloc_chrdev;
 	}
+	cdevs_registered = 1;
 
 	/* allocate Gdev physical device objects. */
 	if (!(gdevs = kzalloc(sizeof(*gdevs) * gdev_count, GFP_KERNEL))) {
@@ -482,12 +490,16 @@ fail_cdevs_add:
 		cdev_del(&cdevs[i]);
 	}
 	kfree(cdevs);
+	cdevs = NULL;
 fail_alloc_cdevs:	
 	kfree(gdev_vds);
+	gdev_vds = NULL;
 fail_alloc_gdev_vds:
 	kfree(gdevs);
+	gdevs = NULL;
 fail_alloc_gdevs:
 	unregister_chrdev_region(dev, gdev_vcount);
+	cdevs_registered = 0;
 fail_alloc_chrdev:
 fail_getdevice:
 	return ret;
@@ -501,16 +513,30 @@ int gdev_major_exit(void)
 
 	gdev_proc_delete();
 
+	if (!cdevs)
+		goto end;
 	for (i = 0; i < gdev_vcount; i++) {
 		cdev_del(&cdevs[i]);
 	}
-
 	kfree(cdevs);
+	cdevs = NULL;
+
+	if (!gdev_vds)
+		goto end;
 	kfree(gdev_vds);
+	gdev_vds = NULL;
+
+	if (!gdevs)
+		goto end;
 	kfree(gdevs);
+	gdevs = NULL;
 
+	if (!cdevs_registered)
+		goto end;
 	unregister_chrdev_region(dev, gdev_vcount);
+	cdevs_registered = 0;
 
+end:
 	return 0;
 }
 
