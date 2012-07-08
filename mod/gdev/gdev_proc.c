@@ -32,7 +32,7 @@
 
 #define GDEV_PROC_MAX_BUF 64
 
-static struct proc_dir_entry *gdev_proc;
+static struct proc_dir_entry *gdev_proc = NULL;
 static struct proc_dir_entry *proc_dev_count;
 static struct proc_dir_entry *proc_virt_dev_count;
 static struct gdev_proc_vd {
@@ -44,7 +44,7 @@ static struct gdev_proc_vd {
 	struct proc_dir_entry *com_bw_used;
 	struct proc_dir_entry *mem_bw_used;
 	struct proc_dir_entry *phys;
-} *proc_vd;
+} *proc_vd = NULL;
 static struct semaphore proc_sem;
 
 static int gdev_proc_read(char *kbuf, char *page, int count, int *eof)
@@ -288,12 +288,14 @@ fail_proc_vd:
 			remove_proc_entry("phys", proc_vd[i].dir);
 	}
 	kfree(proc_vd);
+	proc_vd = NULL;
 fail_alloc_proc_vd:
 	remove_proc_entry("gdev/virtual_device_count", gdev_proc);
 fail_proc_virt_dev_count:
 	remove_proc_entry("gdev/device_count", gdev_proc);
 fail_proc_dev_count:
 	remove_proc_entry("gdev", NULL);
+	gdev_proc = NULL;
 fail_proc:
 	return -EINVAL;
 }
@@ -303,7 +305,15 @@ int gdev_proc_delete(void)
 	int i;
 	char name[256];
 
+	if (!gdev_proc)
+		goto end;
+
+	if (!proc_vd)
+		goto remove_gdev_proc_root;
+
 	for (i = 0; i < gdev_vcount; i++) {
+		if (!proc_vd[i].dir)
+			continue;
 		sprintf(name, "vd%d", i);
 		remove_proc_entry("compute_bandwidth", proc_vd[i].dir);
 		remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
@@ -313,12 +323,20 @@ int gdev_proc_delete(void)
 		remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
 		remove_proc_entry("phys", proc_vd[i].dir);
 		remove_proc_entry(name, gdev_proc);
+		proc_vd[i].dir = NULL;
 	}
-	kfree(proc_vd);
 
+remove_gdev_proc_root:
 	remove_proc_entry("virtual_device_count", gdev_proc);
 	remove_proc_entry("device_count", gdev_proc);
 	remove_proc_entry("gdev", NULL);
+	gdev_proc = NULL;
+
+end:
+	if (proc_vd) {
+		kfree(proc_vd);
+		proc_vd = NULL;
+	}
 
 	return 0;
 }
