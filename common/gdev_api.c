@@ -429,13 +429,13 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
 	if (size <= 4) {
 		((uint32_t*)dst_buf)[0] = gdev_read32(mem, src_addr);
 		ret = 0;
-		/* if @id is give while not asynchronous, give it zero. */
+		/* if @id is given despite not asynchronous, give it zero. */
 		if (id)
 			*id = 0;
 	}
 	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
 		ret = gdev_read(mem, dst_buf, src_addr, size);
-		/* if @id is give while not asynchronous, give it zero. */
+		/* if @id is given despite not asynchronous, give it zero. */
 		if (id)
 			*id = 0;
 	}
@@ -501,7 +501,6 @@ static int __gmemcpy_from_device(struct gdev_handle *h, void *dst_buf, uint64_t 
 	ret = __gmemcpy_from_device_locked(ctx, dst_buf, src_addr, size, id, 
 									   ch_size, p_count, vas, mem, dma_mem,
 									   host_copy);
-
 	gdev_mem_unlock(mem);
 
 #ifndef GDEV_SCHED_DISABLED

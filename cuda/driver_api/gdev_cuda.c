@@ -281,6 +281,9 @@ static int cubin_func_type
 	case 0xffff: /* unknown */
 		cubin_func_skip(pos, e);
 		break;
+	case 0x0020: /* unknown */
+		cubin_func_skip(pos, e);
+		break;
 	default: /* real unknown */
 		cubin_func_unknown(pos, e);
 		return -EINVAL;
@@ -744,6 +747,7 @@ CUresult gdev_cuda_construct_kernels
 			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);
 			k->cmem[i].offset = 0; /* no usage. */
 		}
+
 		/* c{1,15,17}[] are something unknown... */
 		if (k->cmem[1].size == 0) {
 			k->cmem[1].size = 0x10000;
@@ -839,8 +843,9 @@ CUresult gdev_cuda_locate_sdata(struct CUmod_st *mod)
 	
 	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
-		if (k->lmem_size > 0)
+		if (k->lmem_size > 0) {
 			k->lmem_addr = addr + offset;
+		}
 		offset += k->lmem_size;
 		if (offset > size)
 			return CUDA_ERROR_UNKNOWN;
