@@ -1,0 +1,170 @@
+This document describes how to use frequency scaling in NVIDIA driver. It
+conducts by modifying the GPU card's VBIOS. Using envytools can modify VBIOS.
+
+
+1. Install envytools
+
+Envytools is a rich set of open-source tools to compile or decompile NVIDIA
+GPU program code, firmware code, macro code, and so on. It is also used to
+generate C header files with GPU command definitions.
+
+
+cd $(TOPDIR)
+git clone git://0x04.net/envytools.git
+mkdir build
+cd build
+cmake .. # may require some packages on your distro
+make
+sudo make install # will install tools to /usr/local/{bin,lib}
+
+You'll need: cmake, libxml2, libxml2-dev, libpciaccess-dev, flex, bison
+
+
+
+2. Unload NVIDIA driver and extract the card's VBIOS
+
+nvagetbios extracts the card's VBIOS using the method given as parameter and
+writes it to stdout. 
+
+
+cd ${TOPDIR}
+sudo modprobe -r nvidia
+sudo /usr/local/bin/nvagetbios > vbios.rom
+
+
+
+3.  Decode the card's VBIOS
+
+nvbios decodes the card description structures found in NVIDIA VBIOS.
+
+
+nvbios vbios.rom > vbios.rom.dump
+
+
+
+4. Modify the card's VBIOS
+
+Open vbios.rom.dump by a text editor. You will find the place setting
+frequency like this.
+# Contents of vbios.rom.dump depend on GPU cards.
+
+...
+...
+
+-- ID 0xc Core 405MHz Memory 1848MHz Shader 810MHz ...
+61c4: 0c 00 02 08 ...
+        0:61d4: 2a 83 00 00
+        1:61d8: 2a 83 00 00
+        2:61dc: 95 01 00 00
+        3:61e0: 2a 83 00 00
+        4:61e4: 2a 83 00 00
+        5:61e8: 38 47 00 00
+        6:61ec: 95 01 00 00
+	...
+
+-- ID 0xf Core 700MHz Memory 1848MHz Shader 1401MHz ...
+6208: 0f 00 02 08 ...
+        0:6218: 79 45 00 00
+        1:621c: 79 45 00 00
+        2:6220: 1c 02 00 00
+        3:6224: 79 45 00 00
+        4:6228: c0 45 00 00
+        5:622c: 38 47 00 00
+        6:6230: 1c 02 00 00
+	...
+
+Configuration of [ID 0xf] is valid in default, because ID at the bottom is
+active.  Configuration of [ID 0xf] means GPU run by core frequency in 700MHz,
+memory frequency in 135MHz, and shader frequency in 1401MHz. If you want to
+use the configuration of [ID 0xc], you make configuration of [ID 0xf] invalid.
+Changing [6208: 0f] under the [ID 0xf] to [6208: ff] by using nvafakebios, [ID
+0xf] become invalid. Similarly, changing [61c4: 0c] to [61c4: ff] is invalid
+[ID 0xc]. This is an example of how to disable the [ID 0xf].
+
+
+sudo /usr/local/bin/nvafakebios -e 6208:ff vbios.rom
+
+
+
+5. Load NDIVIA driver 
+
+If you load NVIDIA driver, setting frequency is valid.
+
+
+sudo modprobe nvidia
+
+
+
+6. Extra frequency setting
+
+If you change only core frequency, or only memory frequency, you must analyze
+file of vbios.rom.dump. For example, 
+
+	...
+	...
+-- ID 0x7 Core 405MHz Memory 324MHz Shader 810MHz ...
+6180: 07 00 00 08 ...
+        0:6190: 2a 83 00 00
+        1:6194: 2a 83 00 00
+        2:6198: 95 01 00 00
+        3:619c: 2a 83 00 00
+        4:61a0: 2a 83 00 00
+        5:61a4: 44 81 00 00
+        6:61a8: 95 01 00 00
+	...
+
+-- ID 0xc Core 405MHz Memory 1848MHz Shader 810MHz ...
+61c4: 0c 00 02 08 ...
+        0:61d4: 2a 83 00 00
+        1:61d8: 2a 83 00 00
+        2:61dc: 95 01 00 00
+        3:61e0: 2a 83 00 00
+        4:61e4: 2a 83 00 00
+        5:61e8: 38 47 00 00
+        6:61ec: 95 01 00 00
+	...
+
+-- ID 0xf Core 700MHz Memory 1848MHz Shader 1401MHz ...
+6208: 0f 00 02 08 ...
+        0:6218: 79 45 00 00
+        1:621c: 79 45 00 00
+        2:6220: 1c 02 00 00
+        3:6224: 79 45 00 00
+        4:6228: c0 45 00 00
+        5:622c: 38 47 00 00
+        6:6230: 1c 02 00 00
+	... 
+
+[5:61a4 44 81], [5:61e8 38 47], and [5:622c 38 47] are estimated setting of
+memory frequency. [44 81] of [5:61a4 44 81] means 0x144(324) by transposing
+and ignoring first bit. [38 47] of [5:61e8 38 47] means 0x738(1848) by the
+same token. Therefor, you change [5:622c 38 47] to [5:622c 44 81], GPU run by
+core frequency in 700MHz, memory frequency in 324MHz and shader frequency in
+1401MHz. This command change [5:622c 38 47] to [5:622c 44 81].
+
+
+# use this command instead of Step 4
+sudo /usr/local/bin/nvafakebios -e 622c:44 -e 622d:81 vbios.rom
+
+
+
+7. How to use script
+You can use this script to check selectable frequency on your GPU card after
+step 2. 
+
+./nvclock-lockup.sh vbios.rom # You need to install bc
+
+
+If you want to run GPU by core frequency in 405MHz, and memory frequency in
+324MHz, you use this script like this after step 2. 
+
+# use this script in a superuser
+./nvclock-set.sh -c 405 -m 324 vbios.rom
+
+
+We don't recommend using the lowest core frequency without using the lowest
+memory frequency, because there are lack of stability. If you fail memory or
+core clock up, please reboot your machine.  We check the script working in
+Geforce GTX 480, but we don't know this script work well in other GPU cards.
+
+
