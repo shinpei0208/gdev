@@ -594,6 +594,8 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 		 switch (sym->st_info) {
 		 case 0x0: /* ??? */
 			 break;
+		 case 0x2: /* ??? */
+			 break;
 		 case 0x3: /* ??? */
 			 break;
 		 case 0x11: /* __device__/__constant__ symbols */
