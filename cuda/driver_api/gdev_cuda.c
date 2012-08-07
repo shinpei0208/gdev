@@ -116,19 +116,20 @@ static void unload_bin(char *bin, file_t *fp)
 static void cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
+	printf("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
+		   e->type, e->size);
 //#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
 #ifndef __KERNEL__
-	int i;
-	printf("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
-		   e->type, e->size);
 	if (e->size % 4 == 0) {
+		int i;
 		for (i = 0; i < e->size / 4; i++) {
 			uint32_t val = ((uint32_t*)*pos)[i];
 			printf("0x%04x\n", val);
 		}
 	}
 	else {
+		int i;
 		for (i = 0; i < e->size; i++) {
 			unsigned char val = ((unsigned char*)*pos)[i];
 			printf("0x%02x\n", (uint32_t)val);
@@ -269,24 +270,24 @@ static int cubin_func_type
 		return cubin_func_1903(pos, e, raw_func);
 	case 0x1704: /* each parameter information */
 		return cubin_func_1704(pos, e, raw_func);
-	case 0x0001: /* unknown */
+	case 0x0001: /* ??? */
 		cubin_func_skip(pos, e);
 		break;
-	case 0x080d: /* unknown */
+	case 0x080d: /* ??? */
 		cubin_func_skip(pos, e);
 		break;
 	case 0xf000: /* maybe just padding??? */
 		*pos += 4;
 		break;
-	case 0xffff: /* unknown */
+	case 0xffff: /* ??? */
 		cubin_func_skip(pos, e);
 		break;
-	case 0x0020: /* unknown */
+	case 0x0020: /* ??? */
 		cubin_func_skip(pos, e);
 		break;
 	default: /* real unknown */
 		cubin_func_unknown(pos, e);
-		return -EINVAL;
+		/* return -EINVAL; */
 	}
 
 	return 0;
@@ -645,7 +646,7 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			break;
 		default:
 			cubin_func_unknown(&pos, e);
-			goto fail_function;
+			/* goto fail_function; */
 		}
 	}
 
