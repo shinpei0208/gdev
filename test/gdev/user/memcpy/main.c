@@ -4,8 +4,8 @@
 #include <string.h>
 #include <time.h>
 
-#define DATA_SIZE 0x20000000 /* 512MB */
-#define CHUNK_SIZE 0x400000 /* 4MB */
+#define DATA_SIZE 0x1000000
+#define CHUNK_SIZE 0x10000
 
 int gdev_test_memcpy(uint32_t *in, uint32_t *out, uint32_t size, 
 					 uint32_t chunk_size, int pipeline_count);
