@@ -135,7 +135,6 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 	uint32_t id;
 	uint32_t mp_count;
 	uint32_t code_size, a_size, b_size, c_size;
-	uint32_t stack_depth, stack_size;
 	uint32_t param_buf[PARAM_SIZE];
 	uint64_t a_addr, b_addr, c_addr;
 	uint64_t result[3];
@@ -186,7 +185,6 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 		k.cmem[i].offset = 0;
 	}
 	k.cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
-	k.cmem_param_segment = 0; /* c0[] is used for parameters in nvcc. */
 	k.param_size = PARAM_SIZE;
 	k.param_buf = c0;
 	k.param_buf[NVCC_PARAM_OFFSET/4 + 0] = a_addr;
@@ -209,21 +207,14 @@ int gdev_test_matrixadd(uint32_t *a, uint32_t *b, uint32_t *c, int n)
 		k.smem_size = (k.smem_size + 0x80) & (~0x7f);
 	k.smem_base = 0x0;
 	
-	/* stack depth must be >= 16? */
-	stack_depth = STACK_DEPTH > 16 ? STACK_DEPTH : 16; 
-	/* stack level is round_up(stack_depth/48) */
-	k.stack_level = stack_depth / 48;
-	if (stack_depth % 48 != 0)
-		k.stack_level++;
-	/* this is the stack size */
-	stack_size = k.stack_level * 16;
+	k.warp_stack_size = (STACK_DEPTH + 0x1000) & (~0xfff);
 	
 	/* FIXME: per-thread warp size may differ from 32. */
-	k.warp_size = 32 * (stack_size + k.lmem_size + k.lmem_size_neg); 
+	k.warp_lmem_size = 32 * (k.lmem_size + k.lmem_size_neg) + k.warp_stack_size; 
 	
 	/* FIXME: the number of active warps may differ from 48. */
 	gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, (uint64_t *)&mp_count);
-	k.lmem_size_total = 48 * mp_count * k.warp_size;
+	k.lmem_size_total = 48 * mp_count * k.warp_lmem_size;
 	k.lmem_size_total = __round_up_pow2(k.lmem_size_total);
 	if (!(k.lmem_addr = gmalloc(handle, k.lmem_size_total)))
 		return -1;
