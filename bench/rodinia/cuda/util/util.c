@@ -1,5 +1,11 @@
 #include <stdio.h>
+#ifdef __cplusplus
+extern "C" {
 #include <cuda.h>
+}
+#else
+#include <cuda.h>
+#endif
 #include "util.h"
 
 CUresult cuda_driver_api_init(CUcontext *pctx, CUmodule *pmod, const char *f)

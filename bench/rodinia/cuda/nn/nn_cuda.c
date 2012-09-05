@@ -4,7 +4,13 @@
 #include <sys/time.h>
 #include <float.h>
 #include <vector>
+#ifdef __cplusplus
+extern "C" {
 #include "/usr/local/gdev/include/cuda.h"
+}
+#else
+#include "/usr/local/gdev/include/cuda.h"
+#endif
 #include "util.h" /* cuda_driver_api_{init,exit}() */
 #include "nn.h"
 
