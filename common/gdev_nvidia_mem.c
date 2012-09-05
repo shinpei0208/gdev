@@ -136,6 +136,7 @@ void gdev_mem_unlock_all(struct gdev_vas *vas)
 /* allocate a new memory object. */
 struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 {
+	struct gdev_device *gdev = vas->gdev;
 	struct gdev_mem *mem;
 
 	switch (type) {
@@ -155,6 +156,17 @@ struct gdev_mem *gdev_mem_alloc(struct gdev_vas *vas, uint64_t size, int type)
 	gdev_nvidia_mem_setup(mem, vas, type);
 	gdev_nvidia_mem_list_add(mem);
 
+	/* update the size of memory used on the gdev device; mem->size
+	 * could have been rounded up */
+	gdev_mutex_lock(&gdev->shm_mutex);
+	if (type == GDEV_MEM_DEVICE) {
+		gdev->mem_used += mem->size;
+	}
+	else {
+		gdev->dma_mem_used += mem->size;
+	}
+	gdev_mutex_unlock(&gdev->shm_mutex);
+
 	return mem;
 
 fail:
@@ -173,6 +185,9 @@ struct gdev_mem *gdev_mem_share(struct gdev_vas *vas, uint64_t size)
 		goto fail;
 	gdev_mutex_unlock(&gdev->shm_mutex);
 
+	/* gdev->mem_used does not have to be updated, since the size of
+	 * available device memory did not change after a memory sharing */
+
 	return new;
 
 fail:
@@ -185,18 +200,29 @@ void gdev_mem_free(struct gdev_mem *mem)
 {
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
+	int mem_size_freed = mem->size;
 
 	/* if the memory object is associated with shared memory, detach the 
 	   shared memory. note that the memory object will be freed if users
 	   become zero.
 	   free the memroy object otherwise. */
 	gdev_mutex_lock(&gdev->shm_mutex);
-	if (mem->shm)
+	if (mem->shm) {
+		/* if # of shm users > 1, the buffer object won't be freed yet,
+		 * so the size of available device memory won't change */
+		if(mem->type == GDEV_MEM_DEVICE && mem->shm->users > 1)
+			mem_size_freed = 0;
 		gdev_shm_detach(mem);
+	}
 	else {
 		gdev_nvidia_mem_list_del(mem);
 		gdev_raw_mem_free(mem);
 	}
+
+	if(mem->type == GDEV_MEM_DEVICE)
+		gdev->mem_used -= mem_size_freed;
+	else
+		gdev->dma_mem_used -= mem_size_freed;
 	gdev_mutex_unlock(&gdev->shm_mutex);
 }
 
