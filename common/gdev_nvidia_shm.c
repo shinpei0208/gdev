@@ -310,7 +310,6 @@ struct gdev_mem *gdev_shm_attach(struct gdev_vas *vas, struct gdev_mem *mem, uin
 fail_swap:
 	gdev_raw_mem_unshare(new);
 fail_shm:
-	mem->shm->users--;
 fail_heap:
 fail_victim:
 
