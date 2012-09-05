@@ -737,9 +737,6 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 		}
 	}
 
-	/* size could have been rounded up. */
-	gdev->mem_used += gdev_mem_getsize(mem); 
-
 	return gdev_mem_getaddr(mem);
 
 fail:
@@ -752,7 +749,6 @@ fail:
  */
 uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 	uint64_t size;
@@ -761,8 +757,6 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 		goto fail;
 	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
-
-	gdev->mem_used -= size;
 
 	return size;
 
@@ -785,9 +779,6 @@ void *gmalloc_dma(struct gdev_handle *h, uint64_t size)
 	else if (!(mem = gdev_mem_alloc(vas, size, GDEV_MEM_DMA)))
 		goto fail;
 
-	/* size could have been rounded up. */
-	gdev->dma_mem_used += gdev_mem_getsize(mem); 
-
 	return gdev_mem_getbuf(mem);
 
 fail:
@@ -800,7 +791,6 @@ fail:
  */
 uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 {
-	struct gdev_device *gdev = h->gdev;
 	gdev_vas_t *vas = h->vas;
 	gdev_mem_t *mem;
 	uint64_t size;
@@ -809,8 +799,6 @@ uint64_t gfree_dma(struct gdev_handle *h, void *buf)
 		goto fail;
 	size = gdev_mem_getsize(mem);
 	gdev_mem_free(mem);
-
-	gdev->dma_mem_used -= size;
 
 	return size;
 
