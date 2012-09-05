@@ -26,7 +26,11 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
+#ifdef __KERNEL__
+#include <linux/errno.h>
+#else
 #include <sys/errno.h>
+#endif
 
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
@@ -116,7 +120,7 @@ static void unload_bin(char *bin, file_t *fp)
 static void cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
-	printf("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
+	GDEV_PRINT("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
 		   e->type, e->size);
 //#define GDEV_DEBUG
 #ifdef GDEV_DEBUG
@@ -125,14 +129,14 @@ static void cubin_func_skip(char **pos, section_entry_t *e)
 		int i;
 		for (i = 0; i < e->size / 4; i++) {
 			uint32_t val = ((uint32_t*)*pos)[i];
-			printf("0x%04x\n", val);
+			GDEV_PRINT("0x%04x\n", val);
 		}
 	}
 	else {
 		int i;
 		for (i = 0; i < e->size; i++) {
 			unsigned char val = ((unsigned char*)*pos)[i];
-			printf("0x%02x\n", (uint32_t)val);
+			GDEV_PRINT("0x%02x\n", (uint32_t)val);
 		}
 	}
 #endif
