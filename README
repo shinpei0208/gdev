@@ -156,6 +156,7 @@ install "kcuda" module to use this functionality.
 
 cd $(TOPDIR)/gdev/cuda
 mkdir kbuild
+cd kbuild
 ../configure --target=kcuda
 make
 sudo make install
