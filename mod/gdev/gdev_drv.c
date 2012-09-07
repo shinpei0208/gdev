@@ -383,7 +383,9 @@ int gdev_minor_init(int physid)
 			gdev_init_virtual_device(&gdev_vds[i], i, 0, &gdevs[physid]);
 
 		/* initialize the local scheduler for each virtual device. */
+#ifndef GDEV_SCHED_DISABLED
 		gdev_init_scheduler(&gdev_vds[i]);
+#endif
 	}
 
 	return 0;
@@ -409,7 +411,9 @@ int gdev_minor_exit(int physid)
 	if (physid < gdev_count) {
 		for (i = 0; i < gdev_vcount; i++) {
 			if (gdev_vds[i].parent == &gdevs[physid]) {
+#ifndef GDEV_SCHED_DISABLED
 				gdev_exit_scheduler(&gdev_vds[i]);
+#endif
 				gdev_exit_virtual_device(&gdev_vds[i]);
 			}
 		}
