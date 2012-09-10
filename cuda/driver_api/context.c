@@ -131,7 +131,7 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	}
 
 	/* FIXME: per-thread warp size and active warps */
-	switch (cuda_info->chipset) {
+	switch (cuda_info->chipset & 0xf0) {
 	case 0xc0:
 		cuda_info->warp_count = 48;
 		cuda_info->warp_size = 32;
