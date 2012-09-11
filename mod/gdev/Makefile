@@ -7,7 +7,7 @@ obj-m := $(TARGET).o
 
 include $(PWD)/Driver.mk # export $(DRIVER_NAME)
 
-EXTRA_CFLAGS := -Iinclude/drm -I/usr/local/gdev/$(DRIVER_NAME)
+EXTRA_CFLAGS := -Iinclude/drm -I/usr/local/gdev/$(DRIVER_NAME) -D GDEV_SCHED_DISABLED
 SYSSRC = /lib/modules/$(shell uname -r)/build
 KBUILD_EXTRA_SYMBOLS = /usr/local/gdev/$(DRIVER_NAME)/Module.symvers
 
