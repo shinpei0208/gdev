@@ -484,7 +484,9 @@ int gdev_major_init(void)
 	}
 
 	/* set interrupt handler. */
+#ifndef GDEV_SCHED_DISABLED
 	gdev_drv_setnotify(__gdev_notify_handler);
+#endif
 
 	return 0;
 
@@ -513,7 +515,9 @@ int gdev_major_exit(void)
 {
 	int i;
 
+#ifndef GDEV_SCHED_DISABLED
 	gdev_drv_unsetnotify(__gdev_notify_handler);
+#endif
 
 	gdev_proc_delete();
 
