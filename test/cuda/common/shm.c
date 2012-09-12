@@ -13,7 +13,7 @@
 #endif
 
 #include <gdev_api.h> /* just for GDEV_IPC_RMID */
-#define KEY 0xdeadbeef
+#define KEY 0x7eadbeef
 
 int copy_to_shm(unsigned int *in, unsigned int size)
 {
