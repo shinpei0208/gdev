@@ -201,6 +201,7 @@ void gdev_mem_free(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 	struct gdev_device *gdev = vas->gdev;
 	int mem_size_freed = mem->size;
+	int mem_type = mem->type;
 
 	/* if the memory object is associated with shared memory, detach the 
 	   shared memory. note that the memory object will be freed if users
@@ -210,7 +211,7 @@ void gdev_mem_free(struct gdev_mem *mem)
 	if (mem->shm) {
 		/* if # of shm users > 1, the buffer object won't be freed yet,
 		 * so the size of available device memory won't change */
-		if(mem->type == GDEV_MEM_DEVICE && mem->shm->users > 1)
+		if(mem_type == GDEV_MEM_DEVICE && mem->shm->users > 1)
 			mem_size_freed = 0;
 		gdev_shm_detach(mem);
 	}
@@ -219,7 +220,7 @@ void gdev_mem_free(struct gdev_mem *mem)
 		gdev_raw_mem_free(mem);
 	}
 
-	if(mem->type == GDEV_MEM_DEVICE)
+	if(mem_type == GDEV_MEM_DEVICE)
 		gdev->mem_used -= mem_size_freed;
 	else
 		gdev->dma_mem_used -= mem_size_freed;
