@@ -111,8 +111,8 @@ static int nvc0_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 	__gdev_out_ring(ctx, k->warp_stack_size); /* WARP_CSTACK_SIZE */
 
 	/* shared memory setup. */
-	//__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0x308, 1);
-	//__gdev_out_ring(ctx, cache_split); /* CACHE_SPLIT */
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0x308, 1);
+	__gdev_out_ring(ctx, cache_split); /* CACHE_SPLIT */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0x214, 1);
 	__gdev_out_ring(ctx, k->smem_base); /* SHARED_BASE */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0x24c, 1);
