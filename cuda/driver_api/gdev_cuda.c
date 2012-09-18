@@ -411,7 +411,7 @@ static int cubin_func
 	raw_func->code_buf = bin + sheads[code_idx].sh_offset;
 	raw_func->code_size = sheads[code_idx].sh_size;
 	raw_func->local_size = fe->local_size;
-	raw_func->local_size_neg = 0; /* FIXME */
+	raw_func->local_size_neg = 0x7c0; /* FIXME: this is the blob spec. */
 	raw_func->reg_count = (sheads[code_idx].sh_info >> 24) & 0x3f;
 	raw_func->bar_count = (sheads[code_idx].sh_flags >> 20) & 0xf;
 
@@ -721,7 +721,7 @@ CUresult gdev_cuda_construct_kernels
 	struct CUfunc_st *func;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
-	uint32_t mp_count, warp_count, warp_size, chipset;
+	uint32_t mp_count, warp_count, warp_size, stack_size, chipset;
 	int i;
 	
 	mp_count = cuda_info->mp_count;
@@ -773,8 +773,9 @@ CUresult gdev_cuda_construct_kernels
 		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);
 	
 		/* warp stack and local memory sizes. */
-		/* k->warp_stack_size = f->stack_depth * 9; */
-		k->warp_stack_size = gdev_cuda_align_stack_size(f->stack_depth);
+		stack_size = f->stack_depth > 16 ? f->stack_depth : 16;
+		stack_size = (stack_size / 48) * 16;
+		k->warp_stack_size = gdev_cuda_align_stack_size(stack_size);
 		k->warp_lmem_size = 
 			warp_size * (k->lmem_size + k->lmem_size_neg + k->warp_stack_size); 
 
