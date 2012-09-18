@@ -26,7 +26,11 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
+#ifdef __KERNEL__
+#include <linux/errno.h>
+#else
 #include <sys/errno.h>
+#endif
 
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
