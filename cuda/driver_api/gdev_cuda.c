@@ -26,11 +26,7 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
-#ifdef __KERNEL__
-#include <linux/errno.h>
-#else
 #include <sys/errno.h>
-#endif
 
 #define SH_TEXT ".text."
 #define SH_INFO ".nv.info"
@@ -120,23 +116,23 @@ static void unload_bin(char *bin, file_t *fp)
 static void cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
-	GDEV_PRINT("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
-		   e->type, e->size);
-//#define GDEV_DEBUG
+/* #define GDEV_DEBUG */
 #ifdef GDEV_DEBUG
+	printf("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
+		   e->type, e->size);
 #ifndef __KERNEL__
 	if (e->size % 4 == 0) {
 		int i;
 		for (i = 0; i < e->size / 4; i++) {
 			uint32_t val = ((uint32_t*)*pos)[i];
-			GDEV_PRINT("0x%04x\n", val);
+			printf("0x%04x\n", val);
 		}
 	}
 	else {
 		int i;
 		for (i = 0; i < e->size; i++) {
 			unsigned char val = ((unsigned char*)*pos)[i];
-			GDEV_PRINT("0x%02x\n", (uint32_t)val);
+			printf("0x%02x\n", (uint32_t)val);
 		}
 	}
 #endif
@@ -177,7 +173,7 @@ static int cubin_func_0a04
 static int cubin_func_0c04
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
-	cubin_func_skip(pos, e);
+	*pos += sizeof(section_entry_t);
 
 	if (raw_func->param_count == 0 && !raw_func->param_info) {
 		raw_func->param_count = e->size / 4;
@@ -187,6 +183,8 @@ static int cubin_func_0c04
 			return -ENOMEM;
 		}
 	}
+
+	*pos += e->size;
 
 	return 0;
 }
@@ -769,9 +767,7 @@ CUresult gdev_cuda_construct_kernels
 		/* FIXME: what is the right local memory size?
 		   the blob trace says lmem_size > 0xf0 and lmem_size_neg > 0x7fc. */
 		k->lmem_size = gdev_cuda_align_lmem_size(f->local_size);
-		//k->lmem_size = 0xf0;
 		k->lmem_size_neg = gdev_cuda_align_lmem_size(f->local_size_neg);
-		//k->lmem_size_neg = 0x7fc;
 
 		/* shared memory size. */
 		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);
@@ -780,7 +776,7 @@ CUresult gdev_cuda_construct_kernels
 		/* k->warp_stack_size = f->stack_depth * 9; */
 		k->warp_stack_size = gdev_cuda_align_stack_size(f->stack_depth);
 		k->warp_lmem_size = 
-			warp_size * (k->lmem_size + k->lmem_size_neg) + k->warp_stack_size; 
+			warp_size * (k->lmem_size + k->lmem_size_neg + k->warp_stack_size); 
 
 		/* total local memory size. 
 		   k->warp_lmem_size shouldn't be aligned at this point. */
@@ -794,6 +790,7 @@ CUresult gdev_cuda_construct_kernels
 		else {
 			k->lmem_size_total = __round_up_pow2(k->lmem_size_total);
 		}
+
 		k->warp_lmem_size = gdev_cuda_align_warp_size(k->warp_lmem_size);
 
 		k->reg_count = f->reg_count;
