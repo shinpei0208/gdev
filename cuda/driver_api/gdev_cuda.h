@@ -156,6 +156,8 @@ CUresult gdev_cuda_search_symbol
 
 static inline uint32_t __gdev_cuda_align_pow2(uint32_t val, uint32_t pow)
 {
+	if (val == 0)
+		return 0;
 	if (val & (pow - 1))
 		val = (val + pow) & (~(pow - 1));
 	return val;
@@ -188,7 +190,7 @@ static inline uint32_t gdev_cuda_align_lmem_size(uint32_t size)
 /* total local memory alignement. */
 static inline uint32_t gdev_cuda_align_lmem_size_total(uint32_t size)
 {
-	return __gdev_cuda_align_pow2(size, 0x20000 /* 0x40000 */);
+	return __gdev_cuda_align_pow2(size, 0x20000);
 }
 
 /* shared memory alignement. */
@@ -200,13 +202,13 @@ static inline uint32_t gdev_cuda_align_smem_size(uint32_t size)
 /* stack alignement. */
 static inline uint32_t gdev_cuda_align_stack_size(uint32_t size)
 {
-	return __gdev_cuda_align_pow2_up(size, 0x1000);
+	return __gdev_cuda_align_pow2_up(size, 0x200);
 }
 
 /* warp alignement. */
 static inline uint32_t gdev_cuda_align_warp_size(uint32_t size)
 {
-	return __gdev_cuda_align_pow2(size, 0x800);
+	return __gdev_cuda_align_pow2(size, 0x200);
 }
 
 /* memory base alignement. */
