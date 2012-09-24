@@ -29,7 +29,7 @@ int gdev_drv_vspace_free(struct gdev_drv_vspace *drv_vspace)
 {
 	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
 
-	nouveau_channel_ref(NULL, &chan);
+	nouveau_channel_put(&chan);
 	
 	return 0;
 }
