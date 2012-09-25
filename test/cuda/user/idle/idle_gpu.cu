@@ -1,0 +1,1 @@
+../../common/idle_gpu.cu
