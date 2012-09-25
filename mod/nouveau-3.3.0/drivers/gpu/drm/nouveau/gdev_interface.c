@@ -210,7 +210,6 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 
 	if (addr) {
 		vma = nouveau_bo_vma_find(bo, chan->vm);
-#if 0 /* this function call crushes the system sometimes... */
 		if (vma) {
 			nouveau_bo_vma_del(bo, vma);
 			kfree(vma);
@@ -218,7 +217,6 @@ int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv
 		else {
 			return -ENOENT;
 		}
-#endif
 	}
 
 	nouveau_bo_ref(NULL, &bo);
@@ -272,10 +270,8 @@ int gdev_drv_bo_unbind(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *d
 
 	vma = nouveau_bo_vma_find(bo, chan->vm);
 	if (vma) {
-#if 0 /* this function call crushes the system sometimes... */
 		nouveau_bo_vma_del(bo, vma);
 		kfree(vma);
-#endif
 	}
 	else
 		return -ENOENT;
