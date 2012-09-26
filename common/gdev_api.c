@@ -58,8 +58,12 @@ static gdev_mem_t** __malloc_dma(gdev_vas_t *vas, uint64_t size, int p_count)
 
 	for (i = 0; i < p_count; i++) {
 		dma_mem[i] = gdev_mem_alloc(vas, size, GDEV_MEM_DMA);
-		if (!dma_mem[i])
+		if (!dma_mem[i]) {
+			while(--i >= 0)
+				gdev_mem_free(dma_mem[i]);
+			FREE(dma_mem);
 			return NULL;
+		}
 	}
 
 	return dma_mem;
