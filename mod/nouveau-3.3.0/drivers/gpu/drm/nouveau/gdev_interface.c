@@ -105,9 +105,9 @@ int gdev_drv_chan_alloc(struct drm_device *drm, struct gdev_drv_vspace *drv_vspa
 
 	return 0;
 
-fail_fifo_reg:
 fail_pcopy1:
 	dev_priv->eng[NVOBJ_ENGINE_COPY0]->context_del(chan, NVOBJ_ENGINE_COPY0);
+fail_fifo_reg:
 fail_pcopy0:
 	return ret;
 }
