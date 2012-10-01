@@ -81,7 +81,7 @@ sudo shutdown -r now # will reboot your machine
 
 3.2. When you use nouveau
 
-cd $(TOPDIR)/gdev/mod/nouveau
+cd $(TOPDIR)/gdev/mod/nouveau-X # choose your preferred version
 make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
 sudo make install NOUVEAUROOTDIR=.
 cd drivers/gpu/drm/nouveau
