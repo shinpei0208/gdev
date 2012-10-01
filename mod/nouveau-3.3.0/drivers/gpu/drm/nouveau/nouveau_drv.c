@@ -484,6 +484,8 @@ struct drm_device **nouveau_drm;
 
 static int __init nouveau_init(void)
 {
+	printk(KERN_INFO "This is Gdev-compatible Nouveau driver.\n");
+
 	nouveau_device_count = __get_device_count();
 
 	nouveau_drm = kzalloc(sizeof(*nouveau_drm) * nouveau_device_count, GFP_KERNEL);
