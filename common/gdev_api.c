@@ -219,14 +219,14 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
 	gdev_mem_t **bmem;
 	int ret;
 
-	if (size <= 4) {
+	if (size <= 4 && mem->map) {
 		gdev_write32(mem, dst_addr, ((uint32_t*)src_buf)[0]);
 		ret = 0;
 		/* if @id is give while not asynchronous, give it zero. */
 		if (id)
 			*id = 0;
 	}
-	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT && mem->map) {
 		ret = gdev_write(mem, dst_addr, src_buf, size);
 		/* if @id is give while not asynchronous, give it zero. */
 		if (id)
@@ -430,14 +430,14 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
 	gdev_mem_t **bmem;
 	int ret;
 
-	if (size <= 4) {
+	if (size <= 4 && mem->map) {
 		((uint32_t*)dst_buf)[0] = gdev_read32(mem, src_addr);
 		ret = 0;
 		/* if @id is given despite not asynchronous, give it zero. */
 		if (id)
 			*id = 0;
 	}
-	else if (size <= GDEV_MEMCPY_IORW_LIMIT) {
+	else if (size <= GDEV_MEMCPY_IORW_LIMIT && mem->map) {
 		ret = gdev_read(mem, dst_buf, src_addr, size);
 		/* if @id is given despite not asynchronous, give it zero. */
 		if (id)
