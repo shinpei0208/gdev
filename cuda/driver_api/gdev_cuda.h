@@ -29,6 +29,9 @@
 
 #define GDEV_CUDA_VERSION 4000
 
+#define GDEV_ARCH_SM_1X 1 /* sm_1x */
+#define GDEV_ARCH_SM_2X 2 /* sm_2x */
+
 #ifndef NULL
 #define NULL 0
 #endif
@@ -109,6 +112,7 @@ struct CUmod_st {
 	struct gdev_list func_list;
 	struct gdev_list symbol_list;
 	struct CUctx_st *ctx;
+	int arch;
 };
 
 struct CUfunc_st {
