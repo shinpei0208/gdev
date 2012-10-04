@@ -244,8 +244,13 @@ static int cubin_func_1903
 
 	/* just check if the parameter size matches. */
 	if (raw_func->param_size != e->size) {
-		GDEV_PRINT("Parameter size mismatched\n");
-		GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
+		if (e->type == 0x1803) { /* sm_13 needs to set param_size here. */
+			raw_func->param_size = e->size;
+		}
+		else {
+			GDEV_PRINT("Parameter size mismatched\n");
+			GDEV_PRINT("0x%x and 0x%x\n", raw_func->param_size, e->size);
+		}
 	}
 
 	*pos = pos2 + e->size; /* need to check if this is correct! */
@@ -262,7 +267,8 @@ static int cubin_func_type
 		break;
 	case 0x0a04: /* kernel parameters base and size */
 		return cubin_func_0a04(pos, e, raw_func);
-	case 0x0c04: /* 4-byte align data relevant to params. */
+	case 0x0b04: /* 4-byte align data relevant to params (sm_13) */
+	case 0x0c04: /* 4-byte align data relevant to params (sm_20) */
 		return cubin_func_0c04(pos, e, raw_func);
 	case 0x0d04: /* stack information, hmm... */
 		return cubin_func_0d04(pos, e, raw_func);
@@ -272,7 +278,8 @@ static int cubin_func_type
 	case 0x1204: /* some counters but what is this? */
 		cubin_func_skip(pos, e);
 		break;
-	case 0x1903: /* kernel parameters itself */
+	case 0x1803: /* kernel parameters itself (sm_13) */
+	case 0x1903: /* kernel parameters itself (sm_20) */
 		return cubin_func_1903(pos, e, raw_func);
 	case 0x1704: /* each parameter information */
 		return cubin_func_1704(pos, e, raw_func);
@@ -505,6 +512,11 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			}
 			else if (!strncmp(sh_name, SH_SHARED, strlen(SH_SHARED))) {
 				raw_func->shared_size = sheads[i].sh_size;
+				int x;
+				for (x = 0; x < raw_func->shared_size/4; x++) {
+					unsigned long *data = bin + sheads[i].sh_offset;
+					printf("0x%x: 0x%x\n", x*4, data[x]);
+				}
 			}
 			else if (!strncmp(sh_name, SH_LOCAL, strlen(SH_LOCAL))) {
 				raw_func->local_size = sheads[i].sh_size;
