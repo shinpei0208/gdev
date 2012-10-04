@@ -315,6 +315,7 @@ static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
 	}
 	gdev_list_init(&mod->func_list, NULL);
 	gdev_list_init(&mod->symbol_list, NULL);
+	mod->arch = 0;
 }
 
 static void init_kernel(struct gdev_kernel *k)
@@ -375,113 +376,29 @@ static void init_raw_func(struct gdev_cuda_raw_func *f)
 	f->local_size_neg = 0;
 }
 
-static int cubin_func
-(char **pos, section_entry_t *e, Elf_Sym *symbols, Elf_Ehdr *ehead, Elf_Shdr *sheads, char *strings, char *shstrings, char *bin, struct CUmod_st *mod)
+static void destroy_all_functions(struct CUmod_st *mod)
 {
-	int i, ret;
-	int sh_text_idx;
-	char *sh_text_name;
-	uint32_t code_idx;
-	func_entry_t *fe;
 	struct CUfunc_st *func;
 	struct gdev_cuda_raw_func *raw_func;
-
-	*pos += sizeof(section_entry_t);
-	fe = (func_entry_t*)*pos;
-	*pos += e->size;
-
-	/* there are some __device__ functions included, but we can just ignore 
-	   them... */
-	if (!(symbols[fe->sym_idx].st_other & NV_GLOBAL)) {
-		return 0;
+	struct gdev_list *p;
+	while ((p = gdev_list_head(&mod->func_list))) {
+		gdev_list_del(p);
+		func = gdev_list_container(p);
+		raw_func = &func->raw_func;
+		FREE(raw_func->param_info);
+		FREE(func);
 	}
+}
 
-	/* allocate memory for a new function. */
-	if (!(func = MALLOC(sizeof(*func))))
-		goto fail_malloc_func;
-
-	init_kernel(&func->kernel);
-	init_raw_func(&func->raw_func);
-
-	raw_func = &func->raw_func;
-
-	sh_text_idx = symbols[fe->sym_idx].st_shndx;
-	sh_text_name = (char*)(bin + sheads[ehead->e_shstrndx].sh_offset + 
-						   sheads[sh_text_idx].sh_name);
-	code_idx = symbols[fe->sym_idx].st_shndx;
-
-	/* function members. */
-	raw_func->name = strings + symbols[fe->sym_idx].st_name;
-	raw_func->code_buf = bin + sheads[code_idx].sh_offset;
-	raw_func->code_size = sheads[code_idx].sh_size;
-	raw_func->local_size = fe->local_size;
-	raw_func->local_size_neg = 0x7c0; /* FIXME: this is the blob spec. */
-	raw_func->reg_count = (sheads[code_idx].sh_info >> 24) & 0x3f;
-	raw_func->bar_count = (sheads[code_idx].sh_flags >> 20) & 0xf;
-
-	for (i = 0; i < ehead->e_shnum; i++) {
-		char *sh_name = (char*)(shstrings + sheads[i].sh_name);
-
-		/* nv.shared section */
-		if (strncmp(sh_name, SH_SHARED, strlen(SH_SHARED)) == 0) {
-			if (strcmp(sh_name + strlen(SH_SHARED), raw_func->name) == 0) {
-				raw_func->shared_size = sheads[i].sh_size;
-			}
-		}
-		else if (strncmp(sh_name, SH_LOCAL, strlen(SH_LOCAL)) == 0) {
-			if (strcmp(sh_name + strlen(SH_LOCAL), raw_func->name) == 0) {
-				/* perhaps we can use .nv.info's information but meh... */
-				raw_func->local_size = sheads[i].sh_size;
-			}
-		}
-		else if (strncmp(sh_name, SH_CONST, strlen(SH_CONST)) == 0) {
-			int x;
-			char fname[256] = {0};
-
-			sscanf(sh_name, SH_CONST"%d.%s", &x, fname);
-			/* is there any local constant other than c0[]? */
-			if (x >= 0 && x < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT) {
-				if (strcmp(fname, raw_func->name) == 0) {
-					raw_func->cmem[x].buf = bin + sheads[i].sh_offset;
-					raw_func->cmem[x].size = sheads[i].sh_size;
-				}
-			}
-		}
-		else {
-			char *sh = bin + sheads[i].sh_offset;
-			char *sh_pos = sh;
-
-			/* skip if not nv.infoXXX */
-			if (strncmp(sh_name, SH_INFO, strlen(SH_INFO)) != 0)
-				continue;
-			/* skip if not nv.info.XXX (could be just "nv.info"). */
-			if (strlen(sh_name) == strlen(SH_INFO))
-				continue;
-			/* skip if this is a different function's nv.info.XXX */
-			if (strcmp(raw_func->name, sh_name + strlen(SH_INFO) + 1))
-				continue;
-
-			/* look into the nv.info.@raw_func->name information. */
-			while (sh_pos < sh + sheads[i].sh_size) {
-				section_entry_t *sh_e = (section_entry_t*)sh_pos;
-				ret = cubin_func_type(&sh_pos, sh_e, raw_func);
-				if (ret)
-					goto fail_cubin_func;
-			}
-		}
+static void destroy_all_symbols(struct CUmod_st *mod)
+{
+	struct gdev_cuda_const_symbol *cs;
+	struct gdev_list *p;
+	while ((p = gdev_list_head(&mod->symbol_list))) {
+		gdev_list_del(p);
+		cs = gdev_list_container(p);
+		FREE(cs);
 	}
-
-	gdev_list_init(&func->list_entry, func);
-	gdev_list_add(&func->list_entry, &mod->func_list);
-	mod->func_count++;
-	func->mod = mod;
-
-	return 0;
-
-fail_cubin_func:
-	FREE(func);
-fail_malloc_func:
-	return ret;
 }
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
@@ -497,10 +414,15 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 	int symbols_idx, strings_idx;
 	int nvinfo_idx, nvrel_idx, nvrel_const_idx,	nvglobal_idx, nvglobal_init_idx;
 	symbol_entry_t *sym_entry;
+	section_entry_t *se;
+	void *sh;
+	char *sh_name;
 	char *pos;
 	char *bin;
 	file_t *fp;
 	int i, ret;
+	struct CUfunc_st *func = NULL;
+	struct gdev_cuda_raw_func *raw_func = NULL;
 
 	ret = load_bin(&bin, &fp, fname);
 	if (ret)
@@ -529,51 +451,100 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 
 	/* seek the ELF header. */
 	for (i = 0; i < ehead->e_shnum; i++) {
-		char *name = (char *)(shstrings + sheads[i].sh_name);
-		void *section = bin + sheads[i].sh_offset;
+		sh_name = (char *)(shstrings + sheads[i].sh_name);
+		sh = bin + sheads[i].sh_offset;
 		/* the following are function-independent sections. */
 		switch (sheads[i].sh_type) {
 		case SHT_SYMTAB: /* symbol table */
 			symbols_idx = i;
-			symbols = (Elf_Sym *)section;
+			symbols = (Elf_Sym *)sh;
 			break;
 		case SHT_STRTAB: /* string table */
 			strings_idx = i;
-			strings = (char *)section;
+			strings = (char *)sh;
 			break;
 		case SHT_REL: /* relocatable: not sure if nvcc uses it... */
 			nvrel_idx = i;
-			nvrel = (char *)section;
-			sscanf(name, "%*s%d", &nvrel_const_idx);
+			nvrel = (char *)sh;
+			sscanf(sh_name, "%*s%d", &nvrel_const_idx);
 			break;
 		default:
-			/* NOTE: there are two types of info sections, which do not match
-			   each other: "nv.info.funcname" and ".nv.info". we are now at 
-			   ".nv.info", but it should be scanned again to recover function
-			   index, which should be used to obtain all device functions 
-			   without relying on section order and naming convention. */
-			if (strcmp(name, SH_INFO) == 0) {
-				nvinfo_idx = i;
-				nvinfo = (char *)section;
+			/* we assume that ".text.XXX" section appears first for each 
+			   function XXX. */
+			if (!strncmp(sh_name, SH_TEXT, strlen(SH_TEXT))) {
+				/* we create a new function here. */
+				if (!(func = MALLOC(sizeof(*func))))
+					goto fail_malloc_func;
+				init_kernel(&func->kernel);
+				init_raw_func(&func->raw_func);
+
+				/* from now on, raw_func is used to set up the function. */
+				raw_func = &func->raw_func;
+
+				/* basic information. */
+				raw_func->name = sh_name + strlen(SH_TEXT);
+				raw_func->code_buf = bin + sheads[i].sh_offset; /* ==sh */
+				raw_func->code_size = sheads[i].sh_size;
+				raw_func->reg_count = (sheads[i].sh_info >> 24) & 0x3f;
+				raw_func->bar_count = (sheads[i].sh_flags >> 20) & 0xf;
 			}
-			else if (strcmp(name, SH_GLOBAL) == 0) {
-				/* symbol space size. */
-				symbols_size = sheads[i].sh_size;
-				nvglobal_idx = i;
-			}
-			else if (strcmp(name, SH_GLOBAL_INIT) == 0) {
-				nvglobal_init_idx = i;
-				nvglobal_init = (char *)section;
-			}
-			else if (strncmp(name, SH_CONST, strlen(SH_CONST)) == 0) {
+			else if (!strncmp(sh_name, SH_CONST, strlen(SH_CONST))) {
 				char func[256] = {0};
 				int x; /* cX[] */
-				sscanf(name, SH_CONST"%d.%s", &x, func);
+				sscanf(sh_name, SH_CONST"%d.%s", &x, func);
 				/* global constant spaces. */
 				if (strlen(func) == 0) {
 					mod->cmem[x].buf = bin + sheads[i].sh_offset;
 					mod->cmem[x].raw_size = sheads[i].sh_size;
 				}
+				else if (x >= 0 && x < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT) {
+					raw_func->cmem[x].buf = bin + sheads[i].sh_offset;
+					raw_func->cmem[x].size = sheads[i].sh_size;
+				}
+			}
+			else if (!strncmp(sh_name, SH_SHARED, strlen(SH_SHARED))) {
+				raw_func->shared_size = sheads[i].sh_size;
+			}
+			else if (!strncmp(sh_name, SH_LOCAL, strlen(SH_LOCAL))) {
+				raw_func->local_size = sheads[i].sh_size;
+				raw_func->local_size_neg = 0x7c0; /* FIXME */
+			}
+			/* NOTE: there are two types of "info" sections: 
+			   1. ".nv.info.funcname"
+			   2. ".nv.info"
+			   ".nv.info.funcname" represents function information while 
+			   ".nv.info" points to all ".nv.info.funcname" sections and
+			   provide some global data information.
+			   NV50 doesn't support ".nv.info" section. 
+			   we also assume that ".nv.info.funcname" is an end mark. */
+			else if (!strncmp(sh_name, SH_INFO_FUNC, strlen(SH_INFO_FUNC))) {
+				/* look into the nv.info.@raw_func->name information. */
+				pos = (char *) sh;
+				while (pos < (char *) sh + sheads[i].sh_size) {
+					se = (section_entry_t*) pos;
+					ret = cubin_func_type(&pos, se, raw_func);
+					if (ret)
+						goto fail_cubin_func_type;
+				}
+
+				/* insert this function to the module's function list. */
+				gdev_list_init(&func->list_entry, func);
+				gdev_list_add(&func->list_entry, &mod->func_list);
+				mod->func_count++;
+				func->mod = mod;
+			}
+			else if (!strcmp(sh_name, SH_INFO)) {
+				nvinfo_idx = i;
+				nvinfo = (char *) sh;
+			}
+			else if (!strcmp(sh_name, SH_GLOBAL)) {
+				/* symbol space size. */
+				symbols_size = sheads[i].sh_size;
+				nvglobal_idx = i;
+			}
+			else if (!strcmp(sh_name, SH_GLOBAL_INIT)) {
+				nvglobal_init_idx = i;
+				nvglobal_init = (char *) sh;
 			}
 			break;
 		}
@@ -633,32 +604,38 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 		 }
 	}
 
-	/* parse nv.info sections. */
-	pos = (char*)nvinfo;
-	while (pos < nvinfo + sheads[nvinfo_idx].sh_size) {
-		section_entry_t *e = (section_entry_t*) pos;
-		switch (e->type) {
-		case 0x0704: /* texture */
-			cubin_func_skip(&pos, e);
-			break;
-		case 0x1104:  /* function */
-			ret = cubin_func(&pos, e, symbols, ehead, sheads, strings, 
-							 shstrings, bin, mod);
-			if (ret)
-				goto fail_function;
-			break;
-		case 0x1204: /* some counters but what is this? */
-			cubin_func_skip(&pos, e);
-			break;
-		default:
-			cubin_func_unknown(&pos, e);
-			/* goto fail_function; */
+	if (nvinfo) { /* >= sm_20 */
+		/* parse nv.info sections. */
+		pos = (char*)nvinfo;
+		while (pos < nvinfo + sheads[nvinfo_idx].sh_size) {
+			section_entry_t *e = (section_entry_t*) pos;
+			switch (e->type) {
+			case 0x0704: /* texture */
+				cubin_func_skip(&pos, e);
+				break;
+			case 0x1104:  /* function */
+				cubin_func_skip(&pos, e);
+				break;
+			case 0x1204: /* some counters but what is this? */
+				cubin_func_skip(&pos, e);
+				break;
+			default:
+				cubin_func_unknown(&pos, e);
+				/* goto fail_function; */
+			}
 		}
+		mod->arch = GDEV_ARCH_SM_2X;
+	}
+	else { /* < sm_13 */
+		mod->arch = GDEV_ARCH_SM_1X;
 	}
 
 	return CUDA_SUCCESS;
 
-fail_function:
+fail_cubin_func_type:
+	FREE(func);
+fail_malloc_func:
+	destroy_all_functions(mod);
 fail_symbol:
 	unload_bin(bin, fp);
 fail_load_bin:
@@ -674,29 +651,14 @@ fail_load_bin:
 
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 {
-	struct CUfunc_st *func;
-	struct gdev_cuda_raw_func *raw_func;
-	struct gdev_cuda_const_symbol *cs;
-	struct gdev_list *p;
-
 	if (!mod->bin || !mod->fp)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	/* destroy functions and constant symbols:
 	   use while() instead of gdev_list_for_each(), as FREE(func) will 
 	   delte the entry itself in gdev_list_for_each(). */
-	while ((p = gdev_list_head(&mod->func_list))) {
-		gdev_list_del(p);
-		func = gdev_list_container(p);
-		raw_func = &func->raw_func;
-		FREE(raw_func->param_info);
-		FREE(func);
-	}
-	while ((p = gdev_list_head(&mod->symbol_list))) {
-		gdev_list_del(p);
-		cs = gdev_list_container(p);
-		FREE(cs);
-	}
+	destroy_all_functions(mod);
+	destroy_all_symbols(mod);
 
 	unload_bin(mod->bin, mod->fp);
 
@@ -757,7 +719,8 @@ CUresult gdev_cuda_construct_kernels
 			k->cmem[i].offset = 0; /* no usage. */
 		}
 
-		/* c{1,15,17}[] are something unknown... */
+		/* c{1,15,17}[] are something unknown... 
+		   CUDA doesn't work properly without the following for some reason. */
 		if (k->cmem[1].size == 0) {
 			k->cmem[1].size = 0x10000;
 		}
