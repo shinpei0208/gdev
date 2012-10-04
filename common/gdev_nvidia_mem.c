@@ -233,12 +233,12 @@ void gdev_mem_gc(struct gdev_vas *vas)
 	struct gdev_mem *mem;
 
 	/* device memory. */
-	gdev_list_for_each (mem, &vas->mem_list, list_entry_heap) {
+	while((mem = gdev_list_container(gdev_list_head(&vas->mem_list)))) {
 		gdev_mem_free(mem);
 	}
 
 	/* host DMA memory. */
-	gdev_list_for_each (mem, &vas->dma_mem_list, list_entry_heap) {
+	while((mem = gdev_list_container(gdev_list_head(&vas->dma_mem_list)))) {
 		gdev_mem_free(mem);
 	}
 }
