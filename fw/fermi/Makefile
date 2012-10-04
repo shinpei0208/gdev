@@ -6,7 +6,7 @@ TARGET1a = gpc_firmware
 CLANG = clang
 CLANG_FLAGS = -m32 -emit-llvm -S -O1
 ENVYAS = envyas
-ENVYAS_FLAGS = -m fuc -V fuc3
+ENVYAS_FLAGS = -m fuc -V nva3
 LLC = llc
 LLC_FLAGS = -march=nvfc
 
@@ -58,9 +58,17 @@ h:
 	$(CAT) nvc0_ctxctl.h.gpc >> nvc0_ctxctl.h
 	make install
 
+on:
+	$(ENVYAS) $(TARGET).S $(ENVYAS_FLAGS) > $(TARGET).bytelist
+	$(HEX2BYTELIST) $(TARGET).data.S $(TARGET).data.bytelist
+	$(BIN2CTXCTLH) $(TARGET).data.bytelist $(TARGET).bytelist -m hub
+	echo > nvc0_ctxctl.h
+	$(CAT) nvc0_ctxctl.h.hub >> nvc0_ctxctl.h
+	$(CAT) .nvc0_ctxctl.h.gpc >> nvc0_ctxctl.h
+	make install
+
 install :
 	cp nvc0_ctxctl.h $(GDEV_PSCNV_DIR)
-
 run:
 	$(ENVYAS) -i $(TARGET).S $(ENVYAS_FLAGS)   > $(TARGET).bin
 	$(ENVYAS) -i $(TARGET1a).S $(ENVYAS_FLAGS)   > $(TARGET1a).bin

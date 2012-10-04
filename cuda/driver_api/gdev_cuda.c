@@ -338,6 +338,7 @@ static void init_kernel(struct gdev_kernel *k)
 	k->lmem_size = 0;
 	k->lmem_size_neg = 0;
 	k->lmem_base = 0;
+	k->smem_size_func = 0;
 	k->smem_size = 0;
 	k->smem_base = 0;
 	k->warp_stack_size = 0;
@@ -737,7 +738,8 @@ CUresult gdev_cuda_construct_kernels
 		k->lmem_size_neg = gdev_cuda_align_lmem_size(f->local_size_neg);
 
 		/* shared memory size. */
-		k->smem_size = gdev_cuda_align_smem_size(f->shared_size);
+		k->smem_size_func = gdev_cuda_align_smem_size(f->shared_size);
+		k->smem_size = k->smem_size_func;
 	
 		/* warp stack and local memory sizes. */
 		stack_size = f->stack_depth > 16 ? f->stack_depth : 16;

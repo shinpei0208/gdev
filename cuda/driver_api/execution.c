@@ -101,7 +101,7 @@ CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	k = &func->kernel;
-	k->smem_size = gdev_cuda_align_smem_size(k->smem_size + bytes);
+	k->smem_size = gdev_cuda_align_smem_size(k->smem_size_func + bytes);
 
 	return CUDA_SUCCESS;
 }

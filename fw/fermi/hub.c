@@ -1,3 +1,10 @@
+/*
+ * hub.c: Copyright (C) Yusuke FUJII <yukke@ubi.cs.ritsumei.ac.jp>
+ *
+ * TODO  1: fixed channel switch.
+ * 	 2:   
+ */
+
 #include "asminsn.h"
 #include "mmio.h"
 #include "regs_hub.h"
@@ -983,8 +990,11 @@ void mmctx(int dir, int y, int z, int *ptraddr, int len)
     }
 
     if (z <= 2)
-	mmio_write(FUC_MMCTX_CTRL, ((dir == 2) << 0x10) | 0x21000);
-
+	if(dir==2){
+	 mmio_write(FUC_MMCTX_CTRL, (1 << 0x10) | 0x21000);
+	}else{
+	 mmio_write(FUC_MMCTX_CTRL, (0 << 0x10) | 0x21000);
+	}
     free = 0;
     for (i = 0; i < len; i++) {
 	while (!free)
@@ -999,7 +1009,11 @@ void mmctx(int dir, int y, int z, int *ptraddr, int len)
 
 	while (!(mmio_read(FUC_DONE)&0x20));
     } else {
-	mmio_write(FUC_MMCTX_CTRL, ((dir == 2) << 0x10) | 0x41000);
+	if(dir==2){
+	    mmio_write(FUC_MMCTX_CTRL, (1 << 0x10) | 0x41000);
+	}else{
+	    mmio_write(FUC_MMCTX_CTRL, (0 << 0x10) | 0x41000);
+	}
 	while (mmio_read(FUC_MMCTX_CTRL) & 0x40000);
     }
 
@@ -1756,8 +1770,8 @@ out2:
     mmio_write_i(FUC_STRAND_CMD, 0x3f, 0xc);
     waitstr();
     //funk9e(0); // inlined
-     mmio_write_i(0x91c, 0x3f, 0);
-     mmio_write_i(FUC_STRAND_CMD, 0x3f, 3);
+    mmio_write_i(0x91c, 0x3f, 0);
+    mmio_write_i(FUC_STRAND_CMD, 0x3f, 3);
 
     mmio_write(FUC_MMCTX_SAVE_SWBASE, s3.mmbase & 0xffff);
     mmctx(1, 1, 2, mmio_table1, nr_mmio_table1);
@@ -1780,7 +1794,6 @@ out2:
     store5(2);
 
     /*fix this*/
-    //while (!(mmio_read(FUC_DONE)&0x100));
     while ((mmio_read(FUC_DONE)&0x100));
     
     funk312(unk18);
@@ -1806,6 +1819,7 @@ out2:
     mmio_write(0x430, 0);
     // ack savectx success
 #endif
+    mmio_write(FUC_NEWSCRATCH5,0x600d);
     mmio_write(FUC_NEWSCRATCH0, 1);
     mmio_write(FUC_NEWSCRATCH_CLEAR2, 0x40000);
 
@@ -1830,7 +1844,7 @@ void unkc9(uint32_t cmd, uint32_t data)
 
 	mmio_write(0xb0c, 1);
     }
-
+ 	mmio_write(FUC_NEWSCRATCH5,0x600dc0de);
     mmio_write(0xb08, 1);
     mmio_write(FUC_NEWSCRATCH_CLEAR2, 0x1000);
 }

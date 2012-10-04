@@ -1,4 +1,7 @@
 
+/*
+ * gpc.c: Copyright (C) Yusuke FUJII <yukke@ubi.cs.ritsumei.ac.jp>
+ */
 #include "asminsn.h"
 #include "mmio.h"
 #include "regs_gpc.h"
@@ -595,8 +598,12 @@ void mmctx (int dir, int y, int z, int *ptraddr, int len) {
     // 8f3
     if (z <= 2)
 	//	mmio_write(FUC_MMCTX_CTRL, (dir == 2) << 0x10 | 0x21000);
-	mmio_write(FUC_MMCTX_CTRL, 1 << 0x10 | 0x21000);
-    // 910
+	if(dir==2){
+ 	mmio_write(FUC_MMCTX_CTRL, 1 << 0x10 | 0x21000);
+ 	}else{
+ 	mmio_write(FUC_MMCTX_CTRL, 0 << 0x10 | 0x21000);
+	}
+	// 910
     free = 0;
 
     for (i = 0; i < len; i++) {
@@ -615,7 +622,11 @@ void mmctx (int dir, int y, int z, int *ptraddr, int len) {
 	while (!(mmio_read(FUC_DONE)&0x20));
     }else {
 	//mmio_write(FUC_MMCTX_CTRL, (dir == 2) << 0x10 | 0x41000);
-	mmio_write(FUC_MMCTX_CTRL, (dir==2) << 0x10 | 0x41000);
+	if(dir==2){
+	mmio_write(FUC_MMCTX_CTRL, 1 << 0x10 | 0x41000);
+	}else{
+	mmio_write(FUC_MMCTX_CTRL, 0 << 0x10 | 0x41000);
+	}
 	while(mmio_read(FUC_MMCTX_CTRL) & 0x40000);
     }
     // 9b3
