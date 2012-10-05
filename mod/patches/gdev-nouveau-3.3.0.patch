@@ -230,7 +230,7 @@ index 0000000..9489632
 +
 +	if (addr) {
 +		vma = nouveau_bo_vma_find(bo, chan->vm);
-+#if 0 /* this function call crushes the system sometimes... */
++		/* this function call crushes the system sometimes... */
 +		if (vma) {
 +			nouveau_bo_vma_del(bo, vma);
 +			kfree(vma);
@@ -238,7 +238,6 @@ index 0000000..9489632
 +		else {
 +			return -ENOENT;
 +		}
-+#endif
 +	}
 +
 +	nouveau_bo_ref(NULL, &bo);
@@ -292,10 +291,8 @@ index 0000000..9489632
 +
 +	vma = nouveau_bo_vma_find(bo, chan->vm);
 +	if (vma) {
-+#if 0 /* this function call crushes the system sometimes... */
 +		nouveau_bo_vma_del(bo, vma);
 +		kfree(vma);
-+#endif
 +	}
 +	else
 +		return -ENOENT;
