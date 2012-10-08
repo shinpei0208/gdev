@@ -29,8 +29,8 @@
 
 #define GDEV_CUDA_VERSION 4000
 
-#define GDEV_ARCH_SM_1X 1 /* sm_1x */
-#define GDEV_ARCH_SM_2X 2 /* sm_2x */
+#define GDEV_ARCH_SM_1X 0x50 /* sm_1x */
+#define GDEV_ARCH_SM_2X 0xc0 /* sm_2x */
 
 #ifndef NULL
 #define NULL 0

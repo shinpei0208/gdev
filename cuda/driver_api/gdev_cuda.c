@@ -512,11 +512,13 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			}
 			else if (!strncmp(sh_name, SH_SHARED, strlen(SH_SHARED))) {
 				raw_func->shared_size = sheads[i].sh_size;
-				int x;
-				for (x = 0; x < raw_func->shared_size/4; x++) {
-					unsigned long *data = bin + sheads[i].sh_offset;
-					printf("0x%x: 0x%x\n", x*4, data[x]);
-				}
+				/*
+				 * int x;
+				 * for (x = 0; x < raw_func->shared_size/4; x++) {
+				 * 		unsigned long *data = bin + sheads[i].sh_offset;
+				 *		printf("0x%x: 0x%x\n", x*4, data[x]);
+				 * }
+				 */
 			}
 			else if (!strncmp(sh_name, SH_LOCAL, strlen(SH_LOCAL))) {
 				raw_func->local_size = sheads[i].sh_size;
