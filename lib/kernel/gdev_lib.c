@@ -102,7 +102,8 @@ uint64_t gmalloc(struct gdev_handle *h, uint64_t size)
 	int fd = h->fd;
 
 	mem.size = size;
-	ioctl(fd, GDEV_IOCTL_GMALLOC, &mem);
+	if(ioctl(fd, GDEV_IOCTL_GMALLOC, &mem))
+		return 0;
 
 	return mem.addr;
 }
@@ -113,7 +114,8 @@ uint64_t gfree(struct gdev_handle *h, uint64_t addr)
 	int fd = h->fd;
 
 	mem.addr = addr;
-	ioctl(fd, GDEV_IOCTL_GFREE, &mem);
+	if(ioctl(fd, GDEV_IOCTL_GFREE, &mem))
+		return 0;
 
 	return mem.size;
 }
@@ -171,7 +173,8 @@ free:
 	mem.addr = bo->addr;
 
 	free(bo);
-	ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem);
+	if(ioctl(fd, GDEV_IOCTL_GFREE_DMA, &mem))
+		return 0;
 
 	return mem.size;
 }
