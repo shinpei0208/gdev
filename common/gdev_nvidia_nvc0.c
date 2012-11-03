@@ -413,11 +413,20 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	for (i = 0; i < GDEV_FENCE_COUNT; i++)
 		nvc0_fence_reset(ctx, i);
 
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
+	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
+	__gdev_out_ring(ctx, 0x9039); /* M2MF */
+	__gdev_fire_ring(ctx);
+
+	__gdev_relax_fifo();
+
 	/* setup subchannels. */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
 	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
 	__gdev_out_ring(ctx, 0x9039); /* M2MF */
+
 #ifndef GDEV_DRIVER_NVI /* when using the blob, disable PCOPY. */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
 	__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
