@@ -1,0 +1,213 @@
+diff -Nur original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_bo.c linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_bo.c
+--- original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_bo.c	2012-11-05 07:28:11.424015673 -0500
++++ linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_bo.c	2012-11-05 04:51:27.626805450 -0500
+@@ -122,6 +122,7 @@
+ 	ret = ttm_bo_init(&dev_priv->ttm.bdev, &nvbo->bo, size,
+ 			  ttm_bo_type_device, &nvbo->placement,
+ 			  align >> PAGE_SHIFT, 0, false, NULL, acc_size,
++			  NULL,
+ 			  nouveau_bo_del_ttm);
+ 	if (ret) {
+ 		/* ttm will call nouveau_bo_del_ttm if it fails.. */
+diff -Nur original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_display.c linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_display.c
+--- original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_display.c	2012-11-05 07:28:11.400015649 -0500
++++ linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_display.c	2012-11-05 04:56:00.259854836 -0500
+@@ -155,20 +155,20 @@
+ };
+ 
+ 
+-struct drm_prop_enum_list {
++struct drm_prop_enum_list_mod {
+ 	u8 gen_mask;
+ 	int type;
+ 	char *name;
+ };
+ 
+-static struct drm_prop_enum_list underscan[] = {
++static struct drm_prop_enum_list_mod underscan[] = {
+ 	{ 6, UNDERSCAN_AUTO, "auto" },
+ 	{ 6, UNDERSCAN_OFF, "off" },
+ 	{ 6, UNDERSCAN_ON, "on" },
+ 	{}
+ };
+ 
+-static struct drm_prop_enum_list dither_mode[] = {
++static struct drm_prop_enum_list_mod dither_mode[] = {
+ 	{ 7, DITHERING_MODE_AUTO, "auto" },
+ 	{ 7, DITHERING_MODE_OFF, "off" },
+ 	{ 1, DITHERING_MODE_ON, "on" },
+@@ -178,7 +178,7 @@
+ 	{}
+ };
+ 
+-static struct drm_prop_enum_list dither_depth[] = {
++static struct drm_prop_enum_list_mod dither_depth[] = {
+ 	{ 6, DITHERING_DEPTH_AUTO, "auto" },
+ 	{ 6, DITHERING_DEPTH_6BPC, "6 bpc" },
+ 	{ 6, DITHERING_DEPTH_8BPC, "8 bpc" },
+@@ -186,7 +186,7 @@
+ };
+ 
+ #define PROP_ENUM(p,gen,n,list) do {                                           \
+-	struct drm_prop_enum_list *l = (list);                                 \
++	struct drm_prop_enum_list_mod *l = (list);                                 \
+ 	int c = 0;                                                             \
+ 	while (l->gen_mask) {                                                  \
+ 		if (l->gen_mask & (1 << (gen)))                                \
+diff -Nur original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_drv.c linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_drv.c
+--- original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_drv.c	2012-11-05 07:28:11.380015629 -0500
++++ linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_drv.c	2012-11-05 04:40:50.094694457 -0500
+@@ -427,7 +427,7 @@
+ 	.get_vblank_counter = drm_vblank_count,
+ 	.enable_vblank = nouveau_vblank_enable,
+ 	.disable_vblank = nouveau_vblank_disable,
+-	.reclaim_buffers = drm_core_reclaim_buffers,
++	// .reclaim_buffers = drm_core_reclaim_buffers,
+ 	.ioctls = nouveau_ioctls,
+ 	.fops = &nouveau_driver_fops,
+ 	.gem_init_object = nouveau_gem_object_new,
+diff -Nur original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_state.c linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_state.c
+--- original/linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_state.c	2012-11-05 07:28:11.391015640 -0500
++++ linux-3.6.5/drivers/gpu/drm/nouveau/nouveau_state.c	2012-11-05 04:43:27.991725651 -0500
+@@ -552,6 +552,13 @@
+ 	return can_switch;
+ }
+ 
++static const struct vga_switcheroo_client_ops
++nouveau_switcheroo_ops = {
++	.set_gpu_state = nouveau_switcheroo_set_state,
++	.reprobe = nouveau_switcheroo_reprobe,
++	.can_switch = nouveau_switcheroo_can_switch,
++};
++
+ int
+ nouveau_card_init(struct drm_device *dev)
+ {
+@@ -560,9 +567,7 @@
+ 	int ret, e = 0;
+ 
+ 	vga_client_register(dev->pdev, dev, NULL, nouveau_vga_set_decode);
+-	vga_switcheroo_register_client(dev->pdev, nouveau_switcheroo_set_state,
+-				       nouveau_switcheroo_reprobe,
+-				       nouveau_switcheroo_can_switch);
++	vga_switcheroo_register_client(dev->pdev, &nouveau_switcheroo_ops);
+ 
+ 	/* Initialise internal driver API hooks */
+ 	ret = nouveau_init_engine_ptrs(dev);
+diff -Nur original/linux-3.6.5/include/drm/nouveau_drm.h linux-3.6.5/include/drm/nouveau_drm.h
+--- original/linux-3.6.5/include/drm/nouveau_drm.h	2012-10-31 13:11:22.000000000 -0400
++++ linux-3.6.5/include/drm/nouveau_drm.h	2012-11-05 04:24:14.040530301 -0500
+@@ -25,6 +25,70 @@
+ #ifndef __NOUVEAU_DRM_H__
+ #define __NOUVEAU_DRM_H__
+ 
++#define NOUVEAU_DRM_HEADER_PATCHLEVEL 16
++
++struct drm_nouveau_channel_alloc {
++	uint32_t     fb_ctxdma_handle;
++	uint32_t     tt_ctxdma_handle;
++
++	int          channel;
++	uint32_t     pushbuf_domains;
++
++	/* Notifier memory */
++	uint32_t     notifier_handle;
++
++	/* DRM-enforced subchannel assignments */
++	struct {
++		uint32_t handle;
++		uint32_t grclass;
++	} subchan[8];
++	uint32_t nr_subchan;
++};
++
++struct drm_nouveau_channel_free {
++	int channel;
++};
++
++struct drm_nouveau_grobj_alloc {
++	int      channel;
++	uint32_t handle;
++	int      class;
++};
++
++struct drm_nouveau_notifierobj_alloc {
++	uint32_t channel;
++	uint32_t handle;
++	uint32_t size;
++	uint32_t offset;
++};
++
++struct drm_nouveau_gpuobj_free {
++	int      channel;
++	uint32_t handle;
++};
++
++/* FIXME : maybe unify {GET,SET}PARAMs */
++#define NOUVEAU_GETPARAM_PCI_VENDOR      3
++#define NOUVEAU_GETPARAM_PCI_DEVICE      4
++#define NOUVEAU_GETPARAM_BUS_TYPE        5
++#define NOUVEAU_GETPARAM_FB_SIZE         8
++#define NOUVEAU_GETPARAM_AGP_SIZE        9
++#define NOUVEAU_GETPARAM_CHIPSET_ID      11
++#define NOUVEAU_GETPARAM_VM_VRAM_BASE    12
++#define NOUVEAU_GETPARAM_GRAPH_UNITS     13
++#define NOUVEAU_GETPARAM_PTIMER_TIME     14
++#define NOUVEAU_GETPARAM_HAS_BO_USAGE    15
++#define NOUVEAU_GETPARAM_HAS_PAGEFLIP    16
++struct drm_nouveau_getparam {
++	uint64_t param;
++	uint64_t value;
++};
++
++struct drm_nouveau_setparam {
++	uint64_t param;
++	uint64_t value;
++};
++
+ #define NOUVEAU_GEM_DOMAIN_CPU       (1 << 0)
+ #define NOUVEAU_GEM_DOMAIN_VRAM      (1 << 1)
+ #define NOUVEAU_GEM_DOMAIN_GART      (1 << 2)
+@@ -116,19 +180,35 @@
+ 	uint32_t handle;
+ };
+ 
+-#define DRM_NOUVEAU_GETPARAM           0x00 /* deprecated */
+-#define DRM_NOUVEAU_SETPARAM           0x01 /* deprecated */
+-#define DRM_NOUVEAU_CHANNEL_ALLOC      0x02 /* deprecated */
+-#define DRM_NOUVEAU_CHANNEL_FREE       0x03 /* deprecated */
+-#define DRM_NOUVEAU_GROBJ_ALLOC        0x04 /* deprecated */
+-#define DRM_NOUVEAU_NOTIFIEROBJ_ALLOC  0x05 /* deprecated */
+-#define DRM_NOUVEAU_GPUOBJ_FREE        0x06 /* deprecated */
++enum nouveau_bus_type {
++	NV_AGP     = 0,
++	NV_PCI     = 1,
++	NV_PCIE    = 2,
++};
++
++struct drm_nouveau_sarea {
++};
++
++#define DRM_NOUVEAU_GETPARAM           0x00
++#define DRM_NOUVEAU_SETPARAM           0x01
++#define DRM_NOUVEAU_CHANNEL_ALLOC      0x02
++#define DRM_NOUVEAU_CHANNEL_FREE       0x03
++#define DRM_NOUVEAU_GROBJ_ALLOC        0x04
++#define DRM_NOUVEAU_NOTIFIEROBJ_ALLOC  0x05
++#define DRM_NOUVEAU_GPUOBJ_FREE        0x06
+ #define DRM_NOUVEAU_GEM_NEW            0x40
+ #define DRM_NOUVEAU_GEM_PUSHBUF        0x41
+ #define DRM_NOUVEAU_GEM_CPU_PREP       0x42
+ #define DRM_NOUVEAU_GEM_CPU_FINI       0x43
+ #define DRM_NOUVEAU_GEM_INFO           0x44
+ 
++#define DRM_IOCTL_NOUVEAU_GETPARAM           DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_GETPARAM, struct drm_nouveau_getparam)
++#define DRM_IOCTL_NOUVEAU_SETPARAM           DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_SETPARAM, struct drm_nouveau_setparam)
++#define DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC      DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_CHANNEL_ALLOC, struct drm_nouveau_channel_alloc)
++#define DRM_IOCTL_NOUVEAU_CHANNEL_FREE       DRM_IOW (DRM_COMMAND_BASE + DRM_NOUVEAU_CHANNEL_FREE, struct drm_nouveau_channel_free)
++#define DRM_IOCTL_NOUVEAU_GROBJ_ALLOC        DRM_IOW (DRM_COMMAND_BASE + DRM_NOUVEAU_GROBJ_ALLOC, struct drm_nouveau_grobj_alloc)
++#define DRM_IOCTL_NOUVEAU_NOTIFIEROBJ_ALLOC  DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_NOTIFIEROBJ_ALLOC, struct drm_nouveau_notifierobj_alloc)
++#define DRM_IOCTL_NOUVEAU_GPUOBJ_FREE        DRM_IOW (DRM_COMMAND_BASE + DRM_NOUVEAU_GPUOBJ_FREE, struct drm_nouveau_gpuobj_free)
+ #define DRM_IOCTL_NOUVEAU_GEM_NEW            DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_GEM_NEW, struct drm_nouveau_gem_new)
+ #define DRM_IOCTL_NOUVEAU_GEM_PUSHBUF        DRM_IOWR(DRM_COMMAND_BASE + DRM_NOUVEAU_GEM_PUSHBUF, struct drm_nouveau_gem_pushbuf)
+ #define DRM_IOCTL_NOUVEAU_GEM_CPU_PREP       DRM_IOW (DRM_COMMAND_BASE + DRM_NOUVEAU_GEM_CPU_PREP, struct drm_nouveau_gem_cpu_prep)
