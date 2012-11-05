@@ -35,6 +35,8 @@
 #include "gdev_system.h"
 #include "gdev_time.h"
 
+#define GDEV_NVIDIA_SUBCH_MAX 8
+
 /**
  * subchannel IDs == generic operation IDs. 
  */
