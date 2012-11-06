@@ -1,39 +1,36 @@
 #
-# Gdev - Managing GPUs as First-Class Computing Resources
+# Gdev: First-Class GPU Resource Management in the Operating System
 # 
 # README
 #
 # Copyright (C) Shinpei Kato
+#
+# Nagoya University
+# Parallel and Distributed Systems Lab (PDSL)
+#
 # University of California, Santa Cruz
-# Systems Research Lab.
+# Systems Research Lab (SRL)
 #
 # All Rights Reserved.
 #
 #
-# This project is in collaboration with PathScale Inc.
-# Many interesting solutions for GPU programming can be found at:
+# This project supported by PathScale Inc and Nouveau Community:
 # http://www.pathscale.com/
+# http://nouveau.freedesktop.org/
 #
 
-Gdev is a runtime-unified operating system module that manages GPUs 
-as first-class computing resources.
-Currently it supports only NVIDIA's Fermi GPUs, but the concept of
-Gdev is also applicable to generic "compute devices".
-Gdev coordinates with a DRM-based GPU device driver (pscnv/nouveau)
-in the operating system, providing APIs for application programs.
-Gdev API is a low-level primitive that allows programmers to control
-the details of GPU resource parameters, while Gdev also supports a
-high-level API, such as CUDA.
-Gdev is available for GPGPU and graphics applications. It is self-
-contained for GPGPU, though graphics applications require additional
-packages, such as OpenGL, LIBDRM, and DDX.
+Gdev contains open-source device drivers and runtime libraries to 
+manage GPUs as first-class computing resources. Currently we support 
+NVIDIA's Fermi GPUs, but Gdev is certainly applicable to many compute
+devices and accelerators. Gdev provides two types of APIs. "Gdev API"
+is a low-level primitive that allows programmers to control the detail
+of GPU resource parameters, while Gdev also supports a high-level API,
+such as CUDA. Gdev is available for GPGPU and graphics applications -
+it is self-contained for GPGPU, but you may need additional packages,
+such as OpenGL, LIBDRM, and DDX, for graphics applications.
 
-Gdev is open-source. We believe that this open-source implementation
-facilitates further research and development of GPU technology.
-
-The following instruction will tell you how to install Gdev. Some of 
-the installation stages may require you to install additional tools 
-and packages.
+Follow the instructions below to install Gdev. Some of the installation
+stages may require you to install additional tools and packages.
 $(TOPDIR) will represent your top working directory, henceforth.
 
 1. Download
@@ -61,25 +58,26 @@ sudo make install # will install tools to /usr/local/{bin,lib}
 
 3. Device Driver
 
-Recent versions of Gdev disgregate from the device driver. You need
-to install some GPU device driver underlying Gdev. Currently there
-are two open-source drivers available in Linux: pscnv and nouveau.
-The following shows how to install pscnv.
-NOTE1: pscnv is PathScale's open-source driver, but we have applied
-several patches, making it available for Gdev.
-NOTE2: pscnv is available with Linux 2.6.33 or later. It may also 
-have issues with some Fermi chipsets - nvc0 is best tested.
-See http://nouveau.freedesktop.org/wiki/CodeNames for chipset IDs.
+Gdev disgregates from the device driver. You need to install a native
+GPU device driver to use Gdev. Currently there exist two open-source 
+device drivers available for NVIDIA GPUs: nouveau and pscnv.
+Take either Step 3.1, 3.2, or 3.3 below, depending on your system.
 
-3.1. When you use pscnv
+3.1. When you use very latest kernels (RECOMMENDED)
 
-cd $(TOPDIR)/gdev/mod/pscnv
-./configure
-make
-sudo make modules_install
+cd $(TOPDIR)
+git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
+cd linux-2.6
+git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
+git remote update
+git checkout -b nouveau-master nouveau/master
+patch -p1 < $(TOPDIR)/gdev/mod/patches/gdev-nouveau.patch 
+make oldconfig
+make 
+sudo make modules_install install
 sudo shutdown -r now # will reboot your machine
 
-3.2. When you use nouveau
+3.2. When you want to use old nouveau
 
 cd $(TOPDIR)/gdev/mod/nouveau-X # choose your preferred version
 make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
@@ -91,18 +89,12 @@ sudo shutdown -r now # will reboot your machine
 If you are not sure if Nouveau is loaded successfully, do:
 modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 
-3.3. When you use very latest kernels
+3.3. When you want to use pscnv
 
-cd $(TOPDIR)
-git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
-cd linux-2.6
-git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
-git remote update
-git checkout -b nouveau-master nouveau/master
-patch -p0 < $(TOPDIR)/gdev/mod/patches/gdev-nouveau.patch 
-make menuconfig
-make 
-sudo make modules_install install
+cd $(TOPDIR)/gdev/mod/pscnv
+./configure
+make
+sudo make modules_install
 sudo shutdown -r now # will reboot your machine
 
 4. Gdev Module
