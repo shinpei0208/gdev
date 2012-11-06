@@ -632,7 +632,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drv.c b/drivers/gpu/drm/nouveau/nouv
   	if (nouveau_modeset == -1) {
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_state.c b/drivers/gpu/drm/nouveau/nouveau_state.c
 *** a/drivers/gpu/drm/nouveau/nouveau_state.c	2012-07-22 05:58:29.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_state.c	2012-11-06 15:17:37.165071925 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_state.c	2012-11-06 16:12:09.959503598 +0900
 ***************
 *** 1022,1027 ****
 --- 1022,1030 ----
@@ -647,13 +647,19 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_state.c b/drivers/gpu/drm/nouveau/no
   	struct drm_nouveau_private *dev_priv;
 ***************
 *** 1202,1207 ****
---- 1205,1214 ----
+--- 1205,1220 ----
   	if (ret)
   		goto err_ramin;
   
-+ 	/* Nouveau indexes primaries from 1, but we store them from 0 */
-+ 	if (dev->primary->index && dev->primary->index <= nouveau_device_count)
-+ 		nouveau_drm[dev->primary->index - 1] = dev;
++ 	if (dev->primary->index < nouveau_device_count) {
++ 		nouveau_drm[dev->primary->index] = dev;
++ 		NV_INFO(dev, "DRM registered, index %d, count %d, dev %p\n", 
++ 				dev->primary->index, nouveau_device_count, dev);
++ 	}
++ 	else {
++ 		NV_INFO(dev, "DRM not registered, index %d, count %d\n", 
++ 				dev->primary->index, nouveau_device_count);
++ 	}
 + 
   	return 0;
   
