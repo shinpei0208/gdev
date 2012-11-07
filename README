@@ -157,9 +157,9 @@ sudo make install
 
 cd $(TOPDIR)/test/cuda/user/madd
 make
-./user_test 256 # a[256] x b[256] = c[256]
+./user_test 256 # a[256] + b[256] = c[256]
 
-8. CUDA Driver API test (OS-space programs)
+8. CUDA Driver API test (kernel-space programs)
 
 cd $(TOPDIR)/test/cuda/kernel/memcpy
 make
@@ -189,3 +189,14 @@ not get as high performance as the blob. If you really need the same
 level of performance as the blob, you can run some long-running
 CUDA program with the blob, and do kexec -f your kernel before the
 program is finished. Then the clock remains at the maximum level.
+
+10. Benchmarks and Applications
+
+Gdev currently supports CUDA Driver API, while many CUDA programs you
+may find today are written using CUDA Runtime API. As mentioned above,
+you can use Ocelot to translate CUDA Runtime API to CUDA Driver API,
+but we also provide some benchmarks and applications that are written
+using CUDA Driver API so that you can quickly start using Gdev.
+Try downloading the following:
+git@github.com:shinpei0208/gdev-app.git
+git@github.com:shinpei0208/gdev-bench.git
