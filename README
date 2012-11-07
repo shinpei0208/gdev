@@ -71,7 +71,7 @@ cd linux-2.6
 git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
 git remote update
 git checkout -b nouveau-master nouveau/master
-patch -p1 < $(TOPDIR)/gdev/mod/patches/gdev-nouveau.patch 
+patch -p1 < $(TOPDIR)/gdev/mod/linux/patches/gdev-nouveau-X.X.patch 
 make oldconfig
 make 
 sudo make modules_install install
@@ -79,7 +79,7 @@ sudo shutdown -r now # will reboot your machine
 
 3.2. When you want to use old nouveau
 
-cd $(TOPDIR)/gdev/mod/nouveau-X # choose your preferred version
+cd $(TOPDIR)/gdev/mod/linux/nouveau-X.X
 make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
 sudo make install NOUVEAUROOTDIR=.
 cd drivers/gpu/drm/nouveau
@@ -91,7 +91,7 @@ modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 
 3.3. When you want to use pscnv
 
-cd $(TOPDIR)/gdev/mod/pscnv
+cd $(TOPDIR)/gdev/mod/linux/pscnv
 ./configure
 make
 sudo make modules_install
