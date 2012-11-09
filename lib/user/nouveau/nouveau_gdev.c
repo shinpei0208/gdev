@@ -40,12 +40,13 @@ void __nouveau_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int 
 {
 	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
 
-	push->cur = &ctx->fifo.pb_map[ctx->fifo.pb_pos/4];
+	push->cur = ctx->fifo.pb_map + ctx->fifo.pb_pos;
 	nouveau_pushbuf_kick(push, push->channel);
 }
 
 void __nouveau_fifo_update_get(struct gdev_ctx *ctx)
 {
+	printf("FIXME: need to update FIFO GET in a safe manner.");
 	ctx->fifo.pb_get = 0; /* FIXME */
 }
 
@@ -219,13 +220,17 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
 
-	ret = nouveau_pushbuf_new(client, chan, 1, 64 * 1024, true, &push);
+	ret = nouveau_pushbuf_new(client, chan, 1, 32 * 1024, true, &push);
 	if (ret)
 		goto fail_pushbuf;
 
-	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, GDEV_FENCE_BUF_SIZE, NULL, &push_bo);
+	/* this is redundant against the libdrm_nouveau's private pushbuffers, 
+	   but we ensure that we are independent of libdrm_nouveau, which is
+	   subject to change in the future. */
+	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, 32 * 1024, NULL, &push_bo);
 	if (ret)
 		goto fail_push_alloc;
+
 	ret = nouveau_bo_map(push_bo, NOUVEAU_BO_RDWR, client);
 	if (ret)
 		goto fail_push_map;

@@ -143,22 +143,11 @@ export PATH="/usr/local/gdev/bin:$PATH"
 #     ./configure --enable-nouveau-experimental-api --prefix=/usr/
 #     make
 #     sudo make install
-# Do you want to accelerate Xorg with nouveau? (you can skip this)
-#     cd $(TOPDIR)
-#     git clone git://anongit.freedesktop.org/git/nouveau/xf86-video-nouveau/ 
-#     cd xf86-video-nouveau
-#     LIBDRM_NOUVEAU_LIBS="$(pkg-config libdrm_nouveau --libs)" \
-#     LIBDRM_NOUVEAU_CFLAGS="$(pkg-config libdrm_nouveau --cflags)" \
-#     ./autogen.sh
-#     make
-#     sudo cp src/.libs/nouveau_drv.so /usr/lib{64}/xorg/modules/drivers
 cd $(TOPDIR)/gdev/lib
 mkdir build
 cd build
 ../configure --target=user
-EXTRA_LIBS="/path/to/libdrm_{nouveau,pscnv}" \
-EXTRA_CFLAG="/usr/include/libdrm" \
-make
+EXTRA_CFLAG="-I /usr/include/libdrm" make
 sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
@@ -192,6 +181,10 @@ sudo make install
 cd $(TOPDIR)/test/cuda/user/madd
 make
 ./user_test 256 # a[256] + b[256] = c[256]
+
+# In case that you use libdrm in the user space, you need to add the
+# following options when compiling your host program:
+# "-ldrm -ldrm_nouveau -L /usr/lib"
 
 8. CUDA Driver API test (kernel-space programs)
 
