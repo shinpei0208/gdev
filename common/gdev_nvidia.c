@@ -105,9 +105,6 @@ struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 		return NULL;
 	}
 
-	/* align the FIFO pointers. */
-	ctx->fifo.ib_get = ctx->fifo.ib_put = __gdev_read_fifo_reg(ctx, 0x88);
-
 	/* save the paraent object. */
 	ctx->vas = vas;
 

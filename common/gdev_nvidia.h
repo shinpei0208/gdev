@@ -152,6 +152,8 @@ struct gdev_ctx {
 		uint32_t pb_pos;
 		uint32_t pb_put;
 		uint32_t pb_get;
+		void (*push)(struct gdev_ctx *, uint64_t, uint32_t, int);
+		void (*update_get)(struct gdev_ctx *);
 	} fifo; /* command FIFO queue struct. */
 	struct gdev_fence { /* fence objects (for compute and dma). */
 		void *bo; /* driver private object. */
@@ -237,76 +239,21 @@ void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val);
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size);
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size);
 
-/**
- * FIFO control functions.
- */
-static inline void __gdev_relax_fifo(void)
-{
-	SCHED_YIELD();
-}
-
-static inline uint32_t __gdev_read_fifo_reg(struct gdev_ctx *ctx, uint32_t reg)
-{
-	/* don't forget (unsigned long) cast... */
-	return IOREAD32((unsigned long)ctx->fifo.regs + reg);
-}
-
-static inline void __gdev_write_fifo_reg(struct gdev_ctx *ctx, uint32_t reg, uint32_t val)
-{
-	/* don't forget (unsigned long) cast... */
-	IOWRITE32(val, (unsigned long)ctx->fifo.regs + reg);
-}
-
-static inline void __gdev_push_fifo(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
-{
-	uint64_t w = base | (uint64_t)len << 40 | (uint64_t)flags << 40;
-	while (((ctx->fifo.ib_put + 1) & ctx->fifo.ib_mask) == ctx->fifo.ib_get) {
-		uint32_t old = ctx->fifo.ib_get;
-		/* ctx->fifo.ib_get = ctx->fifo.regs[0x88/4]; */
-		ctx->fifo.ib_get = __gdev_read_fifo_reg(ctx, 0x88);
-		if (old == ctx->fifo.ib_get) {
-			__gdev_relax_fifo();
-		}
-	}
-	ctx->fifo.ib_map[ctx->fifo.ib_put * 2] = w;
-	ctx->fifo.ib_map[ctx->fifo.ib_put * 2 + 1] = w >> 32;
-	ctx->fifo.ib_put++;
-	ctx->fifo.ib_put &= ctx->fifo.ib_mask;
-	MB(); /* is this needed? */
-	ctx->dummy = ctx->fifo.ib_map[0]; /* flush writes */
-	/* ctx->fifo.regs[0x8c/4] = ctx->fifo.ib_put; */
-	__gdev_write_fifo_reg(ctx, 0x8c, ctx->fifo.ib_put);
-}
-
-static inline void __gdev_update_get(struct gdev_ctx *ctx)
-{
-	/* uint32_t lo = ctx->fifo.regs[0x58/4]; */
-	uint32_t lo = __gdev_read_fifo_reg(ctx, 0x58);
-	/* uint32_t hi = ctx->fifo.regs[0x5c/4]; */
-	uint32_t hi = __gdev_read_fifo_reg(ctx, 0x5c);
-	if (hi & 0x80000000) {
-		uint64_t mg = ((uint64_t)hi << 32 | lo) & 0xffffffffffull;
-		ctx->fifo.pb_get = mg - ctx->fifo.pb_base;
-	} else {
-		ctx->fifo.pb_get = 0;
-	}
-}
-
 static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 {
 	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
 		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
 			uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
 			uint32_t len = ctx->fifo.pb_pos - ctx->fifo.pb_put;
-			__gdev_push_fifo(ctx, base, len, 0);
+			ctx->fifo.push(ctx, base, len, 0);
 		}
 		else {
 			uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
 			uint32_t len = ctx->fifo.pb_size - ctx->fifo.pb_put;
-			__gdev_push_fifo(ctx, base, len, 0);
+			ctx->fifo.push(ctx, base, len, 0);
 			/* why need this? */
 			if (ctx->fifo.pb_pos) {
-				__gdev_push_fifo(ctx, ctx->fifo.pb_base, ctx->fifo.pb_pos, 0);
+				ctx->fifo.push(ctx, ctx->fifo.pb_base, ctx->fifo.pb_pos, 0);
 			}
 		}
 		ctx->fifo.pb_put = ctx->fifo.pb_pos;
@@ -318,9 +265,9 @@ static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
 	while (((ctx->fifo.pb_pos + 4) & ctx->fifo.pb_mask) == ctx->fifo.pb_get) {
 		uint32_t old = ctx->fifo.pb_get;
 		__gdev_fire_ring(ctx);
-		__gdev_update_get(ctx);
+		ctx->fifo.update_get(ctx);
 		if (old == ctx->fifo.pb_get) {
-			__gdev_relax_fifo();
+			SCHED_YIELD();
 		}
 	}
 	ctx->fifo.pb_map[ctx->fifo.pb_pos/4] = word;

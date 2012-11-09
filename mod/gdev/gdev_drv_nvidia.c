@@ -25,10 +25,11 @@
 #include "gdev_api.h"
 #include "gdev_device.h"
 #include "gdev_drv.h"
+#include "gdev_interface.h"
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
+#include "gdev_nvidia_fifo.h"
 #include "gdev_sched.h"
-#include "gdev_interface.h"
 
 /* open a new Gdev object associated with the specified device. */
 struct gdev_device *gdev_raw_dev_open(int minor)
@@ -119,6 +120,8 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->fifo.pb_pos = 0;
 	ctx->fifo.pb_put = 0;
 	ctx->fifo.pb_get = 0;
+	ctx->fifo.push = gdev_fifo_push;
+	ctx->fifo.update_get = gdev_fifo_update_get;
 
 	/* fence buffer. */
 	flags = GDEV_DRV_BO_SYSRAM | GDEV_DRV_BO_VSPACE | GDEV_DRV_BO_MAPPABLE;

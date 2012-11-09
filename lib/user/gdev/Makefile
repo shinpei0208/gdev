@@ -4,7 +4,7 @@ include Driver.mk
 
 CC = gcc
 TARGET = libgdev
-CFLAGS = -O2 -Wall
+CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
@@ -16,10 +16,10 @@ OBJS = 	$(DRIVER_NAME)_gdev.o lib$(DRIVER_NAME).o lib$(DRIVER_NAME)_ib.o \
 ZOMBIE  = $(wildcard ./*~)
 
 all: $(OBJS)
-	$(CC) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) 
+	$(CC) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
 
 %.o:%.c
-	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
+	$(CC) -fPIC -c $^ -o $@ $(CFLAGS) $(EXTRA_LIBS)
 
 install:
 	@if test ! -d $(GDEVDIR) ; then mkdir $(GDEVDIR) ; fi ;

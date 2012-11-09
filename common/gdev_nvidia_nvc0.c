@@ -424,7 +424,8 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
 	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
 
-#ifndef GDEV_DRIVER_NVI /* when using the blob, disable PCOPY. */
+	/* enable PCOPY only when we are in the kernel atm... */
+#ifdef __KERNEL__
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
 	__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
 #ifdef GDEV_NVIDIA_USE_PCOPY1

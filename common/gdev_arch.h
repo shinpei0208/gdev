@@ -32,7 +32,11 @@
 #include "gdev_conf.h"
 #include "gdev_time.h"
 
-struct gdev_device; /* prototype declaration */
+/**
+ * prototype declarations.
+ */
+struct gdev_device; 
+struct gdev_kernel;
 
 /**
  * Gdev types: they are not exposed to end users.

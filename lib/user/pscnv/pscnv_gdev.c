@@ -24,6 +24,8 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_nvidia.h"
+#include "gdev_nvidia_fifo.h"
 #include "libpscnv.h"
 #include "libpscnv_ib.h"
 #include "pscnv_drm.h"
@@ -188,6 +190,8 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fifo.pb_mask = (1 << ctx->fifo.pb_order) - 1;
 	ctx->fifo.pb_size = (1 << ctx->fifo.pb_order);
 	ctx->fifo.pb_pos = ctx->fifo.pb_put = ctx->fifo.pb_get = 0;
+	ctx->fifo.push = gdev_fifo_push;
+	ctx->fifo.update_get = gdev_fifo_update_get;
 
 	/* FIFO init: it has already been done in gdev_vas_new(). */
 
