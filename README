@@ -65,6 +65,9 @@ GPU device driver to use Gdev. Currently there exist two open-source
 device drivers available for NVIDIA GPUs: nouveau and pscnv.
 Take either Step 3.1, 3.2, or 3.3 below, depending on your preference.
 
+NOTE: In case that you are using Nouveau and you don't need first-class
+resource management in the OS, jump to Step 5.2 (skip Step 3 and 4). 
+
 3.1. When you use a very latest kernel (RECOMMENDED)
 
 cd $(TOPDIR)

@@ -425,12 +425,12 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
 
 	/* enable PCOPY only when we are in the kernel atm... */
-#ifdef __KERNEL__
+#ifndef __KERNEL__
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY0, 0, 1);
 	__gdev_out_ring(ctx, 0x490b5); /* PCOPY0 */
 #ifdef GDEV_NVIDIA_USE_PCOPY1
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
-	__gdev_out_ring(ctx, 0x590b8 /* 0x590b5 */); /* PCOPY1 */
+	__gdev_out_ring(ctx, 0x590b8); /* PCOPY1 */
 #endif
 #endif
 	__gdev_fire_ring(ctx);
