@@ -47,6 +47,14 @@ struct gdev_cuda_info {
 	uint64_t warp_size;
 };
 
+struct gdev_cuda_param {
+	int idx;
+	uint32_t offset;
+	uint32_t size;
+	uint32_t flags;
+	struct gdev_cuda_param *next;
+};
+
 struct gdev_cuda_raw_func {
 	char *name;
 	void *code_buf;
@@ -62,11 +70,7 @@ struct gdev_cuda_raw_func {
 	uint32_t param_base;
 	uint32_t param_size;
 	uint32_t param_count;
-	struct {
-		uint32_t offset;
-		uint32_t size;
-		uint32_t flags;
-	} *param_info;
+	struct gdev_cuda_param *param_data;
 	uint32_t local_size;
 	uint32_t local_size_neg;
 };

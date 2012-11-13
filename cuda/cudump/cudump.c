@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
 	struct CUmod_st mod;
 	struct CUfunc_st *func;
 	struct gdev_cuda_raw_func *f;
+	struct gdev_cuda_param *param_data;
 	const char *fname;
 	int i, j;
 
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
 	printf("\t\tuint32_t offset;\n");
 	printf("\t\tuint32_t size;\n");
 	printf("\t\tuint32_t flags;\n");
-	printf("\t} *param_info;\n");
+	printf("\t} *param_data;\n");
 	printf("\tuint32_t *param_buf;\n");
 	printf("\tuint32_t local_size;\n");
 	printf("\tuint32_t local_size_neg;\n");
@@ -137,11 +138,15 @@ int main(int argc, char *argv[])
 		printf("\t.param_base = 0x%x,\n", f->param_base);
 		printf("\t.param_size = 0x%x,\n", f->param_size);
 		printf("\t.param_count = 0x%x,\n", f->param_count);
-		printf("\t.param_info = {\n");
-		for (i = 0; i < f->param_count; i++) {
-			printf("\t\t{0x%x, 0x%x, 0x%x},\n", 
-				   f->param_info[i].offset, f->param_info[i].size, 
-				   f->param_info[i].flags);
+		printf("\t.param_data = {\n");
+		param_data = f->param_data;
+		while (param_data) {
+			printf("\t\t{%d, 0x%x, 0x%x, 0x%x},\n", 
+				   param_data->idx, 
+				   param_data->offset, 
+				   param_data->size, 
+				   param_data->flags);
+			param_data = param_data->next;
 		}
 		printf("\t},\n");
 		printf("\t.param_buf = NULL /* filled in later */,\n");

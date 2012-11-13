@@ -283,8 +283,8 @@ CUresult cuLaunchKernel
  void **kernelParams, void **extra)
 {
 	struct gdev_cuda_raw_func *rf;
+	struct gdev_cuda_param *param_data;
 	CUresult res;
-	int i;
 
 	if (hStream) {
 		GDEV_PRINT("cuLaunchKernel: Stream is not supported.\n");
@@ -305,11 +305,13 @@ CUresult cuLaunchKernel
 		return res;
 
 	rf = &f->raw_func;
-	for (i = 0; i < rf->param_count; i++) {
-		void *p = kernelParams[i];
-		int offset = rf->param_info[i].offset;
-		uint32_t size = rf->param_info[i].size;
+	param_data = rf->param_data;
+	while (param_data) {
+		void *p = kernelParams[param_data->idx];
+		int offset = param_data->offset;
+		uint32_t size = param_data->size;
 		cuParamSetv(f, offset, p, size);
+		param_data = param_data->next;
 	}
 
 	res = cuParamSetSize(f, rf->param_size);

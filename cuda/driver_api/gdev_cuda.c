@@ -120,7 +120,7 @@ static void unload_bin(char *bin, file_t *fp)
 static void cubin_func_skip(char **pos, section_entry_t *e)
 {
 	*pos += sizeof(section_entry_t);
-/* #define GDEV_DEBUG */
+/*#define GDEV_DEBUG*/
 #ifdef GDEV_DEBUG
 	printf("/* nv.info: ignore entry type: 0x%04x, size=0x%x */\n",
 		   e->type, e->size);
@@ -162,15 +162,6 @@ static int cubin_func_0a04
 	raw_func->param_size = ce->size;
 	*pos += e->size;
 
-	if (raw_func->param_count == 0 && !raw_func->param_info) {
-		raw_func->param_count = ce->size / 4;
-		raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
-		if (!raw_func->param_info) {
-			GDEV_PRINT("/* nv.info: entry type: 0x0a04: Out of memory */\n");
-			return -ENOMEM;
-		}
-	}
-
 	return 0;
 }
 
@@ -178,16 +169,7 @@ static int cubin_func_0c04
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
 	*pos += sizeof(section_entry_t);
-
-	if (raw_func->param_count == 0 && !raw_func->param_info) {
-		raw_func->param_count = e->size / 4;
-		raw_func->param_info = MALLOC(raw_func->param_count * sizeof(*raw_func->param_info));
-		if (!raw_func->param_info) {
-			GDEV_PRINT("/* nv.info: entry type: 0x0c04: Out of memory */\n");
-			return -ENOMEM;
-		}
-	}
-
+	/* e->size is a parameter size, but how can we use it here? */
 	*pos += e->size;
 
 	return 0;
@@ -212,14 +194,20 @@ static int cubin_func_1704
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
 	param_entry_t *pe;
+	struct gdev_cuda_param *param_data;
 
 	*pos += sizeof(section_entry_t);
 	pe = (param_entry_t *)*pos;
 
-	/* maybe useful to check parameter format later? */
-	raw_func->param_info[pe->idx].offset = pe->offset;
-	raw_func->param_info[pe->idx].size = pe->size >> 18;
-	raw_func->param_info[pe->idx].flags = pe->size & 0x2ffff;
+	param_data = (struct gdev_cuda_param *)MALLOC(sizeof(*param_data));
+	param_data->idx = pe->idx;
+	param_data->offset = pe->offset;
+	param_data->size = pe->size >> 18;
+	param_data->flags = pe->size & 0x2ffff;
+	
+	/* append to the head of the parameter data list. */
+	param_data->next = raw_func->param_data;
+	raw_func->param_data = param_data;
 
 	*pos += e->size;
 
@@ -229,18 +217,20 @@ static int cubin_func_1704
 static int cubin_func_1903
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
-	int i, ret;;
+	int ret;
 	char *pos2;
 
 	*pos += sizeof(section_entry_t);
 	pos2 = *pos;
 
-	for (i = 0; i < raw_func->param_count; i++) {
+	/* obtain parameters information. is this really safe? */
+	do {
 		section_entry_t *sh_e = (section_entry_t *)pos2;
-		ret = cubin_func_type(&pos2, sh_e, raw_func);
+		ret = cubin_func_1704(&pos2, sh_e, raw_func);
 		if (ret)
 			return ret;
-	}
+		raw_func->param_count++;
+	} while (((section_entry_t *)pos2)->type == 0x1704);
 
 	/* just check if the parameter size matches. */
 	if (raw_func->param_size != e->size) {
@@ -279,7 +269,7 @@ static int cubin_func_type
 		cubin_func_skip(pos, e);
 		break;
 	case 0x1803: /* kernel parameters itself (sm_13) */
-	case 0x1903: /* kernel parameters itself (sm_20) */
+	case 0x1903: /* kernel parameters itself (sm_20/sm_30) */
 		return cubin_func_1903(pos, e, raw_func);
 	case 0x1704: /* each parameter information */
 		return cubin_func_1704(pos, e, raw_func);
@@ -379,7 +369,7 @@ static void init_raw_func(struct gdev_cuda_raw_func *f)
 	f->param_base = 0;
 	f->param_size = 0;
 	f->param_count = 0;
-	f->param_info = NULL;
+	f->param_data = NULL;
 	f->local_size = 0;
 	f->local_size_neg = 0;
 }
@@ -388,12 +378,17 @@ static void destroy_all_functions(struct CUmod_st *mod)
 {
 	struct CUfunc_st *func;
 	struct gdev_cuda_raw_func *raw_func;
+	struct gdev_cuda_param *param_data;
 	struct gdev_list *p;
 	while ((p = gdev_list_head(&mod->func_list))) {
 		gdev_list_del(p);
 		func = gdev_list_container(p);
 		raw_func = &func->raw_func;
-		FREE(raw_func->param_info);
+		while (raw_func->param_data) {
+			param_data = raw_func->param_data;
+			raw_func->param_data = raw_func->param_data->next;
+			FREE(param_data);
+		}
 		FREE(func);
 	}
 }
