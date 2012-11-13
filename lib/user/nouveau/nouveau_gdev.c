@@ -118,10 +118,8 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	return gdev;
 
 fail_client:
-	printf("client\n");
 	nouveau_device_del(&dev);
 fail_device:
-	printf("open\n");
 	return NULL;
 }
 
@@ -226,8 +224,9 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 
 	/* this is redundant against the libdrm_nouveau's private pushbuffers, 
 	   but we ensure that we are independent of libdrm_nouveau, which is
-	   subject to change in the future. */
-	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, 32 * 1024, NULL, &push_bo);
+	   subject to change in the future. 
+	   NOTE: 32 * 1024 * 4 is required to avoid FIFO errors. no ideas... */
+	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, 32 * 1024 * 4, NULL, &push_bo);
 	if (ret)
 		goto fail_push_alloc;
 
@@ -235,7 +234,9 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (ret)
 		goto fail_push_map;
 
-	/* this is not really needed. */
+	memset(push_bo->map, 0, 32*1024);
+
+	/* no idea how to use it... */
 	ret = nouveau_bufctx_new(client, 1, &bufctx);
 	if (ret)
 		goto fail_bufctx;
@@ -287,6 +288,12 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->pctx = (void *)push;
 	/* context ID = channel ID. */
 	ctx->cid = vas->vid;
+
+	//nouveau_bufctx_refn(bufctx, 0, push_bo, push_bo->flags);
+	//nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_bo->flags);
+	//nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_bo->flags);
+	//nouveau_pushbuf_bufctx(push, (struct nouveau_bufctx *)push->user_priv);
+	//nouveau_pushbuf_validate(push);
 
 	return ctx;
 

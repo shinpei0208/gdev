@@ -33,7 +33,6 @@ void gdev_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags
 	uint64_t w = base | (uint64_t)len << 40 | (uint64_t)flags << 40;
 	while (((ctx->fifo.ib_put + 1) & ctx->fifo.ib_mask) == ctx->fifo.ib_get) {
 		uint32_t old = ctx->fifo.ib_get;
-		/* ctx->fifo.ib_get = ctx->fifo.regs[0x88/4]; */
 		ctx->fifo.ib_get = __gdev_fifo_read_reg(ctx, 0x88);
 		if (old == ctx->fifo.ib_get) {
 			SCHED_YIELD();
