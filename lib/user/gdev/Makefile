@@ -22,12 +22,12 @@ all: $(OBJS)
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS) $(EXTRA_LIBS)
 
 install:
-	@if test ! -d $(GDEVDIR) ; then mkdir $(GDEVDIR) ; fi ;
-	@if test ! -d $(GDEVDIR)/lib64 ; then mkdir $(GDEVDIR)/lib64 ; fi ;
-	@if test ! -d $(GDEVDIR)/include ; then mkdir $(GDEVDIR)/include ; fi ;
-	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
+	@if test ! -d $(GDEVDIR) ; then mkdir $(DESTDIR)/$(GDEVDIR) ; fi ;
+	@if test ! -d $(GDEVDIR)/lib64 ; then mkdir $(DESTDIR)/$(GDEVDIR)/lib64 ; fi ;
+	@if test ! -d $(GDEVDIR)/include ; then mkdir $(DESTDIR)/$(GDEVDIR)/include ; fi ;
+	cp -f ./$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
 	cp -f $(HEADERS) $(GDEVDIR)/include
 
 uninstall:
