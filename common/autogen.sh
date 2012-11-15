@@ -4,6 +4,8 @@ if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
 	driver='nvi'
 elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
 	driver='nouveau'
+elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
+	driver='nouveau'
 elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
 	driver='pscnv'
 else

@@ -12,19 +12,21 @@ CUDUMP_OBJS = cudump.o gdev_cuda.o
 ZOMBIE  = $(wildcard ./*~)
 
 all: $(OBJS)
-	$(CC) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) 
-	$(CC) $(CFLAGS) -o ./$(CUDUMP) $(CUDUMP).c gdev_cuda.c
+	$(CC) $(LDFLAGS)  -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) 
+	$(CC) $(LDFLAGS) $(CFLAGS) -o ./$(CUDUMP) $(CUDUMP).c gdev_cuda.c
 
 %.o:%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
 
 install:
-	@if test ! -d $(GDEVDIR)/bin ; then mkdir $(GDEVDIR)/bin ; fi ;
-	cp -f ./$(CUDUMP) $(GDEVDIR)/bin/
-	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
-	cp -f ./cuda.h $(GDEVDIR)/include
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/bin ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/bin ; fi ;
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/lib64 ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/lib64 ; fi ;
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/include ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/include ; fi ;
+	cp -f ./$(CUDUMP) $(DESTDIR)/$(GDEVDIR)/bin/
+	cp -f ./$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
+	cp -f ./cuda.h $(DESTDIR)/$(GDEVDIR)/include
 
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
