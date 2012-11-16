@@ -16,19 +16,19 @@ OBJS = 	$(DRIVER_NAME)_gdev.o lib$(DRIVER_NAME).o lib$(DRIVER_NAME)_ib.o \
 ZOMBIE  = $(wildcard ./*~)
 
 all: $(OBJS)
-	$(CC) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
+	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
 
 %.o:%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS) $(EXTRA_LIBS)
 
 install:
-	@if test ! -d $(GDEVDIR) ; then mkdir $(GDEVDIR) ; fi ;
-	@if test ! -d $(GDEVDIR)/lib64 ; then mkdir $(GDEVDIR)/lib64 ; fi ;
-	@if test ! -d $(GDEVDIR)/include ; then mkdir $(GDEVDIR)/include ; fi ;
-	cp -f ./$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(GDEVDIR)/lib64/$(TARGET).so.1
-	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(GDEVDIR)/lib64/$(TARGET).so
-	cp -f $(HEADERS) $(GDEVDIR)/include
+	@if test ! -d $(DESTDIR)/$(GDEVDIR) ; then mkdir $(DESTDIR)/$(GDEVDIR) ; fi ;
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/lib64 ; then mkdir $(DESTDIR)/$(GDEVDIR)/lib64 ; fi ;
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/include ; then mkdir $(DESTDIR)/$(GDEVDIR)/include ; fi ;
+	cp -f ./$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
+	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
+	cp -f $(HEADERS) $(DESTDIR)/$(GDEVDIR)/include
 
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
