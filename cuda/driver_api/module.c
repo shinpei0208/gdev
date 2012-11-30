@@ -76,7 +76,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	}
 
 	/* check compatibility of code and device. */
-	if ((ctx->cuda_info.chipset & 0xff) != mod->arch) {
+	if ((ctx->cuda_info.chipset & 0xf0) != mod->arch) {
 		res = CUDA_ERROR_INVALID_SOURCE;
 		goto fail_load_cubin;
 	}
