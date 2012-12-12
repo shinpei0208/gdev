@@ -39,7 +39,7 @@ $(TOPDIR) will represent your top working directory, henceforth.
 
 cd $(TOPDIR)
 git clone git://0x04.net/envytools.git
-git clone git://github.com/shinpei0208/gdev.git
+git clone git://github.com/CS005/gdev.git
 
 2. envytools
 
