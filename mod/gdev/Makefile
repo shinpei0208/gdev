@@ -7,9 +7,16 @@ obj-m := $(TARGET).o
 
 include $(PWD)/Driver.mk # export $(DRIVER_NAME)
 
-EXTRA_CFLAGS := -Iinclude/drm -I/usr/local/gdev/$(DRIVER_NAME) -D GDEV_SCHED_DISABLED
 SYSSRC = /lib/modules/$(shell uname -r)/build
-KBUILD_EXTRA_SYMBOLS = /usr/local/gdev/$(DRIVER_NAME)/Module.symvers
+
+ifeq ($(wildcard ($(SYSSRC)/drivers/gpu/drm/nouveau/gdev_interface.h)),)
+	GDEV_INTERFACE = $(SYSSRC)/drivers/gpu/drm/nouveau
+else
+	GDEV_INTERFACE = /usr/local/gdev/$(DRIVER_NAME)
+	KBUILD_EXTRA_SYMBOLS = $(GDEV_INTERFACE)/Module.symvers
+endif
+
+EXTRA_CFLAGS = -Iinclude/drm -I$(GDEV_INTERFACE) -DGDEV_SCHED_DISABLED
 
 all:
 	+make -C $(SYSSRC) M=$(PWD) modules

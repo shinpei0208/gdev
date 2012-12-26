@@ -1,18 +1,18 @@
 #!/bin/sh
 
+# detect the driver
 if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
-	driver='nvi'
+	driver="nvi"
 elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
-	driver='nouveau'
+	driver="nouveau"
 elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
-	driver='nouveau'
+	driver="nouveau"
 elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
-	driver='pscnv'
+	driver="pscnv"
 else
 	echo "Device driver not found"
 	exit
 fi
-
 echo "Device driver detected: $driver"
 
 # create Driver.mk

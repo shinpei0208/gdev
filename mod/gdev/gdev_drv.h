@@ -34,8 +34,12 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#include <linux/uaccess.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
 #include "drmP.h"
 #include "drm.h"
+#endif
 
 struct gdev_lock {
 	spinlock_t lock;
