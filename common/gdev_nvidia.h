@@ -53,7 +53,7 @@
  * map host and device memory if the allocated size is small.
  * it will help to reduce the cost of memcpy.
  */
-#define GDEV_MEM_MAPPABLE_LIMIT 0x1000 /* small page size */
+#define GDEV_MEM_MAPPABLE_LIMIT 0x400000 /* small page size 4MB */
 
 /**
  * virutal address space available for user buffers.

@@ -226,7 +226,7 @@ static int __gmemcpy_to_device_locked(gdev_ctx_t *ctx, uint64_t dst_addr, const 
 		if (id)
 			*id = 0;
 	}
-	else if (size <= GDEV_MEMCPY_IORW_LIMIT && mem->map) {
+	else if (size <= GDEV_MEMCPY_IOWRITE_LIMIT && mem->map) {
 		ret = gdev_write(mem, dst_addr, src_buf, size);
 		/* if @id is give while not asynchronous, give it zero. */
 		if (id)
@@ -437,7 +437,7 @@ static int __gmemcpy_from_device_locked(gdev_ctx_t *ctx, void *dst_buf, uint64_t
 		if (id)
 			*id = 0;
 	}
-	else if (size <= GDEV_MEMCPY_IORW_LIMIT && mem->map) {
+	else if (size <= GDEV_MEMCPY_IOREAD_LIMIT && mem->map) {
 		ret = gdev_read(mem, dst_buf, src_addr, size);
 		/* if @id is given despite not asynchronous, give it zero. */
 		if (id)

@@ -41,7 +41,8 @@
 
 #define GDEV_SWAP_MEM_SIZE 0x8000000 /* 128MB */
 
-#define GDEV_MEMCPY_IORW_LIMIT 0x400 /* bytes */
+#define GDEV_MEMCPY_IOREAD_LIMIT 0x1000 /* 4KB */
+#define GDEV_MEMCPY_IOWRITE_LIMIT 0x400000 /* 4MB */
 
 #define GDEV0_VIRTUAL_DEVICE_COUNT 4 /* # of virtual devices */
 #define GDEV1_VIRTUAL_DEVICE_COUNT 0 /* # of virtual devices */
