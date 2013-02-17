@@ -8,10 +8,15 @@ CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
-OBJS = 	$(DRIVER_NAME)_gdev.o lib$(DRIVER_NAME).o lib$(DRIVER_NAME)_ib.o \
-	gdev_lib.o \
+nvrm_OBJS = nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o
+
+gdev_OBJS = gdev_gdev.o libgdev.o libgdev_ib.o
+pscnv_OBJS = pscnv_gdev.o libpscnv.o libpscnv_ib.o
+nouveau_OBJS = nouveau_gdev.o libnouveau.o libnouveau_ib.o
+
+OBJS =	gdev_lib.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
-	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o 
+	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o $($(DRIVER_NAME)_OBJS)
 
 ZOMBIE  = $(wildcard ./*~)
 

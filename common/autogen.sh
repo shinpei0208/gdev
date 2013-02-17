@@ -2,7 +2,7 @@
 
 # detect the driver
 if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
-	driver="nvi"
+	driver="nvrm"
 elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
 	driver="nouveau"
 elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then

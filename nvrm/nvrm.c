@@ -1,0 +1,154 @@
+#include "nvrm_priv.h"
+#include "nvrm_class.h"
+#include "nvrm_mthd.h"
+#include "nvrm_def.h"
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+
+int nvrm_open_file(const char *fname) {
+	int res = open(fname, O_RDWR);
+	if (res < 0)
+		return res;
+	if (fcntl(res, F_SETFD, FD_CLOEXEC) < 0) {
+		close(res);
+		return -1;
+	}
+	return res;
+}
+
+struct nvrm_context *nvrm_open() {
+	struct nvrm_context *res = calloc(sizeof *res, 1);
+	if (!res)
+		return res;
+	res->fd_ctl = nvrm_open_file("/dev/nvidiactl");
+	if (res->fd_ctl < 0) {
+		free(res);
+		return 0;
+	}
+#if 0
+	if (nvrm_ioctl_check_version_str(res, NVRM_CHECK_VERSION_STR_CMD_STRICT, "313.18") != NVRM_CHECK_VERSION_STR_REPLY_RECOGNIZED) {
+		close(res->fd_ctl);
+		free(res);
+		return 0;
+	}
+	if (nvrm_ioctl_env_info(res, 0)) {
+		close(res->fd_ctl);
+		free(res);
+		return 0;
+	}
+	if (nvrm_ioctl_card_info(res)) {
+		close(res->fd_ctl);
+		free(res);
+		return 0;
+	}
+#endif
+	if (nvrm_create_cid(res)) {
+		close(res->fd_ctl);
+		free(res);
+		return 0;
+	}
+	uint32_t gpu_id[NVRM_MAX_DEV];
+	int i;
+	if (nvrm_mthd_context_list_devices(res, res->cid, gpu_id)) {
+		close(res->fd_ctl);
+		free(res);
+		return 0;
+	}
+	for (i = 0; i < NVRM_MAX_DEV; i++) {
+		res->devs[i].idx = i;
+		res->devs[i].ctx = res;
+		res->devs[i].gpu_id = gpu_id[i];
+	}
+	return res;
+}
+
+void nvrm_close(struct nvrm_context *ctx) {
+	close(ctx->fd_ctl);
+	free(ctx);
+}
+
+static int nvrm_xlat_device(struct nvrm_context *ctx, int idx) {
+	int i;
+	int oidx = idx;
+	for (i = 0; i < NVRM_MAX_DEV; i++)
+		if (ctx->devs[i].gpu_id != NVRM_GPU_ID_INVALID)
+			if (!idx--)
+				return i;
+	fprintf(stderr, "nvrm: tried accessing OOB device %d\n", oidx);
+	abort();
+}
+
+int nvrm_num_devices(struct nvrm_context *ctx) {
+	int i;
+	int cnt = 0;
+	for (i = 0; i < NVRM_MAX_DEV; i++)
+		if (ctx->devs[i].gpu_id != NVRM_GPU_ID_INVALID)
+			cnt++;
+	return cnt;
+}
+
+struct nvrm_device *nvrm_device_open(struct nvrm_context *ctx, int idx) {
+	idx = nvrm_xlat_device(ctx, idx);
+	struct nvrm_device *dev = &ctx->devs[idx];
+	if (dev->open++) {
+		if (!dev->open) {
+			fprintf(stderr, "nvrm: open counter overflow\n");
+			abort();
+		}
+		return 0;
+	}
+	if (nvrm_mthd_context_enable_device(ctx, ctx->cid, dev->gpu_id)) {
+		goto out_enable;
+	}
+	char buf[20];
+	snprintf(buf, 20, "/dev/nvidia%d", idx);
+	dev->fd = nvrm_open_file(buf);
+	if (dev->fd < 0)
+		goto out_open;
+#if 0
+	if (nvrm_ioctl_unk4d(ctx, ctx->cid))
+		goto out_unk4d;
+#endif
+	/* XXX */
+	uint32_t par[32] = { idx, ctx->cid };
+	dev->odev = nvrm_handle_alloc(ctx);
+	if (nvrm_ioctl_create(ctx, ctx->cid, dev->odev, NVRM_CLASS_DEVICE, par))
+		goto out_dev;
+	dev->osubdev = nvrm_handle_alloc(ctx);
+	if (nvrm_ioctl_create(ctx, dev->odev, dev->osubdev, NVRM_CLASS_SUBDEVICE, 0))
+		goto out_subdev;
+	return dev;
+
+out_subdev:
+	nvrm_handle_free(ctx, dev->osubdev);
+	nvrm_ioctl_destroy(ctx, ctx->cid, dev->odev);
+out_dev:
+	nvrm_handle_free(ctx, dev->odev);
+	close(dev->fd);
+out_open:
+	nvrm_mthd_context_disable_device(ctx, ctx->cid, dev->gpu_id);
+out_enable:
+	dev->open--;
+	return 0;
+}
+
+void nvrm_device_close(struct nvrm_device *dev) {
+	struct nvrm_context *ctx = dev->ctx;
+	int idx = dev->idx;
+	if (!dev->open) {
+		fprintf(stderr, "nvrm: closing closed device %d\n", idx);
+		abort();
+	}
+	if (--dev->open) {
+		return;
+	}
+	nvrm_ioctl_call(ctx, dev->osubdev, NVRM_MTHD_SUBDEVICE_UNK0146, 0, 0);
+	nvrm_ioctl_destroy(ctx, dev->odev, dev->osubdev);
+	nvrm_handle_free(ctx, dev->osubdev);
+	nvrm_ioctl_destroy(ctx, ctx->cid, dev->odev);
+	nvrm_handle_free(ctx, dev->odev);
+	close(dev->fd);
+	nvrm_mthd_context_disable_device(ctx, ctx->cid, dev->gpu_id);
+}
