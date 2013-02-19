@@ -79,7 +79,7 @@ int cuda_test_fmmul(unsigned int n, char *path)
 		return -1;
 	}
 
-	res = cuDeviceGet(&dev, 3);
+	res = cuDeviceGet(&dev, 0);
 	if (res != CUDA_SUCCESS) {
 		printf("cuDeviceGet failed: res = %lu\n", (unsigned long)res);
 		return -1;
