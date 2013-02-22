@@ -32,7 +32,6 @@ if [ $target = 'kernel' ] ; then
 elif [ $target = 'user' ] ; then
 	# copy driver-independent files
 	cp -f ../user/gdev/* .
-	cp -f ../../nvrm/* .
 	cp -f $topdir/$common/* .
 	if [ $(echo ${#driver}) -eq  0 ] ; then
 		# detect which driver to be used
