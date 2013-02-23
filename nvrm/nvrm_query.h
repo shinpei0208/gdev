@@ -36,7 +36,7 @@ struct nvrm_query_gpu_params {
 	uint32_t unk08;
 	uint32_t unk0c;
 	uint32_t unk10;
-	uint32_t unk14;
+	uint32_t compressible_vram_size;
 	uint32_t unk18;
 	uint32_t unk1c;
 	uint32_t unk20;

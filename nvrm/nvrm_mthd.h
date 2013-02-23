@@ -191,6 +191,14 @@ struct nvrm_mthd_subdevice_get_gpu_id {
 /* no param */
 #define NVRM_MTHD_SUBDEVICE_UNK0146 0x20800146
 
+struct nvrm_mthd_subdevice_get_fifo_joinable_engines {
+	uint32_t eng;
+	uint32_t cls;
+	uint32_t cnt;
+	uint32_t res[0x20];
+};
+#define NVRM_MTHD_SUBDEVICE_GET_FIFO_JOINABLE_ENGINES 0x20800147
+
 struct nvrm_mthd_subdevice_get_uuid {
 	uint32_t unk00;
 	uint32_t unk04;
@@ -234,12 +242,18 @@ struct nvrm_mthd_subdevice_unk1201 {
 };
 #define NVRM_MTHD_SUBDEVICE_UNK1201 0x20801201
 
-struct nvrm_mthd_subdevice_unk1301 {
+struct nvrm_mthd_subdevice_fb_get_params {
 	uint32_t cnt;
 	uint32_t _pad;
 	uint64_t ptr; /* key:value */
 };
-#define NVRM_MTHD_SUBDEVICE_UNK1301 0x20801301
+#define NVRM_PARAM_SUBDEVICE_FB_BUS_WIDTH	11
+#define NVRM_PARAM_SUBDEVICE_FB_UNK13		13	/* 5 for NV50; 8 for NVCF and NVE4 */
+#define NVRM_PARAM_SUBDEVICE_FB_UNK23		23	/* 0 */
+#define NVRM_PARAM_SUBDEVICE_FB_UNK24		24	/* 0 */
+#define NVRM_PARAM_SUBDEVICE_FB_PART_COUNT	25
+#define NVRM_PARAM_SUBDEVICE_FB_L2_CACHE_SIZE	27
+#define NVRM_MTHD_SUBDEVICE_FB_GET_PARAMS 0x20801301
 
 struct nvrm_mthd_subdevice_get_chipset {
 	uint32_t major;
@@ -256,12 +270,15 @@ struct nvrm_mthd_subdevice_get_bus_id {
 };
 #define NVRM_MTHD_SUBDEVICE_GET_BUS_ID 0x20801801
 
-struct nvrm_mthd_subdevice_unk1802 {
+struct nvrm_mthd_subdevice_bus_get_params {
 	uint32_t cnt;
 	uint32_t _pad;
 	uint64_t ptr; /* key:value */
 };
-#define NVRM_MTHD_SUBDEVICE_UNK1802 0x20801802
+#define NVRM_PARAM_SUBDEVICE_BUS_BUS_ID		29
+#define NVRM_PARAM_SUBDEVICE_BUS_DEV_ID		30
+#define NVRM_PARAM_SUBDEVICE_BUS_DOMAIN_ID	60
+#define NVRM_MTHD_SUBDEVICE_BUS_GET_PARAMS 0x20801802
 
 struct nvrm_mthd_subdevice_get_bus_info {
 	uint32_t unk00;
@@ -289,10 +306,13 @@ struct nvrm_mthd_subdevice_get_bus_info {
 };
 #define NVRM_MTHD_SUBDEVICE_GET_BUS_INFO 0x20801803
 
-struct nvrm_mthd_subdevice_unk1806 {
-	uint32_t unk00[0xa8/4]; /* out */
+struct nvrm_mthd_subdevice_get_vm_info {
+	uint32_t total_addr_bits;
+	uint32_t pde_addr_bits;
+	/* XXX: ... */
+	uint32_t unk00[0xa0/4]; /* out */
 };
-#define NVRM_MTHD_SUBDEVICE_UNK1806 0x20801806
+#define NVRM_MTHD_SUBDEVICE_GET_VM_INFO 0x20801806
 
 struct nvrm_mthd_subdevice_unk200a {
 	uint32_t unk00;
