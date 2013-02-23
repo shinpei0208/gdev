@@ -153,7 +153,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 
 	/* FIFO indirect buffer setup. */
 	ctx->fifo.ib_order = 10;
-	ctx->fifo.ib_bo = nvrm_bo_create(nvas, 8 << ctx->fifo.ib_order, /*1*/0); /* XXX */
+	ctx->fifo.ib_bo = nvrm_bo_create(nvas, 8 << ctx->fifo.ib_order, 1);
 	if (!ctx->fifo.ib_bo)
 		goto fail_ib;
 	ctx->fifo.ib_map = nvrm_bo_host_map(ctx->fifo.ib_bo);
@@ -165,7 +165,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fifo.pb_order = 18;
 	ctx->fifo.pb_mask = (1 << ctx->fifo.pb_order) - 1;
 	ctx->fifo.pb_size = (1 << ctx->fifo.pb_order);
-	ctx->fifo.pb_bo = nvrm_bo_create(nvas, ctx->fifo.pb_size, /*1*/0); /* XXX */
+	ctx->fifo.pb_bo = nvrm_bo_create(nvas, ctx->fifo.pb_size, 1);
 	if (!ctx->fifo.pb_bo)
 		goto fail_pb;
 	ctx->fifo.pb_map = nvrm_bo_host_map(ctx->fifo.pb_bo);
@@ -188,7 +188,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fifo.regs = nvrm_channel_host_map_regs(chan);
 
 	/* fence buffer. */
-	ctx->fence.bo = nvrm_bo_create(nvas, GDEV_FENCE_BUF_SIZE, /*1*/0);
+	ctx->fence.bo = nvrm_bo_create(nvas, GDEV_FENCE_BUF_SIZE, 1);
 	if (!ctx->fence.bo)
 		goto fail_fence_alloc;
 	ctx->fence.map = nvrm_bo_host_map(ctx->fence.bo);
@@ -239,9 +239,6 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	struct nvrm_vspace *nvas = vas->pvas;
 	struct nvrm_bo *bo;
 
-	/* XXX */
-	sysram = 0;
-	
 	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
 		goto fail_mem;
 
