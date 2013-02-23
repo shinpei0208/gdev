@@ -150,12 +150,12 @@ struct nvrm_mthd_subdevice_unk0119 {
 };
 #define NVRM_MTHD_SUBDEVICE_UNK0119 0x20800119
 
-struct nvrm_mthd_subdevice_unk0123 {
+struct nvrm_mthd_subdevice_get_fifo_engines {
 	uint32_t cnt;
 	uint32_t _pad;
-	uint64_t ptr;
+	uint64_t ptr; /* ints */
 };
-#define NVRM_MTHD_SUBDEVICE_UNK0123 0x20800123
+#define NVRM_MTHD_SUBDEVICE_GET_FIFO_ENGINES 0x20800123
 
 struct nvrm_mthd_subdevice_get_fifo_classes {
 	uint32_t eng;
