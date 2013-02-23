@@ -85,7 +85,7 @@ struct nvrm_create_fifo_ib {
 
 #define NVRM_CLASS_GR_NULL		0x0030
 
-#define NVRM_CLASS_GR_BETA1_NV1		0x0012
+#define NVRM_CLASS_GR_BETA_NV1		0x0012
 #define NVRM_CLASS_GR_CLIP_NV1		0x0019
 #define NVRM_CLASS_GR_ROP_NV3		0x0043
 #define NVRM_CLASS_GR_BETA4_NV4		0x0072
@@ -99,7 +99,7 @@ struct nvrm_create_fifo_ib {
 #define NVRM_CLASS_GR_LIN_NV30		0x305d
 #define NVRM_CLASS_GR_SIFC_NV30		0x3066
 #define NVRM_CLASS_GR_TEX_NV30		0x307b
-#define NVRM_CLASS_GR_SURF2D_G8		0x5062
+#define NVRM_CLASS_GR_SURF2D_G80	0x5062
 #define NVRM_CLASS_GR_SIFM_G80		0x5089
 
 #define NVRM_CLASS_GR_2D_G80		0x502d
@@ -111,6 +111,7 @@ struct nvrm_create_fifo_ib {
 #define NVRM_CLASS_GR_3D_G200		0x8397
 #define NVRM_CLASS_GR_3D_GT212		0x8597
 #define NVRM_CLASS_GR_COMPUTE_GT212	0x85c0
+#define NVRM_CLASS_GR_3D_MCP89		0x8697
 
 #define NVRM_CLASS_GR_2D_GF100		0x902d
 #define NVRM_CLASS_GR_M2MF_GF100	0x9039
@@ -122,7 +123,7 @@ struct nvrm_create_fifo_ib {
 #define NVRM_CLASS_GR_3D_GF110		0x9297
 
 #define NVRM_CLASS_GR_UPLOAD_GK104	0xa040
-#define NVRM_CLASS_GR_ENG3D_GK104	0xa097
+#define NVRM_CLASS_GR_3D_GK104		0xa097
 #define NVRM_CLASS_GR_COMPUTE_GK104	0xa0c0
 
 /* copy */
@@ -152,6 +153,7 @@ struct nvrm_create_copy {
 #define NVRM_CLASS_BSP_G74		0x74b0
 #define NVRM_CLASS_BSP_G98		0x88b1
 #define NVRM_CLASS_BSP_GT212		0x85b1
+#define NVRM_CLASS_BSP_MCP89		0x86b1
 #define NVRM_CLASS_BSP_GF100		0x90b1
 #define NVRM_CLASS_BSP_GF119		0x95b1
 
