@@ -24,6 +24,7 @@
 
 #include "nvrm_priv.h"
 #include "nvrm_class.h"
+#include "nvrm_mthd.h"
 #include <stdlib.h>
 #include <sys/mman.h>
 
@@ -53,14 +54,24 @@ struct nvrm_channel *nvrm_channel_create_ib(struct nvrm_vspace *vas, uint32_t cl
 	if (nvrm_ioctl_create(chan->ctx, chan->dev->odev, chan->ofifo, cls, &arg))
 		goto out_fifo;
 
-	if (nvrm_ioctl_host_map(chan->ctx, chan->dev->osubdev, chan->ofifo, 0, 0x1000, &chan->fifo_foffset))
+	if (nvrm_ioctl_host_map(chan->ctx, chan->dev->osubdev, chan->ofifo, 0, 0x200, &chan->fifo_foffset))
 		goto out_fifo_map;
-	chan->fifo_mmap = mmap(0, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, chan->dev->fd, chan->fifo_foffset);
+	chan->fifo_mmap = mmap(0, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, chan->dev->fd, chan->fifo_foffset & ~0xfff);
 	if (chan->fifo_mmap == MAP_FAILED)
 		goto out_mmap;
 
+	if (cls >= 0xa06f) {
+		struct nvrm_mthd_fifo_ib_start arg = {
+			1,
+		};
+		if (nvrm_ioctl_call(chan->ctx, chan->ofifo, NVRM_MTHD_FIFO_IB_START, &arg, sizeof arg))
+			goto out_start;
+	}
+
 	return chan;
 
+out_start:
+	munmap(chan->fifo_mmap, 0x1000);
 out_mmap:
 	nvrm_ioctl_host_unmap(chan->ctx, chan->dev->osubdev, chan->ofifo, chan->fifo_foffset);
 out_fifo_map:
@@ -96,7 +107,7 @@ void nvrm_channel_destroy(struct nvrm_channel *chan) {
 }
 
 void *nvrm_channel_host_map_regs(struct nvrm_channel *chan) {
-	return chan->fifo_mmap;
+	return chan->fifo_mmap + (chan->fifo_foffset & 0xfff);
 }
 
 void *nvrm_channel_host_map_errnot(struct nvrm_channel *chan);
