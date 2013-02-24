@@ -101,6 +101,16 @@ struct nvrm_mthd_device_unk0280 {
 };
 #define NVRM_MTHD_DEVICE_UNK0280 0x00800280
 
+struct nvrm_mthd_device_set_persistence_mode {
+	uint32_t mode;
+};
+#define NVRM_MTHD_DEVICE_SET_PERSISTENCE_MODE 0x00800287
+
+struct nvrm_mthd_device_get_persistence_mode {
+	uint32_t mode;
+};
+#define NVRM_MTHD_DEVICE_GET_PERSISTENCE_MODE 0x00800288
+
 struct nvrm_mthd_device_unk1102 {
 	uint32_t unk00;
 	uint32_t unk04;
@@ -164,10 +174,16 @@ struct nvrm_mthd_subdevice_get_fifo_classes {
 };
 #define NVRM_MTHD_SUBDEVICE_GET_FIFO_CLASSES 0x20800124
 
-struct nvrm_mthd_subdevice_unk0131 {
-	uint32_t unk00;
+struct nvrm_mthd_subdevice_set_compute_mode {
+	uint32_t mode;
+	uint32_t unk04;
 };
-#define NVRM_MTHD_SUBDEVICE_UNK0131 0x20800131
+#define NVRM_MTHD_SUBDEVICE_SET_COMPUTE_MODE 0x20800130
+
+struct nvrm_mthd_subdevice_get_compute_mode {
+	uint32_t mode;
+};
+#define NVRM_MTHD_SUBDEVICE_GET_COMPUTE_MODE 0x20800131
 
 struct nvrm_mthd_subdevice_get_gpc_mask {
 	uint32_t gpc_mask;
@@ -212,6 +228,11 @@ struct nvrm_mthd_subdevice_unk0303 {
 };
 #define NVRM_MTHD_SUBDEVICE_UNK0303 0x20800303
 
+struct nvrm_mthd_subdevice_get_time {
+	uint64_t time;
+};
+#define NVRM_MTHD_SUBDEVICE_GET_TIME 0x20800403
+
 struct nvrm_mthd_subdevice_unk0512 {
 	uint32_t unk00;
 	uint32_t unk04;
@@ -254,6 +275,16 @@ struct nvrm_mthd_subdevice_fb_get_params {
 #define NVRM_PARAM_SUBDEVICE_FB_PART_COUNT	25
 #define NVRM_PARAM_SUBDEVICE_FB_L2_CACHE_SIZE	27
 #define NVRM_MTHD_SUBDEVICE_FB_GET_PARAMS 0x20801301
+
+struct nvrm_mthd_subdevice_fb_get_surface_geometry {
+	uint32_t width; /* in */
+	uint32_t height; /* in */
+	uint32_t bpp; /* in/out */
+	uint32_t pitch; /* out */
+	uint32_t size; /* out */
+	uint32_t unk14;
+};
+#define NVRM_MTHD_SUBDEVICE_FB_GET_SURFACE_GEOMETRY 0x20801324
 
 struct nvrm_mthd_subdevice_get_chipset {
 	uint32_t major;

@@ -292,11 +292,13 @@ struct nvrm_ioctl_check_version_str {
 
 
 #define NVRM_STATUS_SUCCESS		0
+#define NVRM_STATUS_ALREADY_EXISTS_SUB	5	/* like 6, but for subdevice-relative stuff */
 #define NVRM_STATUS_ALREADY_EXISTS	6	/* tried to create object for eg. device that already has one */
 #define NVRM_STATUS_INVALID_PARAM	8	/* NULL param to create, ... */
 #define NVRM_STATUS_INVALID_DEVICE	11	/* NVRM_CLASS_DEVICE devid out of range */
 #define NVRM_STATUS_INVALID_MTHD	12	/* invalid mthd to call */
 #define NVRM_STATUS_OBJECT_ERROR	26	/* object model violation - wrong parent class, tried to create object with existing handle, nonexistent object, etc. */
+#define NVRM_STATUS_NO_HW		29	/* not supported on this card */
 #define NVRM_STATUS_MTHD_SIZE_MISMATCH	32	/* invalid param size for a mthd */
 #define NVRM_STATUS_ADDRESS_FAULT	34	/* basically -EFAULT */
 #define NVRM_STATUS_MTHD_CLASS_MISMATCH	41	/* invalid mthd for given class */

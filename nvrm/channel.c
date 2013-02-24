@@ -41,7 +41,7 @@ struct nvrm_channel *nvrm_channel_create_ib(struct nvrm_vspace *vas, uint32_t cl
 	if (nvrm_ioctl_memory(chan->ctx, chan->dev->odev, chan->dev->odev, chan->oerr, 0xd001, 0x3a000000, 0, 0x1000))
 		goto out_err;
 
-	if (nvrm_ioctl_create_dma(chan->ctx, chan->oerr, chan->oedma, NVRM_CLASS_MEMORY, 0x20100000, 0, 0xfff))
+	if (nvrm_ioctl_create_dma(chan->ctx, chan->oerr, chan->oedma, NVRM_CLASS_DMA_READ, 0x20100000, 0, 0xfff))
 		goto out_edma;
 
 	struct nvrm_create_fifo_ib arg = {

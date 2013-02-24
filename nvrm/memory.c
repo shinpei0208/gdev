@@ -36,9 +36,9 @@ struct nvrm_vspace *nvrm_vspace_create(struct nvrm_device *dev) {
 	vas->dev = dev;
 	vas->ovas = nvrm_handle_alloc(vas->ctx);
 	vas->odma = nvrm_handle_alloc(vas->ctx);
-	if (nvrm_ioctl_create_vspace(vas->dev, vas->dev->odev, vas->ovas, NVRM_CLASS_VSPACE, 0x00010000, &limit, 0))
+	if (nvrm_ioctl_create_vspace(vas->dev, vas->dev->odev, vas->ovas, NVRM_CLASS_MEMORY_VM, 0x00010000, &limit, 0))
 		goto out_vspace;
-	if (nvrm_ioctl_create_dma(vas->ctx, vas->ovas, vas->odma, NVRM_CLASS_MEMORY, 0x20000000, 0, limit))
+	if (nvrm_ioctl_create_dma(vas->ctx, vas->ovas, vas->odma, NVRM_CLASS_DMA_READ, 0x20000000, 0, limit))
 		goto out_dma;
 
 	return vas;

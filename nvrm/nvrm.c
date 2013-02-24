@@ -135,13 +135,15 @@ struct nvrm_device *nvrm_device_open(struct nvrm_context *ctx, int idx) {
 	if (nvrm_ioctl_unk4d(ctx, ctx->cid))
 		goto out_unk4d;
 #endif
-	/* XXX */
-	uint32_t par[32] = { idx, ctx->cid };
+	struct nvrm_create_device arg = {
+		.idx = idx,
+		.cid = ctx->cid,
+	};
 	dev->odev = nvrm_handle_alloc(ctx);
-	if (nvrm_ioctl_create(ctx, ctx->cid, dev->odev, NVRM_CLASS_DEVICE, par))
+	if (nvrm_ioctl_create(ctx, ctx->cid, dev->odev, NVRM_CLASS_DEVICE_0, &arg))
 		goto out_dev;
 	dev->osubdev = nvrm_handle_alloc(ctx);
-	if (nvrm_ioctl_create(ctx, dev->odev, dev->osubdev, NVRM_CLASS_SUBDEVICE, 0))
+	if (nvrm_ioctl_create(ctx, dev->odev, dev->osubdev, NVRM_CLASS_SUBDEVICE_0, 0))
 		goto out_subdev;
 	return dev;
 
