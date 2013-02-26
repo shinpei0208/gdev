@@ -408,6 +408,9 @@ static void nvc0_init(struct gdev_ctx *ctx)
 	uint64_t mp_limit;
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
+#if 1 /* add *//* axe */
+	struct gdev_subchannel *subch = (struct gdev_subchannel *)ctx->pdata;
+#endif
 
 	/* initialize the fence values. */
 	for (i = 0; i < GDEV_FENCE_COUNT; i++)
@@ -418,11 +421,19 @@ static void nvc0_init(struct gdev_ctx *ctx)
 		__gdev_out_ring(ctx, 0);
 	__gdev_fire_ring(ctx);
 
+#if 0 /* orig *//* axe */
 	/* setup subchannels. */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
 	__gdev_out_ring(ctx, 0x9039); /* M2MF */
 	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
 	__gdev_out_ring(ctx, 0x90c0); /* COMPUTE */
+#else
+	/* setup subchannels. */
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_M2MF, 0, 1);
+	__gdev_out_ring(ctx, subch->m2mf.oclass); /* M2MF */
+	__gdev_begin_ring_nvc0(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
+	__gdev_out_ring(ctx, subch->comp.oclass); /* COMPUTE */
+#endif
 
 	/* enable PCOPY only when we are in the kernel atm... */
 #ifdef __KERNEL__
