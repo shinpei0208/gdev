@@ -1,5 +1,5 @@
-#
-# Gdev: First-Class GPU Resource Management in the Operating System
+#####################################################################
+# Gdev: Open-Source GPGPU Runtime and Driver Software
 # 
 # README
 #
@@ -14,193 +14,78 @@
 # http://systems.soe.ucsc.edu
 #
 # All Rights Reserved.
-#
-#
-# This project is supported by PathScale Inc and Nouveau Community:
-# http://www.pathscale.com/
-# http://nouveau.freedesktop.org/
-#
+#####################################################################
 
-Gdev contains open-source device drivers and runtime libraries to 
-manage GPUs as first-class computing resources. Currently we support 
-NVIDIA's Fermi GPUs, but Gdev is certainly applicable to many compute
-devices and accelerators. Gdev provides two types of APIs. "Gdev API"
-is a low-level primitive that allows programmers to control the detail
-of GPU resource parameters, while Gdev also supports a high-level API,
-such as CUDA. Gdev is available for GPGPU and graphics applications -
-it is self-contained for GPGPU, but you may need additional packages,
-such as OpenGL, LIBDRM, and DDX, for graphics applications.
+Gdev is a rich set of open-source GPGPU runtime and driver software.
+Currently it supports NVIDIA GPUs but is also portable to other GPUs.
+The supported API implementaions include:
+1. "Gdev API": A low-level API to manage details of GPUs.
+2. "CUDA Driver API": A high-level API adovocated by NVIDIA, which is
+   built on top of Gdev API. 
+Leveraging Gdev API, you can add your favorite high-level API to Gdev
+other than CUDA Driver API. We will support CUDA Runtime API as well.
 
-Follow the instructions below to install Gdev. Some of the installation
-stages may require you to install additional tools and packages.
-$(TOPDIR) will represent your top working directory, henceforth.
+Gdev provides runtime support in both the device driver and the user-
+space library. Runtime support in the device driver is unique to Gdev
+while most of existing GPGPU programming frameworks take user-space 
+approaches. It allows the OS to manage GPUs as first-class citizens
+and execute CUDA programs by itself, using loadable kernel modules.
+Gdev's user-space runtime support is also unique in a sense that it 
+is available for multiple open-source and proprietary device drivers.
+The supported device drivers include:
+1. "Nouveau": An open-source driver developed by the Linux community.
+2. "PSCNV": An open-source driver developed by PathScale.
+3. "NVRM": A proprietary binary driver provided by NVIDIA.
 
-1. Download
+To summarize, Gdev offers the following advantages:
+- You have open-source access to GPGPU runtime and driver software.
+- You can execute CUDA in the OS using loabable kernel modules.
+- You can investigate GPU resource management in research.
+- You can enhance OS and user-space runtime support capabilities.
+- You can compare device drivers performance under the same runtime.
 
-cd $(TOPDIR)
-git clone git://0x04.net/envytools.git
-git clone git://github.com/CS005/gdev.git
 
-2. envytools
+#####################################################################
+# How to download, install, and use Gdev
+#####################################################################
 
-envytools is a rich set of open-source tools to compile or decompile
-NVIDIA GPU program code, firmware code, macro code, and so on. It is
-also used to generate C header files with GPU command definitions.
-In addition, envytools document the NVIDIA GPU architecture details,
-while are not disclosed to the public so far. If you are interested 
-in GPU system software development, this is what you should read!
-Please follow the instruction below to install envytools.
+Do you want to employ runtime support in the OS?
+ -> See docs/README.gdev
 
-cd $(TOPDIR)/envytools
-mkdir build
-cd build
-cmake .. # may require some packages on your distro
-make
-sudo make install # will install tools to /usr/local/{bin,lib}
+Do you want to use user-space runtime with Nouveau?
+ -> See docs/README.nouveau
 
-3. Device Driver
+Do you want to use user-space runtime with PSCNV?
+ -> See docs/README.pscnv
 
-Gdev disgregates from the device driver. You need to install a native
-GPU device driver to use Gdev. Currently there exist two open-source 
-device drivers available for NVIDIA GPUs: nouveau and pscnv.
-Take either Step 3.1, 3.2, or 3.3 below, depending on your preference.
+Do you want to use user-space runtime with NVRM (NVIDIA Driver)?
+ -> See docs/README.nvrm
 
-NOTE: In case that you are using Nouveau and you don't need first-class
-resource management in the OS, jump to Step 5.2 (skip Step 3 and 4). 
 
-3.1. When you use a very latest kernel (RECOMMENDED)
+#####################################################################
+# Related research papers 
+#####################################################################
 
-cd $(TOPDIR)
-git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
-cd linux-2.6
-git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
-git remote update
-git checkout -b nouveau-master nouveau/master
-patch -p1 < $(TOPDIR)/gdev/mod/linux/patches/gdev-nouveau-X.X.patch 
-make oldconfig
-make 
-sudo make modules_install install
-sudo shutdown -r now # will reboot your machine
+S. Kato, M. McThrow, C. Maltzahn, and S. Brandt. "Gdev: First-Class
+GPU Resource Management in the Operating System", In Proceedings of 
+the 2012 USENIX Annual Technical Conference (USENIX ATC'12), 2012.
 
-3.2. When you want to use the nouveau module alone
+Y. Abe, H. Sasaki, M. Peres, K. Inoue, K. Murakami, and S. Kato. 
+"Power and Performance Analysis of GPU-Accelerated Systems", In 
+Proceedings of the 5th UESNIX Workshop on Power-Aware Computing and
+Systems (HotPower'12) , 2012.
 
-cd $(TOPDIR)/gdev/mod/linux/nouveau-X.X
-make NOUVEAUROOTDIR=. # if make files, try Step 3.3.
-sudo make install NOUVEAUROOTDIR=.
-cd drivers/gpu/drm/nouveau
-sudo sh gdev.sh
-sudo shutdown -r now # will reboot your machine
+S. Kato. "Implementing Open-Source CUDA Runtime", In Proceedings of
+the 54th Programming Symposium, Jan, 2013.
 
-If you are not sure if Nouveau is loaded successfully, do:
-modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
+S. Kato, J. Aumiller, and S. Brandt. "Zero-Copy I/O Processing for 
+Low-Latency GPU Computing", In Proceedings of the 4th ACM/IEEE 
+International Conference on Cyber-Physical Systems (ICCPS'13), 2013.
 
-3.3. When you want to use pscnv
 
-cd $(TOPDIR)/gdev/mod/linux/pscnv
-./configure
-make
-sudo make modules_install
-sudo shutdown -r now # will reboot your machine
-
-4. Gdev Module
-
-Gdev is double-edge, i.e., it provides a runtime-unified operating
-system approach as well as a typical user-space runtime approach.
-The following installation is required only for the former.
-
-cd $(TOPDIR)/gdev/mod
-mkdir build
-cd build
-../configure
-make
-sudo insmod gdev.ko
-sudo sh gdev.sh
-
-5. Gdev Library
-
-Gdev's user-space library provides Gdev API. This API can be used
-by either user programs directly or another high-level API library.
-For instance, third party's CUDA library can use Gdev API.
-If you took Step 4, this library is just a set of wrapper functions
-that call the Gdev module functions via ioctl.
-Take either Step 5.1 or 5.2 below, depending on your preference.
-
-5.1. When you want to have the runtime in the OS
-
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure
-make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
-
-5.2. When you want to have the runtime in the user space
-
-# In case that you use nouveau, you need to install libdrm:
-#     cd $(TOPDIR)
-#     git clone git://anongit.freedesktop.org/git/mesa/drm/
-#     cd drm
-#     ./autogen.sh
-#     ./configure --enable-nouveau-experimental-api --prefix=/usr/
-#     make
-#     sudo make install
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure --target=user
-EXTRA_CFLAG="-I /usr/include/libdrm" make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
-
-6. CUDA Driver API
-
-Gdev currently supports a limited set of CUDA Driver API. We plan to 
-support a full set of CUDA Driver API in future work. If you need
-CUDA Runtime API, you should use some compiler framework, such as
-Ocelot, which can translate CUDA Drier API to Runtime API.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir build
-cd build
-../configure
-make
-sudo make install
-
-Gdev also supports CUDA in the operating system. You are required to
-install "kcuda" module to use this functionality.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir kbuild
-cd kbuild
-../configure --target=kcuda
-make
-sudo make install
-
-7. CUDA Driver API test (user-space programs)
-
-cd $(TOPDIR)/test/cuda/user/madd
-make
-./user_test 256 # a[256] + b[256] = c[256]
-
-# In case that you use libdrm in the user space, you need to add the
-# following options when compiling your host program:
-# "-ldrm -ldrm_nouveau -L /usr/lib"
-
-8. CUDA Driver API test (kernel-space programs)
-
-cd $(TOPDIR)/test/cuda/kernel/memcpy
-make
-sudo insmod ./kernel_test.ko size=10000 # copy 0x10000 size
-
-NOTE: Please be careful when doing this test as it runs a program
-in module_init(). If you run a very long program as it is, you may
-crash your system. If you want to run a very long program, you must
-provide a proper module implementation, e.g., using kernel threads.
-
-9. Reclock
+#####################################################################
+# Reclocking the GPU
+#####################################################################
 
 NVIDIA's graphics cards are set very low clocks by default. To get
 performance, you need to reclock your card at the maximum level.
@@ -220,7 +105,10 @@ level of performance as the blob, you can run some long-running
 CUDA program with the blob, and do kexec -f your kernel before the
 program is finished. Then the clock remains at the maximum level.
 
-10. Benchmarks and Applications
+
+#####################################################################
+# Benchmarks and Applications
+#####################################################################
 
 Gdev currently supports CUDA Driver API, while many CUDA programs you
 may find today are written using CUDA Runtime API. As mentioned above,
@@ -230,3 +118,24 @@ using CUDA Driver API so that you can quickly start using Gdev.
 Try downloading the following:
 git@github.com:shinpei0208/gdev-app.git
 git@github.com:shinpei0208/gdev-bench.git
+
+
+#####################################################################
+# Contributors
+#####################################################################
+
+ Yuki ABE, Kyushu University
+ Jason AUMILLER, University of California at Santa Cruz
+ Takuya AZUMI, Ritsumeikan University
+ Masato EDAHIRO, Nagoya University
+ Yusuke FUJII, Ritsumeikan University
+ Tsuyoshi HAMADA, Nagasaki University
+ Masaaki IWATA, AXE Inc.
+ Shinpei KATO, Nagoya University (Maintainer)
+ Marcin KOSCIELNICKI, University of Warsaw
+ Michael MCTHROW, University of California at Santa Cruz
+ Martin PERES, University of Bordeaux
+ Hiroshi SASAKI, Kyushu University
+ Yusuke SUZUKI, Keio University
+ Kaibo WANG, Ohio State University
+ Hiroshi YAMADA, Tokyo University of Agriculture and Technology
