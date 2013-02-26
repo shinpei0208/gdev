@@ -190,11 +190,11 @@ struct nvrm_mthd_subdevice_get_gpc_mask {
 };
 #define NVRM_MTHD_SUBDEVICE_GET_GPC_MASK 0x20800137
 
-struct nvrm_mthd_subdevice_get_tp_mask {
+struct nvrm_mthd_subdevice_get_gpc_tp_mask {
 	uint32_t gpc_id;
 	uint32_t tp_mask;
 };
-#define NVRM_MTHD_SUBDEVICE_GET_TP_MASK 0x20800138
+#define NVRM_MTHD_SUBDEVICE_GET_GPC_TP_MASK 0x20800138
 
 struct nvrm_mthd_subdevice_get_gpu_id {
 	uint32_t gpu_id;
@@ -362,11 +362,6 @@ struct nvrm_mthd_fifo_ib_object_info {
 #define NVRM_FIFO_ENG_COPY0 2
 };
 #define NVRM_MTHD_FIFO_IB_OBJECT_INFO 0x906f0101
-
-struct nvrm_mthd_fifo_ib_start {
-	uint8_t unk00;
-};
-#define NVRM_MTHD_FIFO_IB_START 0xa06f0103
 
 /* ??? */
 

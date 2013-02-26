@@ -41,6 +41,9 @@ int nvrm_num_devices(struct nvrm_context *ctx);
 struct nvrm_device *nvrm_device_open(struct nvrm_context *ctx, int idx);
 void nvrm_device_close(struct nvrm_device *dev);
 int nvrm_device_get_chipset(struct nvrm_device *dev, uint32_t *major, uint32_t *minor, uint32_t *stepping);
+int nvrm_device_get_gpc_mask(struct nvrm_device *dev, uint32_t *mask);
+int nvrm_device_get_gpc_tp_mask(struct nvrm_device *dev, int gpc_id, uint32_t *mask);
+int nvrm_device_get_total_tp_count(struct nvrm_device *dev, int *count);
 
 struct nvrm_vspace *nvrm_vspace_create(struct nvrm_device *dev);
 void nvrm_vspace_destroy(struct nvrm_vspace *vas);

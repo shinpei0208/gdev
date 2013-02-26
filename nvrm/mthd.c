@@ -63,3 +63,43 @@ int nvrm_device_get_chipset(struct nvrm_device *dev, uint32_t *major, uint32_t *
 	if (stepping) *stepping = arg.stepping;
 	return 0;
 }
+
+int nvrm_device_get_gpc_mask(struct nvrm_device *dev, uint32_t *mask) {
+	struct nvrm_mthd_subdevice_get_gpc_mask arg = {
+	};
+	int res = nvrm_ioctl_call(dev->ctx, dev->osubdev, NVRM_MTHD_SUBDEVICE_GET_GPC_MASK, &arg, sizeof arg);
+	if (res)
+		return res;
+	*mask = arg.gpc_mask;
+	return 0;
+}
+
+int nvrm_device_get_gpc_tp_mask(struct nvrm_device *dev, int gpc_id, uint32_t *mask) {
+	struct nvrm_mthd_subdevice_get_gpc_tp_mask arg = {
+		.gpc_id = gpc_id,
+	};
+	int res = nvrm_ioctl_call(dev->ctx, dev->osubdev, NVRM_MTHD_SUBDEVICE_GET_GPC_TP_MASK, &arg, sizeof arg);
+	if (res)
+		return res;
+	*mask = arg.tp_mask;
+	return 0;
+}
+
+int nvrm_device_get_total_tp_count(struct nvrm_device *dev, int *count) {
+	int c = 0;
+	uint32_t gpc_mask, tp_mask;
+	int res = nvrm_device_get_gpc_mask(dev, &gpc_mask);
+	if (res)
+		return res;
+	int i;
+	for (i = 0; gpc_mask; i++, gpc_mask >>= 1) {
+		if (gpc_mask & 1) {
+			res = nvrm_device_get_gpc_tp_mask(dev, i, &tp_mask);
+			if (res)
+				return res;
+			c += __builtin_popcount(tp_mask);
+		}
+	}
+	*count = c;
+	return 0;
+}
