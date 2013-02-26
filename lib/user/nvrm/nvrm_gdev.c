@@ -209,6 +209,10 @@ struct gdev_ctx *gdev_raw_ctx_new
 	if (!nvrm_eng_create(chan, NVRM_FIFO_ENG_GRAPH, ccls))
 		goto fail_eng;
 
+	/* bring it up */
+	if (nvrm_channel_activate(chan))
+		goto fail_activate;
+
 	/* FIFO command queue registers. */
 	ctx->fifo.regs = nvrm_channel_host_map_regs(chan);
 
@@ -234,6 +238,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 fail_notify_alloc:
 	nvrm_bo_destroy(ctx->fence.bo);
 fail_fence_alloc:
+fail_activate:
 fail_eng:
 	nvrm_channel_destroy(chan);
 fail_chan:
