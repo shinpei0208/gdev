@@ -35,6 +35,7 @@ struct nvrm_channel *nvrm_channel_create_ib(struct nvrm_vspace *vas, uint32_t cl
 	chan->ctx = vas->ctx;
 	chan->dev = vas->dev;
 	chan->vas = vas;
+	chan->cls = cls;
 	chan->oerr = nvrm_handle_alloc(chan->ctx);
 	chan->oedma = nvrm_handle_alloc(chan->ctx);
 	chan->ofifo = nvrm_handle_alloc(chan->ctx);
@@ -60,18 +61,8 @@ struct nvrm_channel *nvrm_channel_create_ib(struct nvrm_vspace *vas, uint32_t cl
 	if (chan->fifo_mmap == MAP_FAILED)
 		goto out_mmap;
 
-	if (cls >= 0xa06f) {
-		struct nvrm_mthd_fifo_ib_start arg = {
-			1,
-		};
-		if (nvrm_ioctl_call(chan->ctx, chan->ofifo, NVRM_MTHD_FIFO_IB_START, &arg, sizeof arg))
-			goto out_start;
-	}
-
 	return chan;
 
-out_start:
-	munmap(chan->fifo_mmap, 0x1000);
 out_mmap:
 	nvrm_ioctl_host_unmap(chan->ctx, chan->dev->osubdev, chan->ofifo, chan->fifo_foffset);
 out_fifo_map:
@@ -85,6 +76,16 @@ out_err:
 	nvrm_handle_free(chan->ctx, chan->oedma);
 	nvrm_handle_free(chan->ctx, chan->ofifo);
 out_alloc:
+	return 0;
+}
+
+int nvrm_channel_activate(struct nvrm_channel *chan) {
+	if (chan->cls >= 0xa06f) {
+		struct nvrm_mthd_fifo_ib_activate arg = {
+			1,
+		};
+		return nvrm_ioctl_call(chan->ctx, chan->ofifo, NVRM_MTHD_FIFO_IB_ACTIVATE, &arg, sizeof arg);
+	}
 	return 0;
 }
 

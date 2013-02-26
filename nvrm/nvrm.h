@@ -55,6 +55,7 @@ uint64_t nvrm_bo_gpu_addr(struct nvrm_bo *bo);
 void nvrm_bo_host_unmap(struct nvrm_bo *bo);
 
 struct nvrm_channel *nvrm_channel_create_ib(struct nvrm_vspace *vas, uint32_t cls, struct nvrm_bo *ib);
+int nvrm_channel_activate(struct nvrm_channel *chan);
 void nvrm_channel_destroy(struct nvrm_channel *chan);
 void *nvrm_channel_host_map_regs(struct nvrm_channel *chan);
 void *nvrm_channel_host_map_errnot(struct nvrm_channel *chan);

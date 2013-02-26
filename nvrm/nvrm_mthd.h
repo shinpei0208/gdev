@@ -363,10 +363,10 @@ struct nvrm_mthd_fifo_ib_object_info {
 };
 #define NVRM_MTHD_FIFO_IB_OBJECT_INFO 0x906f0101
 
-struct nvrm_mthd_fifo_ib_start {
+struct nvrm_mthd_fifo_ib_activate {
 	uint8_t unk00;
 };
-#define NVRM_MTHD_FIFO_IB_START 0xa06f0103
+#define NVRM_MTHD_FIFO_IB_ACTIVATE 0xa06f0103
 
 /* ??? */
 

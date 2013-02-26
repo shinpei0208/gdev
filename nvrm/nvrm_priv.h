@@ -82,6 +82,7 @@ struct nvrm_channel {
 	uint64_t fifo_foffset;
 	uint32_t oedma;
 	uint32_t oerr;
+	uint32_t cls;
 };
 
 struct nvrm_eng {
