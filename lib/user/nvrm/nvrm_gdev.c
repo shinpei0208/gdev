@@ -37,13 +37,14 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	struct nvrm_device *dev = gdev->priv;
 	uint32_t chip_major, chip_minor;
+	int count;
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		/* XXX */
-		*result = 4;
-		return 0;
-		goto fail;
+		if (nvrm_device_get_total_tp_count(dev, &count))
+			goto fail;
+		*result = count;
+		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		/* XXX */
 		goto fail;
