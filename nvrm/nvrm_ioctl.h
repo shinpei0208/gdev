@@ -196,7 +196,7 @@ struct nvrm_ioctl_vspace_map {
 	uint32_t dev;
 	uint32_t vspace;
 	uint32_t handle;
-	uint64_t unk10;
+	uint64_t base;
 	uint64_t size;
 	uint32_t flags;
 	uint32_t unk24;
@@ -211,8 +211,7 @@ struct nvrm_ioctl_vspace_unmap {
 	uint32_t dev;
 	uint32_t vspace;
 	uint32_t handle;
-	uint32_t unk10;
-	uint32_t unk14;
+	uint64_t unk10;
 	uint64_t addr;
 	uint32_t status;
 	uint32_t _pad;

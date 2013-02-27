@@ -107,7 +107,7 @@ int nvrm_ioctl_card_info(struct nvrm_context *ctx);
 int nvrm_ioctl_env_info(struct nvrm_context *ctx, uint32_t *pat_supported);
 int nvrm_ioctl_check_version_str(struct nvrm_context *ctx, uint32_t cmd, const char *vernum);
 int nvrm_ioctl_memory(struct nvrm_context *ctx, uint32_t parent, uint32_t vspace, uint32_t handle, uint32_t flags1, uint32_t flags2, uint64_t base, uint64_t size);
-int nvrm_ioctl_vspace_map(struct nvrm_context *ctx, uint32_t dev, uint32_t vspace, uint32_t handle, uint64_t size, uint64_t *addr);
+int nvrm_ioctl_vspace_map(struct nvrm_context *ctx, uint32_t dev, uint32_t vspace, uint32_t handle, uint64_t base, uint64_t size, uint64_t *addr);
 int nvrm_ioctl_vspace_unmap(struct nvrm_context *ctx, uint32_t dev, uint32_t vspace, uint32_t handle, uint64_t addr);
 int nvrm_ioctl_host_map(struct nvrm_context *ctx, uint32_t subdev, uint32_t handle, uint64_t base, uint64_t size, uint64_t *foffset);
 int nvrm_ioctl_host_unmap(struct nvrm_context *ctx, uint32_t subdev, uint32_t handle, uint64_t foffset);

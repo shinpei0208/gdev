@@ -162,12 +162,13 @@ int nvrm_ioctl_check_version_str(struct nvrm_context *ctx, uint32_t cmd, const c
 	return arg.reply;
 }
 
-int nvrm_ioctl_vspace_map(struct nvrm_context *ctx, uint32_t dev, uint32_t vspace, uint32_t handle, uint64_t size, uint64_t *addr) {
+int nvrm_ioctl_vspace_map(struct nvrm_context *ctx, uint32_t dev, uint32_t vspace, uint32_t handle, uint64_t base, uint64_t size, uint64_t *addr) {
 	struct nvrm_ioctl_vspace_map arg = {
 		.cid = ctx->cid,
 		.dev = dev,
 		.vspace = vspace,
 		.handle = handle,
+		.base = base,
 		.size = size,
 		.flags = 0x00000,
 		.status = 0,
