@@ -362,9 +362,8 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	return ctx;
 
 fail_comp:
-	nouveau_object_del(&comp);
-fail_m2mf:
 	nouveau_object_del(&m2mf);
+fail_m2mf:
 	free(ctx_objects);
 fail_ctx_objects:
 	nouveau_bo_ref(NULL, &notify_bo);
