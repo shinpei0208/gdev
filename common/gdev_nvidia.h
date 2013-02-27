@@ -127,19 +127,6 @@ struct gdev_vas {
 	int prio;
 };
 
-#if 1 /* add *//* axe */
-struct gdev_subchannel {
-	struct gdev_comp {
-		struct nouveau_object *object;
-		uint32_t oclass;
-	} comp;
-	struct gdev_m2mf {
-		struct nouveau_object *object;
-		uint32_t oclass;
-	} m2mf;
-};
-#endif
-
 /**
  * GPU context object struct:
  */
@@ -179,9 +166,7 @@ struct gdev_ctx {
 		uint64_t addr;
 	} notify;
 	uint32_t dummy;
-#if 1 /* add *//* axe */
-	void *pdata; /* private data object */
-#endif
+	void *pdata; /* arch-specific private data object. */
 };
 
 /**

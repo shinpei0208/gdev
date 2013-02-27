@@ -36,14 +36,15 @@
 
 #define GDEV_DEVICE_MAX_COUNT 32
 
+struct gdev_nouveau_ctx_objects {
+	struct nouveau_object *comp;
+	struct nouveau_object *m2mf;
+};
+
 void __nouveau_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
 {
 	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
 
-#if 0 /* orig *//* axe */
-	push->cur = ctx->fifo.pb_map + ctx->fifo.pb_pos;
-	nouveau_pushbuf_kick(push, push->channel);
-#else
 	int dwords = len / 4;
 	int p = ctx->fifo.pb_put / 4;
 	int max = ctx->fifo.pb_size / 4;
@@ -54,7 +55,6 @@ void __nouveau_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int 
 	}
 	ctx->fifo.pb_put = ctx->fifo.pb_pos;
 	nouveau_pushbuf_kick(push, push->channel);
-#endif
 }
 
 void __nouveau_fifo_update_get(struct gdev_ctx *ctx)
@@ -89,7 +89,6 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_CHIPSET_ID, result))
 			goto fail;
 		break;
-#if 1 /* add *//* axe */
 	case GDEV_QUERY_BUS_TYPE:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_BUS_TYPE, result))
 			goto fail;
@@ -98,7 +97,6 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_AGP_SIZE, result))
 			goto fail;
 		break;
-#endif
 	default:
 		goto fail;
 	}
@@ -121,11 +119,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdevs = malloc(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 		if (!gdevs)
 			return NULL;
-#if 0 /* orig *//* axe */
-		memset(gdevs, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT, 0);
-#else
 		memset(gdevs, 0, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
-#endif
 	}
 
 	gdev = &gdevs[minor];
@@ -191,9 +185,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 
 	if (!(vas = malloc(sizeof(*vas))))
 		goto fail_vas;
-#if 1 /* add *//* axe */
 	memset(vas, 0, sizeof(*vas));
-#endif
 
 	if (chipset < 0xc0) {
 		data = &nv04_data;
@@ -239,73 +231,48 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct nouveau_bo *push_bo;
 	struct nouveau_bo *fence_bo;
 	struct nouveau_bo *notify_bo;
-#if 1 /* add *//* axe */
 	unsigned int push_domain;
 	unsigned int fence_domain;
 	unsigned int notify_domain;
 	unsigned int push_flags;
 	unsigned int fence_flags;
-#endif
 	struct nouveau_bufctx *bufctx;
 	struct nouveau_pushbuf *push;
 	struct nouveau_object *chan = (struct nouveau_object *)vas->pvas;
 	struct nouveau_client *client = (struct nouveau_client *)gdev->priv;
 	struct nouveau_device *dev = client->device;
-#if 1 /* add *//* axe */
-	struct gdev_subchannel *subch;
+	struct gdev_nouveau_ctx_objects *ctx_objects;
 	struct nouveau_object *comp;
 	struct nouveau_object *m2mf;
 	uint32_t m2mf_class = 0;
 	uint32_t comp_class = 0;
-#endif
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
-#if 1 /* add *//* axe */
 	memset(ctx, 0, sizeof(*ctx));
-#endif
 
 	ret = nouveau_pushbuf_new(client, chan, 1, 32 * 1024, true, &push);
 	if (ret)
 		goto fail_pushbuf;
 
-#if 1 /* move *//* axe */
-	/* no idea how to use it... */
 	ret = nouveau_bufctx_new(client, 1, &bufctx);
 	if (ret)
 		goto fail_bufctx;
-#endif
 
 	/* this is redundant against the libdrm_nouveau's private pushbuffers, 
 	   but we ensure that we are independent of libdrm_nouveau, which is
-	   subject to change in the future. 
-	   NOTE: 32 * 1024 * 4 is required to avoid FIFO errors. no ideas... */
-#if 0 /* orig *//* axe */
-	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, 32 * 1024 * 4, NULL, &push_bo);
-#else
+	   subject to change in the future. */
 	push_domain = NOUVEAU_BO_GART;
 	ret = nouveau_bo_new(dev, push_domain | NOUVEAU_BO_MAP, 0, 32 * 1024, NULL, &push_bo);
-#endif
 	if (ret)
 		goto fail_push_alloc;
 
-#if 0 /* orig *//* axe */
-	ret = nouveau_bo_map(push_bo, NOUVEAU_BO_RDWR, client);
-#else
 	push_flags = NOUVEAU_BO_RDWR;
 	ret = nouveau_bo_map(push_bo, push_flags, client);
-#endif
 	if (ret)
 		goto fail_push_map;
 
 	memset(push_bo->map, 0, 32*1024);
-
-#if 0 /* orig *//* axe */
-	/* no idea how to use it... */
-	ret = nouveau_bufctx_new(client, 1, &bufctx);
-	if (ret)
-		goto fail_bufctx;
-#endif
 
 	push->user_priv = bufctx;
 
@@ -332,37 +299,23 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	/* FIFO command queue registers: DRM will take care of them */
 
 	/* fence buffer. */
-#if 0 /* orig *//* axe */
-	ret = nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, GDEV_FENCE_BUF_SIZE, NULL, &fence_bo);
-#else
 	fence_domain = NOUVEAU_BO_GART;
 	ret = nouveau_bo_new(dev, fence_domain | NOUVEAU_BO_MAP, 0, GDEV_FENCE_BUF_SIZE, NULL, &fence_bo);
-#endif
 	if (ret)
 		goto fail_fence_alloc;
-#if 0 /* orig *//* axe */
-	ret = nouveau_bo_map(fence_bo, NOUVEAU_BO_RDWR, client);
-#else
 	fence_flags = NOUVEAU_BO_RDWR;
 	ret = nouveau_bo_map(fence_bo, fence_flags, client);
-#endif
 	if (ret)
 		goto fail_fence_map;
-#if 1 /* add *//* axe */
 	memset(fence_bo->map, 0, GDEV_FENCE_BUF_SIZE);
-#endif
 	ctx->fence.bo = fence_bo;
 	ctx->fence.map = fence_bo->map;
 	ctx->fence.addr = fence_bo->offset;
 	ctx->fence.seq = 0;
 
 	/* interrupt buffer. */
-#if 0 /* orig *//* axe */
-	ret = nouveau_bo_new(dev, NOUVEAU_BO_VRAM, 0, 8 /* 64 bits */, NULL, &notify_bo);
-#else
 	notify_domain = NOUVEAU_BO_VRAM;
 	ret = nouveau_bo_new(dev, notify_domain, 0, 8 /* 64 bits */, NULL, &notify_bo);
-#endif
 	if (ret)
 		goto fail_notify_alloc;
 	ctx->notify.bo = notify_bo;
@@ -373,17 +326,11 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	/* context ID = channel ID. */
 	ctx->cid = vas->vid;
 
-#if 1 /* add *//* axe */
-	if (!(subch = malloc(sizeof(*subch))))
-		goto fail_subchan;
-	memset(subch, 0, sizeof(*subch));
+	if (!(ctx_objects = malloc(sizeof(*ctx_objects))))
+		goto fail_ctx_objects;
+	memset(ctx_objects, 0, sizeof(*ctx_objects));
 
 	/* allocating PGRAPH context for M2MF */
-#if 0 /* un-supported chipset */
-	if (gdev->chipset & 0xf0 < 0x50)
-		m2mf_class = 0x0039;
-	else
-#endif
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		m2mf_class = 0x5039;
 	else if ((gdev->chipset & 0xf0) < 0xe0)
@@ -392,8 +339,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		m2mf_class = 0xa040;
 	if (nouveau_object_new(chan, 0xbeef323f, m2mf_class, NULL, 0, &m2mf))
 		goto fail_m2mf;
-	subch->m2mf.object = m2mf;
-	subch->m2mf.oclass = m2mf_class;
+	ctx_objects->m2mf = m2mf;
 	/* allocating PGRAPH context for COMPUTE */
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		comp_class = 0x50c0;
@@ -403,50 +349,33 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		comp_class = 0xa0c0;
 	if (nouveau_object_new(chan, 0xbeef90c0, comp_class, NULL, 0, &comp))
 		goto fail_comp;
-	subch->comp.object = comp;
-	subch->comp.oclass = comp_class;
+	ctx_objects->comp = comp;
 
-	ctx->pdata = (void *)subch;
-#endif
+	ctx->pdata = (void *)ctx_objects;
 
-#if 0 /* orig *//* axe */
-	//nouveau_bufctx_refn(bufctx, 0, push_bo, push_bo->flags);
-	//nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_bo->flags);
-	//nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_bo->flags);
-	//nouveau_pushbuf_bufctx(push, (struct nouveau_bufctx *)push->user_priv);
-	//nouveau_pushbuf_validate(push);
-#else
 	nouveau_bufctx_refn(bufctx, 0, push_bo, push_domain | push_flags);
 	nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_domain | fence_flags);
 	nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_domain | NOUVEAU_BO_RDWR);
 	nouveau_pushbuf_bufctx(push, bufctx);
 	nouveau_pushbuf_validate(push);
-#endif
 
 	return ctx;
 
-#if 1 /* add *//* axe */
 fail_comp:
 	nouveau_object_del(&comp);
 fail_m2mf:
 	nouveau_object_del(&m2mf);
-	free(subch);
-fail_subchan:
+	free(ctx_objects);
+fail_ctx_objects:
 	nouveau_bo_ref(NULL, &notify_bo);
-#endif
 fail_notify_alloc:
 fail_fence_map:
 	nouveau_bo_ref(NULL, (struct nouveau_bo **)&fence_bo);
 fail_fence_alloc:
 	nouveau_bufctx_del(&bufctx);
-#if 0 /* orig *//* axe */
-fail_bufctx:
-#endif
 fail_push_map:
 	nouveau_bo_ref(NULL, &push_bo);
-#if 1 /* move *//* axe */
 fail_bufctx:
-#endif
 fail_push_alloc:
 	nouveau_pushbuf_del(&push);
 fail_pushbuf:
@@ -463,24 +392,18 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	struct nouveau_bo *push_bo = (struct nouveau_bo *)ctx->fifo.pb_bo;
 	struct nouveau_bo *fence_bo = (struct nouveau_bo *)ctx->fence.bo;
 	struct nouveau_bo *notify_bo = (struct nouveau_bo *)ctx->notify.bo;
-#if 1 /* add *//* axe */
-	struct gdev_subchannel *subch = (struct gdev_subchannel *)ctx->pdata;
-#endif
+	struct gdev_nouveau_ctx_objects *ctx_objects = (struct gdev_nouveau_ctx_objects *)ctx->pdata;
 
-#if 1 /* add *//* axe */
 	nouveau_bufctx_reset(bufctx, 0);
-#endif
 
 	nouveau_bo_ref(NULL, &notify_bo);
 	nouveau_bo_ref(NULL, &fence_bo);
 	nouveau_bo_ref(NULL, &push_bo);
 	nouveau_bufctx_del(&bufctx);
 	nouveau_pushbuf_del(&push);
-#if 1 /* add *//* axe */
-	nouveau_object_del(&subch->comp.object);
-	nouveau_object_del(&subch->m2mf.object);
-	free(subch);
-#endif
+	nouveau_object_del(&ctx_objects->comp);
+	nouveau_object_del(&ctx_objects->m2mf);
+	free(ctx_objects);
 	free(ctx);
 }
 
@@ -495,9 +418,7 @@ static struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size
 	
 	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
 		goto fail_mem;
-#if 1 /* add *//* axe */
 	memset(mem, 0, sizeof(*mem));
-#endif
 
 	if (nouveau_bo_new(dev, flags, 0, size, NULL, &bo))
 		goto fail_bo;

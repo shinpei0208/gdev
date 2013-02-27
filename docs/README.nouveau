@@ -60,7 +60,7 @@ cd $(TOPDIR)/gdev/lib
 mkdir build
 cd build
 ../configure --target=user
-EXTRA_CFLAG="-I /usr/include/libdrm" make
+EXTRA_CFLAGS="-I /usr/include/libdrm" make
 sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
