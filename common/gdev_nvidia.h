@@ -127,6 +127,19 @@ struct gdev_vas {
 	int prio;
 };
 
+#if 1 /* add *//* axe */
+struct gdev_subchannel {
+	struct gdev_comp {
+		struct nouveau_object *object;
+		uint32_t oclass;
+	} comp;
+	struct gdev_m2mf {
+		struct nouveau_object *object;
+		uint32_t oclass;
+	} m2mf;
+};
+#endif
+
 /**
  * GPU context object struct:
  */
@@ -166,6 +179,9 @@ struct gdev_ctx {
 		uint64_t addr;
 	} notify;
 	uint32_t dummy;
+#if 1 /* add *//* axe */
+	void *pdata; /* private data object */
+#endif
 };
 
 /**
@@ -241,6 +257,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 
 static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 {
+#if 0 /* orig *//* axe */
 	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
 		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
 			uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
@@ -258,6 +275,19 @@ static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 		}
 		ctx->fifo.pb_put = ctx->fifo.pb_pos;
 	}
+#else
+	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
+		uint64_t base = ctx->fifo.pb_base;
+		uint32_t len;
+		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
+			len = ctx->fifo.pb_pos - ctx->fifo.pb_put;
+		} else {
+			len = ctx->fifo.pb_size - ctx->fifo.pb_put;
+			len += ctx->fifo.pb_pos;
+		}
+		ctx->fifo.push(ctx, base, len, 0);
+	}
+#endif
 }
 
 static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
