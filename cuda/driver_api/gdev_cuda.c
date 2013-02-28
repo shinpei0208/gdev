@@ -404,6 +404,18 @@ static void destroy_all_symbols(struct CUmod_st *mod)
 	}
 }
 
+static void malloc_func_if_necessary(struct CUfunc_st **pfunc, char *name)
+{
+	if (!(*pfunc && (strcmp((*pfunc)->raw_func.name, name) == 0))) {
+		*pfunc = MALLOC(sizeof(**pfunc));
+		if (*pfunc) {
+			init_kernel(&(*pfunc)->kernel);
+			init_raw_func(&(*pfunc)->raw_func);
+			(*pfunc)->raw_func.name = name;
+		}
+	}
+}
+
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 {
 	Elf_Ehdr *ehead;
@@ -472,20 +484,17 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			sscanf(sh_name, "%*s%d", &nvrel_const_idx);
 			break;
 		default:
-			/* we assume that ".text.XXX" section appears first for each 
-			   function XXX. */
+			/* we never know what sections (.text.XXX, .info.XXX, etc.)
+			   appears first for each function XXX... */
 			if (!strncmp(sh_name, SH_TEXT, strlen(SH_TEXT))) {
-				/* we create a new function here. */
-				if (!(func = MALLOC(sizeof(*func))))
+				/* this function does nothing if func is already allocated. */
+				malloc_func_if_necessary(&func, sh_name + strlen(SH_TEXT));
+				if (!func)
 					goto fail_malloc_func;
-				init_kernel(&func->kernel);
-				init_raw_func(&func->raw_func);
 
-				/* from now on, raw_func is used to set up the function. */
 				raw_func = &func->raw_func;
 
 				/* basic information. */
-				raw_func->name = sh_name + strlen(SH_TEXT);
 				raw_func->code_buf = bin + sheads[i].sh_offset; /* ==sh */
 				raw_func->code_size = sheads[i].sh_size;
 				raw_func->reg_count = (sheads[i].sh_info >> 24) & 0x3f;
@@ -528,6 +537,13 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 			   NV50 doesn't support ".nv.info" section. 
 			   we also assume that ".nv.info.funcname" is an end mark. */
 			else if (!strncmp(sh_name, SH_INFO_FUNC, strlen(SH_INFO_FUNC))) {
+				/* this function does nothing if func is already allocated. */
+				malloc_func_if_necessary(&func, sh_name + strlen(SH_INFO_FUNC));
+				if (!func) 
+					goto fail_malloc_func;
+
+				raw_func = &func->raw_func;
+
 				/* look into the nv.info.@raw_func->name information. */
 				pos = (char *) sh;
 				while (pos < (char *) sh + sheads[i].sh_size) {
