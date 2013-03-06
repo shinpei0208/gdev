@@ -53,7 +53,8 @@ void __nouveau_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int 
 		*push->cur++ = ctx->fifo.pb_map[p++];
 		if (p >= max) p = 0;
 	}
-	ctx->fifo.pb_put = ctx->fifo.pb_pos;
+	ctx->fifo.pb_put += len;
+	ctx->fifo.pb_put &= ctx->fifo.pb_mask;
 	nouveau_pushbuf_kick(push, push->channel);
 }
 

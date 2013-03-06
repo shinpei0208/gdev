@@ -262,15 +262,19 @@ static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 	}
 #else
 	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
-		uint64_t base = ctx->fifo.pb_base;
+		uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
 		uint32_t len;
 		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
 			len = ctx->fifo.pb_pos - ctx->fifo.pb_put;
 		} else {
 			len = ctx->fifo.pb_size - ctx->fifo.pb_put;
-			len += ctx->fifo.pb_pos;
+			ctx->fifo.push(ctx, base, len, 0);
+			base = ctx->fifo.pb_base;
+			len = ctx->fifo.pb_pos;
 		}
-		ctx->fifo.push(ctx, base, len, 0);
+		if (len > 0)
+			ctx->fifo.push(ctx, base, len, 0);
+		ctx->fifo.pb_put = ctx->fifo.pb_pos;
 	}
 #endif
 }
