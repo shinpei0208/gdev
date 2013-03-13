@@ -37,7 +37,9 @@
 #define GDEV_DEVICE_MAX_COUNT 32
 
 struct gdev_nouveau_ctx_objects {
+#if 0 /* un-necessary */
 	struct nouveau_object *comp;
+#endif
 	struct nouveau_object *m2mf;
 };
 
@@ -243,10 +245,12 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct nouveau_client *client = (struct nouveau_client *)gdev->priv;
 	struct nouveau_device *dev = client->device;
 	struct gdev_nouveau_ctx_objects *ctx_objects;
-	struct nouveau_object *comp;
 	struct nouveau_object *m2mf;
 	uint32_t m2mf_class = 0;
+#if 0 /* un-necessary */
+	struct nouveau_object *comp;
 	uint32_t comp_class = 0;
+#endif
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
@@ -341,6 +345,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef323f, m2mf_class, NULL, 0, &m2mf))
 		goto fail_m2mf;
 	ctx_objects->m2mf = m2mf;
+#if 0 /* un-necessary */
 	/* allocating PGRAPH context for COMPUTE */
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		comp_class = 0x50c0;
@@ -351,6 +356,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef90c0, comp_class, NULL, 0, &comp))
 		goto fail_comp;
 	ctx_objects->comp = comp;
+#endif
 
 	ctx->pdata = (void *)ctx_objects;
 
@@ -362,8 +368,10 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 
 	return ctx;
 
+#if 0 /* un-necessary */
 fail_comp:
 	nouveau_object_del(&m2mf);
+#endif
 fail_m2mf:
 	free(ctx_objects);
 fail_ctx_objects:
@@ -401,7 +409,9 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	nouveau_bo_ref(NULL, &push_bo);
 	nouveau_bufctx_del(&bufctx);
 	nouveau_pushbuf_del(&push);
+#if 0 /* un-necessary */
 	nouveau_object_del(&ctx_objects->comp);
+#endif
 	nouveau_object_del(&ctx_objects->m2mf);
 	free(ctx_objects);
 	free(ctx);
