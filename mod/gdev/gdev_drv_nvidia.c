@@ -31,6 +31,12 @@
 #include "gdev_nvidia_fifo.h"
 #include "gdev_sched.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+struct gdev_drv_nv_ctx_objects {
+	struct drm_device *drm;
+};
+#endif
+
 /* open a new Gdev object associated with the specified device. */
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
@@ -90,6 +96,14 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct gdev_drv_bo fbo, nbo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	uint32_t flags;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	struct gdev_drv_nv_ctx_objects *ctx_objects;
+	void *comp;
+	void *m2mf;
+	uint32_t m2mf_class = 0;
+	uint32_t comp_class = 0;
+#endif
+
 
 	if (!(ctx = kzalloc(sizeof(*ctx), GFP_KERNEL)))
 		goto fail_ctx;
@@ -139,8 +153,44 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->notify.bo = nbo.priv;
 	ctx->notify.addr = nbo.addr;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	if (!(ctx_objects = kzalloc(sizeof(*ctx_objects), GFP_KERNEL)))
+		goto fail_ctx_objects;
+
+	ctx_objects->drm = drm;
+
+        /* allocating PGRAPH context for M2MF */
+	if ((gdev->chipset & 0xf0) < 0xc0)
+		m2mf_class = 0x5039;
+	else if ((gdev->chipset & 0xf0) < 0xe0)
+		m2mf_class = 0x9039;
+	else
+		m2mf_class = 0xa040;
+	if (gdev_drv_subch_alloc(drm, ctx->pctx, 0xbeef323f, m2mf_class, &m2mf))
+		goto fail_m2mf;
+	/* allocating PGRAPH context for COMPUTE */
+	if ((gdev->chipset & 0xf0) < 0xc0)
+		comp_class = 0x50c0;
+	else if ((gdev->chipset & 0xf0) < 0xe0)
+		comp_class = 0x90c0;
+	else
+		comp_class = 0xa0c0;
+	if (gdev_drv_subch_alloc(drm, ctx->pctx, 0xbeef90c0, comp_class, &comp))
+		goto fail_comp;
+
+	ctx->pdata = (void *)ctx_objects;
+#endif
+
 	return ctx;
 	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+fail_comp:
+	gdev_drv_subch_free(drm, ctx->pctx, 0xbeef323f);
+fail_m2mf:
+	kfree(ctx_objects);
+fail_ctx_objects:
+	gdev_drv_bo_free(&vspace, &nbo);
+#endif
 fail_notify_alloc:
 	gdev_drv_bo_free(&vspace, &fbo);
 fail_fence_alloc:
@@ -158,6 +208,9 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	struct gdev_drv_chan chan;
 	struct gdev_drv_bo fbo, nbo;
 	struct gdev_vas *vas = ctx->vas; 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	struct gdev_drv_nv_ctx_objects *ctx_objects = (struct gdev_drv_nv_ctx_objects *)ctx->pdata;
+#endif
 
 	vspace.priv = vas->pvas;
 
@@ -169,6 +222,12 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	fbo.addr = ctx->fence.addr;
 	fbo.map = ctx->fence.map;
 	gdev_drv_bo_free(&vspace, &fbo);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	gdev_drv_subch_free(ctx_objects->drm, ctx->pctx, 0xbeef90c0);
+	gdev_drv_subch_free(ctx_objects->drm, ctx->pctx, 0xbeef323f);
+	kfree(ctx_objects);
+#endif
 
 	chan.priv = ctx->pctx;
 	chan.ib_bo = ctx->fifo.ib_bo;
