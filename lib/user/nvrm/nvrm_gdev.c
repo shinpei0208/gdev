@@ -163,6 +163,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	uint32_t chipset = gdev->chipset;
 	uint32_t cls;
 	uint32_t ccls;
+	uint32_t accls = 0;
 
 	if (chipset < 0x80)
 		cls = 0x506f, ccls = 0x50c0;
@@ -170,8 +171,10 @@ struct gdev_ctx *gdev_raw_ctx_new
 		cls = 0x826f, ccls = 0x50c0;
 	else if (chipset < 0xe0)
 		cls = 0x906f, ccls = 0x90c0;
+	else if (chipset < 0xf0)
+		cls = 0xa06f, ccls = 0xa0c0, accls = 0xa0b5;
 	else
-		cls = 0xa06f, ccls = 0xa0c0;
+		cls = 0xa16f, ccls = 0xa1c0, accls = 0xa0b5;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
@@ -207,6 +210,10 @@ struct gdev_ctx *gdev_raw_ctx_new
 
 	/* gr init */
 	if (!nvrm_eng_create(chan, NVRM_FIFO_ENG_GRAPH, ccls))
+		goto fail_eng;
+
+	/* copy init */
+	if (accls && !nvrm_eng_create(chan, NVRM_FIFO_ENG_COPY2, accls))
 		goto fail_eng;
 
 	/* bring it up */
