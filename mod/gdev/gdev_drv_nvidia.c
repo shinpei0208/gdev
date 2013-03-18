@@ -32,7 +32,7 @@
 #include "gdev_sched.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-struct gdev_drv_nv_ctx_objects {
+struct gdev_drv_nvidia_pdata {
 	struct drm_device *drm;
 };
 #endif
@@ -97,11 +97,13 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	uint32_t flags;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	struct gdev_drv_nv_ctx_objects *ctx_objects;
-	void *comp;
+	struct gdev_drv_nvidia_pdata *pdata;
 	void *m2mf;
 	uint32_t m2mf_class = 0;
+#if 0 /* un-necessary */
+	void *comp;
 	uint32_t comp_class = 0;
+#endif
 #endif
 
 
@@ -154,10 +156,10 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->notify.addr = nbo.addr;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	if (!(ctx_objects = kzalloc(sizeof(*ctx_objects), GFP_KERNEL)))
+	if (!(pdata = kzalloc(sizeof(*pdata), GFP_KERNEL)))
 		goto fail_ctx_objects;
 
-	ctx_objects->drm = drm;
+	pdata->drm = drm;
 
         /* allocating PGRAPH context for M2MF */
 	if ((gdev->chipset & 0xf0) < 0xc0)
@@ -168,6 +170,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		m2mf_class = 0xa040;
 	if (gdev_drv_subch_alloc(drm, ctx->pctx, 0xbeef323f, m2mf_class, &m2mf))
 		goto fail_m2mf;
+#if 0 /* un-necessary */
 	/* allocating PGRAPH context for COMPUTE */
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		comp_class = 0x50c0;
@@ -177,17 +180,20 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		comp_class = 0xa0c0;
 	if (gdev_drv_subch_alloc(drm, ctx->pctx, 0xbeef90c0, comp_class, &comp))
 		goto fail_comp;
+#endif
 
-	ctx->pdata = (void *)ctx_objects;
+	ctx->pdata = (void *)pdata;
 #endif
 
 	return ctx;
 	
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#if 0 /* un-necessary */
 fail_comp:
 	gdev_drv_subch_free(drm, ctx->pctx, 0xbeef323f);
+#endif
 fail_m2mf:
-	kfree(ctx_objects);
+	kfree(pdata);
 fail_ctx_objects:
 	gdev_drv_bo_free(&vspace, &nbo);
 #endif
@@ -209,7 +215,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	struct gdev_drv_bo fbo, nbo;
 	struct gdev_vas *vas = ctx->vas; 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	struct gdev_drv_nv_ctx_objects *ctx_objects = (struct gdev_drv_nv_ctx_objects *)ctx->pdata;
+	struct gdev_drv_nvidia_pdata *pdata = (struct gdev_drv_nvidia_pdata *)ctx->pdata;
 #endif
 
 	vspace.priv = vas->pvas;
@@ -224,9 +230,11 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	gdev_drv_bo_free(&vspace, &fbo);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	gdev_drv_subch_free(ctx_objects->drm, ctx->pctx, 0xbeef90c0);
-	gdev_drv_subch_free(ctx_objects->drm, ctx->pctx, 0xbeef323f);
-	kfree(ctx_objects);
+#if 0 /* un-necessary */
+	gdev_drv_subch_free(pdata->drm, ctx->pctx, 0xbeef90c0);
+#endif
+	gdev_drv_subch_free(pdata->drm, ctx->pctx, 0xbeef323f);
+	kfree(pdata);
 #endif
 
 	chan.priv = ctx->pctx;
