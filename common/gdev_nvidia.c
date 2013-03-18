@@ -137,7 +137,7 @@ retry:
 		gdev_lock(&phys->global_lock);
 		if (phys->accessed) {
 			gdev_unlock(&phys->global_lock);
-			schedule_timeout(1);
+			SCHED_YIELD();
 			goto retry;
 		}
 		phys->blocked = 1;
@@ -147,7 +147,7 @@ retry:
 		gdev_lock(&gdev->global_lock);
 		if (gdev->accessed) {
 			gdev_unlock(&gdev->global_lock);
-			schedule_timeout(1);
+			SCHED_YIELD();
 			goto retry;
 		}
 		gdev->blocked = 1;
@@ -182,7 +182,7 @@ retry:
 		gdev_lock(&phys->global_lock);
 		if (phys->blocked) {
 			gdev_unlock(&phys->global_lock);
-			schedule_timeout(1);
+			SCHED_YIELD();
 			goto retry;
 		}
 		phys->accessed++;
@@ -192,7 +192,7 @@ retry:
 		gdev_lock(&gdev->global_lock);
 		if (gdev->blocked) {
 			gdev_unlock(&gdev->global_lock);
-			schedule_timeout(1);
+			SCHED_YIELD();
 			goto retry;
 		}
 		gdev->accessed++;

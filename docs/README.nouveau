@@ -49,6 +49,10 @@ Gdev's user-space library provides Gdev API. This API can be used
 by either user programs directly or another high-level API library.
 For instance, third party's CUDA libraries may use Gdev API.
 
+The Gdev user-space runtime library requires Nouveau's LIBDRM.
+You would need to install at least the following packages to build:
+    autoconf, automake, libtool, libxcb-devel, libpciaccess-devel
+
 cd $(TOPDIR)
 git clone git://anongit.freedesktop.org/git/mesa/drm/
 cd drm
@@ -56,6 +60,9 @@ cd drm
 ./configure --enable-nouveau-experimental-api --prefix=/usr/
 make
 sudo make install
+
+Now you build the Gdev user-space runtime library as follows:
+
 cd $(TOPDIR)/gdev/lib
 mkdir build
 cd build
