@@ -39,5 +39,10 @@ cat > gdev_autogen.h << EOF
  *
  */
 
+#ifndef __GDEV_AUTOGEN_H__
+#define __GDEV_AUTOGEN_H__
+
 #define GDEV_DRIVER_$DRIVER
+
+#endif
 EOF

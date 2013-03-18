@@ -6,7 +6,7 @@ CC = gcc
 TARGET = libgdev
 CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
 GDEVDIR	= /usr/local/gdev
-HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
+HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
 nvrm_OBJS = nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o
 

@@ -4,7 +4,7 @@ CC	= gcc
 TARGET	= libgdev
 CFLAGS	= -O3 -Wall
 GDEVDIR	= /usr/local/gdev
-HEADERS	= gdev_api.h gdev_nvidia_def.h gdev_list.h gdev_time.h
+HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 	= gdev_lib.o

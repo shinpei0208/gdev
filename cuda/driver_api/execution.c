@@ -26,6 +26,7 @@
 
 #include "cuda.h"
 #include "gdev_api.h"
+#include "gdev_autogen.h"
 #include "gdev_cuda.h"
 
 CUresult cuFuncGetAttribute
@@ -164,8 +165,13 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	k->grid_z = 1;
 	k->grid_id = ++ctx->launch_id;
 
+#ifdef GDEV_DRIVER_NOUVEAU /* this is a quick hack until Nouveau supports flexible vspace */
+	k->smem_base = 0xe << 24; 
+	k->lmem_base = 0xf << 24;
+#else
 	k->smem_base = gdev_cuda_align_base(0);
 	k->lmem_base = k->smem_base + gdev_cuda_align_base(k->smem_size);
+#endif
 
 	handle = gdev_ctx_current->gdev_handle;
 
