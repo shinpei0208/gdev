@@ -79,7 +79,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdevs = MALLOC(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 		if (!gdevs)
 			return NULL;
-		memset(gdevs, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT, 0);
+		memset(gdevs, 0, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 	}
 
 	gdev = &gdevs[minor];
