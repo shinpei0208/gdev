@@ -667,7 +667,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_dma.h b/drivers/gpu/drm/nouveau/nouv
   /* Object handles. */
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
 *** a/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-02-18 03:53:32.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-02-28 11:07:10.206970881 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-03-26 11:23:34.870190782 +0900
 ***************
 *** 70,75 ****
 --- 70,78 ----
@@ -680,6 +680,23 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   static u64
   nouveau_name(struct pci_dev *pdev)
   {
+***************
+*** 309,315 ****
+  
+  	if (device->card_type >= NV_50) {
+  		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
+! 				     0x1000, &drm->client.base.vm);
+  		if (ret)
+  			goto fail_device;
+  	}
+--- 312,318 ----
+  
+  	if (device->card_type >= NV_50) {
+  		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
+! 				     0x10000000/*0x1000*/, &drm->client.base.vm);
+  		if (ret)
+  			goto fail_device;
+  	}
 ***************
 *** 340,345 ****
 --- 343,359 ----
@@ -700,6 +717,23 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   	return 0;
   
   fail_dispinit:
+***************
+*** 520,526 ****
+  
+  	if (nv_device(drm->device)->card_type >= NV_50) {
+  		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
+! 				     0x1000, &cli->base.vm);
+  		if (ret) {
+  			nouveau_cli_destroy(cli);
+  			return ret;
+--- 534,540 ----
+  
+  	if (nv_device(drm->device)->card_type >= NV_50) {
+  		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
+! 				     0x10000000/*0x1000*/, &cli->base.vm);
+  		if (ret) {
+  			nouveau_cli_destroy(cli);
+  			return ret;
 ***************
 *** 665,673 ****
 --- 679,720 ----
