@@ -135,22 +135,22 @@ void gdev_block_start(struct gdev_device *gdev)
 retry:
 	if (phys) {
 		gdev_lock(&phys->global_lock);
-		if (phys->accessed) {
+		if (phys->accessed || phys->blocked) {
 			gdev_unlock(&phys->global_lock);
 			SCHED_YIELD();
 			goto retry;
 		}
-		phys->blocked = 1;
+		phys->blocked++;
 		gdev_unlock(&phys->global_lock);
 	}
 	else {
 		gdev_lock(&gdev->global_lock);
-		if (gdev->accessed) {
+		if (gdev->accessed || phys->blocked) {
 			gdev_unlock(&gdev->global_lock);
 			SCHED_YIELD();
 			goto retry;
 		}
-		gdev->blocked = 1;
+		gdev->blocked++;
 		gdev_unlock(&gdev->global_lock);
 	}
 }

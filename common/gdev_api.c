@@ -687,10 +687,15 @@ fail_open:
  */
 int gclose(struct gdev_handle *h)
 {
+	struct gdev_device *gdev=h->gdev;
+
 	if (!h)
 		return -ENOENT;
 	if (!h->gdev || !h->ctx || !h->vas)
 		return -ENOENT;
+	
+	/* none can access GPU while someone is closing device. */
+	gdev_block_start(gdev);
 
 #ifndef GDEV_SCHED_DISABLED
 	if (!h->se)
@@ -709,6 +714,9 @@ int gclose(struct gdev_handle *h)
 	/* free the objects. */
 	gdev_ctx_free(h->ctx);
 	gdev_vas_free(h->vas);
+	
+	gdev_block_end(gdev);
+	
 	gdev_dev_close(h->gdev);
 
 	GDEV_PRINT("Closed gdev%d\n", h->dev_id);
