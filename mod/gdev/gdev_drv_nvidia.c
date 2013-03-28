@@ -42,6 +42,21 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev = &gdev_vds[minor]; /* virutal device */
 
+	/* fix this */
+#if 1
+	struct gdev_device *phys = gdev->parent;
+	if(phys){
+retry:
+	    gdev_lock(&phys->global_lock);
+	    if(phys->users > GDEV_CONTEXT_LIMIT){
+		gdev_unlock(&phys->global_lock);
+		schedule_timeout(5);
+		goto retry;
+	    }
+	    phys->users++; 
+	    gdev_unlock(&phys->global_lock);
+	}
+#endif
 	gdev->users++;
 
 	return gdev;

@@ -31,6 +31,7 @@
 // #include "gdev_intel.h"
 
 #define GDEV_CONTEXT_MAX_COUNT 128 /* # of GPU contexts */
+#define GDEV_CONTEXT_LIMIT 16
 
 #define GDEV_PIPELINE_MAX_COUNT 4
 #define GDEV_PIPELINE_MIN_COUNT 1
