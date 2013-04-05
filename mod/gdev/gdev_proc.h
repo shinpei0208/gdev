@@ -31,5 +31,6 @@
 
 int gdev_proc_create(void);
 int gdev_proc_delete(void);
+int gdev_proc_minor_create(int vid);
 
 #endif

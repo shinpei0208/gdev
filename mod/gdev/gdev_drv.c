@@ -386,6 +386,8 @@ int gdev_minor_init(int physid)
 #ifndef GDEV_SCHED_DISABLED
 		gdev_init_scheduler(&gdev_vds[i]);
 #endif
+		/* create /proc/gdev/vd%d entries  */
+		gdev_proc_minor_create(i);
 	}
 
 	return 0;

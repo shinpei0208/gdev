@@ -146,7 +146,6 @@ static int gdev_proc_util_write(struct file *filp, const char __user *buf, unsig
 
 int gdev_proc_create(void)
 {
-	int i;
 	char name[256];
 
 	gdev_proc = proc_mkdir("gdev", NULL);
@@ -177,118 +176,16 @@ int gdev_proc_create(void)
 	proc_virt_dev_count->write_proc = NULL;
 	proc_virt_dev_count->data = (void*)&gdev_vcount;
 
-	/* virtual devices information */
+
+
+	/* allocate virtual devices information area*/
 	proc_vd = kzalloc(sizeof(*proc_vd) * gdev_vcount, GFP_KERNEL);
 	if (!proc_vd) {
 		GDEV_PRINT("Failed to create /proc/gdev/%s\n", name);
 		goto fail_alloc_proc_vd;
 	}
-	for (i = 0; i < gdev_vcount; i++) {
-		sprintf(name, "vd%d", i);
-		proc_vd[i].dir = proc_mkdir(name, gdev_proc);
-		if (!proc_vd[i].dir) {
-			GDEV_PRINT("Failed to create /proc/gdev/%s\n", name);
-			goto fail_proc_vd;
-		}
-
-		sprintf(name, "compute_bandwidth");
-		proc_vd[i].com_bw = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].com_bw) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].com_bw->read_proc = gdev_proc_util_read;
-		proc_vd[i].com_bw->write_proc = gdev_proc_util_write;
-		proc_vd[i].com_bw->data = (void*)&gdev_vds[i].com_bw;
-
-		sprintf(name, "memory_bandwidth");
-		proc_vd[i].mem_bw = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].mem_bw) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].mem_bw->read_proc = gdev_proc_util_read;
-		proc_vd[i].mem_bw->write_proc = gdev_proc_util_write;
-		proc_vd[i].mem_bw->data = (void*)&gdev_vds[i].mem_bw;
-
-		sprintf(name, "memory_share");
-		proc_vd[i].mem_sh = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].mem_sh) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].mem_sh->read_proc = gdev_proc_util_read;
-		proc_vd[i].mem_sh->write_proc = gdev_proc_util_write;
-		proc_vd[i].mem_sh->data = (void*)&gdev_vds[i].mem_sh;
-
-		sprintf(name, "period");
-		proc_vd[i].period = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].period) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].period->read_proc = gdev_proc_val_read;
-		proc_vd[i].period->write_proc = gdev_proc_val_write;
-		proc_vd[i].period->data = (void*)&gdev_vds[i].period;
-
-		sprintf(name, "compute_bandwidth_used");
-		proc_vd[i].com_bw_used = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].com_bw_used) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].com_bw_used->read_proc = gdev_proc_util_read;
-		proc_vd[i].com_bw_used->write_proc = NULL;
-		proc_vd[i].com_bw_used->data = (void*)&gdev_vds[i].com_bw_used;
-
-		sprintf(name, "memory_bandwidth_used");
-		proc_vd[i].mem_bw_used = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].mem_bw_used) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].mem_bw_used->read_proc = gdev_proc_util_read;
-		proc_vd[i].mem_bw_used->write_proc = NULL;
-		proc_vd[i].mem_bw_used->data = (void*)&gdev_vds[i].mem_bw_used;
-
-		sprintf(name, "phys");
-		proc_vd[i].phys = create_proc_entry(name, 0644, proc_vd[i].dir);
-		if (!proc_vd[i].phys) {
-			GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", i, name);
-			goto fail_proc_vd;
-		}
-		proc_vd[i].phys->read_proc = gdev_proc_val_read;
-		proc_vd[i].phys->write_proc = NULL;
-		proc_vd[i].phys->data = (void*)&gdev_vds[i].parent->id;
-	}
-
-	sema_init(&proc_sem, 1);
-
 	return 0;
 
-fail_proc_vd:
-	for (i = 0; i < gdev_vcount; i++) {
-		if (proc_vd[i].dir) {
-			sprintf(name, "gdev/vd%d", i);
-			remove_proc_entry(name, gdev_proc);
-		}
-		if (proc_vd[i].com_bw)
-			remove_proc_entry("compute_bandwidth", proc_vd[i].dir);
-		if (proc_vd[i].mem_bw)
-			remove_proc_entry("memory_bandwidth", proc_vd[i].dir);
-		if (proc_vd[i].mem_sh)
-			remove_proc_entry("memory_share", proc_vd[i].dir);
-		if (proc_vd[i].period)
-			remove_proc_entry("period", proc_vd[i].dir);
-		if (proc_vd[i].com_bw_used)
-			remove_proc_entry("compute_bandwidth_used", proc_vd[i].dir);
-		if (proc_vd[i].mem_bw_used)
-			remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
-		if (proc_vd[i].phys)
-			remove_proc_entry("phys", proc_vd[i].dir);
-	}
-	kfree(proc_vd);
-	proc_vd = NULL;
 fail_alloc_proc_vd:
 	remove_proc_entry("gdev/virtual_device_count", gdev_proc);
 fail_proc_virt_dev_count:
@@ -298,6 +195,123 @@ fail_proc_dev_count:
 	gdev_proc = NULL;
 fail_proc:
 	return -EINVAL;
+}
+
+int gdev_proc_minor_create(int vid)
+{
+    int i;
+    char name[256];
+ 
+
+    /* virtual devices information */
+    sprintf(name, "vd%d", vid);
+    proc_vd[vid].dir = proc_mkdir(name, gdev_proc);
+    if (!proc_vd[vid].dir) {
+	GDEV_PRINT("Failed to create /proc/gdev/%s\n", name);
+	goto fail_proc_vd;
+    }
+
+    sprintf(name, "compute_bandwidth");
+    proc_vd[vid].com_bw = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].com_bw) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].com_bw->read_proc = gdev_proc_util_read;
+    proc_vd[vid].com_bw->write_proc = gdev_proc_util_write;
+    proc_vd[vid].com_bw->data = (void*)&gdev_vds[vid].com_bw;
+
+    sprintf(name, "memory_bandwidth");
+    proc_vd[vid].mem_bw = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].mem_bw) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].mem_bw->read_proc = gdev_proc_util_read;
+    proc_vd[vid].mem_bw->write_proc = gdev_proc_util_write;
+    proc_vd[vid].mem_bw->data = (void*)&gdev_vds[vid].mem_bw;
+
+    sprintf(name, "memory_share");
+    proc_vd[vid].mem_sh = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].mem_sh) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].mem_sh->read_proc = gdev_proc_util_read;
+    proc_vd[vid].mem_sh->write_proc = gdev_proc_util_write;
+    proc_vd[vid].mem_sh->data = (void*)&gdev_vds[vid].mem_sh;
+
+    sprintf(name, "period");
+    proc_vd[vid].period = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].period) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].period->read_proc = gdev_proc_val_read;
+    proc_vd[vid].period->write_proc = gdev_proc_val_write;
+    proc_vd[vid].period->data = (void*)&gdev_vds[vid].period;
+
+    sprintf(name, "compute_bandwidth_used");
+    proc_vd[vid].com_bw_used = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].com_bw_used) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].com_bw_used->read_proc = gdev_proc_util_read;
+    proc_vd[vid].com_bw_used->write_proc = NULL;
+    proc_vd[vid].com_bw_used->data = (void*)&gdev_vds[vid].com_bw_used;
+
+    sprintf(name, "memory_bandwidth_used");
+    proc_vd[vid].mem_bw_used = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].mem_bw_used) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].mem_bw_used->read_proc = gdev_proc_util_read;
+    proc_vd[vid].mem_bw_used->write_proc = NULL;
+    proc_vd[vid].mem_bw_used->data = (void*)&gdev_vds[vid].mem_bw_used;
+
+    sprintf(name, "phys");
+    proc_vd[vid].phys = create_proc_entry(name, 0644, proc_vd[vid].dir);
+    if (!proc_vd[vid].phys) {
+	GDEV_PRINT("Failed to create /proc/gdev/vd%d/%s\n", vid, name);
+	goto fail_proc_vd;
+    }
+    proc_vd[vid].phys->read_proc = gdev_proc_val_read;
+    proc_vd[vid].phys->write_proc = NULL;
+    proc_vd[vid].phys->data = (void*)&gdev_vds[vid].parent->id;
+
+    sema_init(&proc_sem, 1);
+    return 0;
+
+fail_proc_vd:
+    for (i = 0; i < gdev_vcount; i++) {
+	if (proc_vd[vid].dir) {
+	    sprintf(name, "gdev/vd%d", i);
+	    remove_proc_entry(name, gdev_proc);
+	}
+	if (proc_vd[vid].com_bw)
+	    remove_proc_entry("compute_bandwidth", proc_vd[vid].dir);
+	if (proc_vd[vid].mem_bw)
+	    remove_proc_entry("memory_bandwidth", proc_vd[vid].dir);
+	if (proc_vd[vid].mem_sh)
+	    remove_proc_entry("memory_share", proc_vd[vid].dir);
+	if (proc_vd[vid].period)
+	    remove_proc_entry("period", proc_vd[vid].dir);
+	if (proc_vd[i].com_bw_used)
+	    remove_proc_entry("compute_bandwidth_used", proc_vd[i].dir);
+	if (proc_vd[i].mem_bw_used)
+	    remove_proc_entry("memory_bandwidth_used", proc_vd[i].dir);
+	if (proc_vd[i].phys)
+	    remove_proc_entry("phys", proc_vd[i].dir);
+    }
+    kfree(proc_vd);
+    proc_vd = NULL;
+    remove_proc_entry("gdev/virtual_device_count", gdev_proc);
+    remove_proc_entry("gdev/device_count", gdev_proc);
+    remove_proc_entry("gdev", NULL);
+    gdev_proc = NULL;
+    return -EINVAL;
 }
 
 int gdev_proc_delete(void)
