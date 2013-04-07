@@ -145,7 +145,7 @@ retry:
 	}
 	else {
 		gdev_lock(&gdev->global_lock);
-		if (gdev->accessed || phys->blocked) {
+		if (gdev->accessed || gdev->blocked) {
 			gdev_unlock(&gdev->global_lock);
 			SCHED_YIELD();
 			goto retry;
