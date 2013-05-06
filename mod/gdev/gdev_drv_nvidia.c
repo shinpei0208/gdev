@@ -65,6 +65,12 @@ retry:
 /* close the specified Gdev object. */
 void gdev_raw_dev_close(struct gdev_device *gdev)
 {
+#if 1
+	struct gdev_device *phys = gdev->parent;
+	if(phys){
+	    phys->users--;
+	}
+#endif
 	gdev->users--;
 }
 
