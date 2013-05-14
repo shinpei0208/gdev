@@ -46,10 +46,10 @@ diff -crN a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c b/drivers/gpu/drm/n
   		if (!handle || nv_call(handle->object, mthd, data)) {
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/gdev_interface.c
 *** a/drivers/gpu/drm/nouveau/gdev_interface.c	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.c	2013-03-28 17:05:10.548614079 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.c	2013-04-04 12:19:08.434149902 +0900
 ***************
 *** 0 ****
---- 1,506 ----
+--- 1,521 ----
 + #include <linux/module.h>
 + #include <linux/version.h>
 + #include <engine/graph.h>
@@ -512,6 +512,21 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + 		ret = nouveau_abi16_ioctl_getparam(drm, &getparam, NULL);
 + 		*res = getparam.value;
 + 		break;
++ 	case GDEV_DRV_GETPARAM_BUS_TYPE:
++ 		getparam.param = NOUVEAU_GETPARAM_BUS_TYPE;
++ 		ret = nouveau_abi16_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
++ 	case GDEV_DRV_GETPARAM_PCI_VENDOR:
++ 		getparam.param = NOUVEAU_GETPARAM_PCI_VENDOR;
++ 		ret = nouveau_abi16_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
++ 	case GDEV_DRV_GETPARAM_PCI_DEVICE:
++ 		getparam.param = NOUVEAU_GETPARAM_PCI_DEVICE;
++ 		ret = nouveau_abi16_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
 + 	default:
 + 		ret = -EINVAL;
 + 	}
@@ -558,10 +573,10 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + EXPORT_SYMBOL(gdev_drv_unsetnotify);
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/gdev_interface.h
 *** a/drivers/gpu/drm/nouveau/gdev_interface.h	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-03-04 13:50:33.445517727 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-04-04 12:19:48.268165355 +0900
 ***************
 *** 0 ****
---- 1,67 ----
+--- 1,70 ----
 + #ifndef __GDEV_INTERFACE_H__
 + #define __GDEV_INTERFACE_H__
 + 
@@ -576,6 +591,9 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + #define GDEV_DRV_GETPARAM_FB_SIZE 2
 + #define GDEV_DRV_GETPARAM_AGP_SIZE 3
 + #define GDEV_DRV_GETPARAM_CHIPSET_ID 4
++ #define GDEV_DRV_GETPARAM_BUS_TYPE 5
++ #define GDEV_DRV_GETPARAM_PCI_VENDOR 6
++ #define GDEV_DRV_GETPARAM_PCI_DEVICE 7
 + 
 + struct gdev_drv_vspace {
 + 	void *priv;
@@ -667,7 +685,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_dma.h b/drivers/gpu/drm/nouveau/nouv
   /* Object handles. */
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
 *** a/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-02-18 03:53:32.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-03-26 11:23:34.870190782 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-05-14 17:13:12.829441977 +0900
 ***************
 *** 70,75 ****
 --- 70,78 ----

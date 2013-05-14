@@ -53,15 +53,22 @@ CUresult cuFuncGetAttribute
  */
 CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	int nr_max_threads = ctx->cuda_info.warp_size * ctx->cuda_info.warp_count;
 	
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func || x <= 0 || y <= 0 || z <= 0 || x * y * z > nr_max_threads)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -89,14 +96,21 @@ CUresult cuFuncSetBlockShape(CUfunction hfunc, int x, int y, int z)
  */
 CUresult cuFuncSetSharedSize(CUfunction hfunc, unsigned int bytes)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -143,8 +157,10 @@ CUresult cuLaunch(CUfunction f)
  */
 CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 {
+	CUresult res;
 	struct CUfunc_st *func = f;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	struct gdev_cuda_fence *fence;
@@ -152,7 +168,12 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func || grid_width <= 0 || grid_height <= 0)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -173,7 +194,7 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	k->lmem_base = k->smem_base + gdev_cuda_align_base(k->smem_size);
 #endif
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = cur->gdev_handle;
 
 	if (glaunch(handle, k, &fence->id))
 		return CUDA_ERROR_LAUNCH_FAILED;
@@ -333,15 +354,22 @@ CUresult cuLaunchKernel
 
 CUresult cuParamSetf(CUfunction hfunc, int offset, float value)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -368,15 +396,22 @@ CUresult cuParamSetf(CUfunction hfunc, int offset, float value)
 */
 CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -402,15 +437,22 @@ CUresult cuParamSeti(CUfunction hfunc, int offset, unsigned int value)
  */
 CUresult cuParamSetSize(CUfunction hfunc, unsigned int numbytes)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -434,15 +476,22 @@ CUresult cuParamSetTexRef(CUfunction hfunc, int texunit, CUtexref hTexRef)
 CUresult cuParamSetv
 (CUfunction hfunc, int offset, void *ptr, unsigned int numbytes)
 {
+	CUresult res;
 	struct CUfunc_st *func = hfunc;
 	struct CUmod_st *mod = func->mod;
+	struct CUctx_st *cur;
 	struct CUctx_st *ctx = mod->ctx;
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!ctx || ctx != gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (!ctx || ctx != cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!func)
 		return CUDA_ERROR_INVALID_VALUE;

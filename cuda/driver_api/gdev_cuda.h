@@ -40,6 +40,8 @@
 #include "gdev_list.h"
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
 
+#include <pthread.h>
+
 struct gdev_cuda_info {
 	uint64_t chipset;
 	uint64_t mp_count;
@@ -93,9 +95,16 @@ struct CUctx_st {
 	Ghandle gdev_handle;
 	struct gdev_list list_entry; /* entry to ctx_list. */
 	struct gdev_list sync_list;
+	struct gdev_list event_list;
 	struct gdev_cuda_info cuda_info;
 	int launch_id;
 	int minor;
+	unsigned int flags;
+	int usage;
+	int destroyed;
+	pthread_t owner;
+	pthread_t user;
+	CUfunc_cache config;
 };
 
 struct CUmod_st {
@@ -133,12 +142,21 @@ struct CUsurfref_st {
 };
 
 struct CUevent_st {
+	int record;
+	int complete;
+	unsigned int flags;
+	struct timespec time;
+	struct CUctx_st *ctx;
+	struct CUstream_st *stream;
+	struct gdev_list list_entry;
 };
 
 struct CUstream_st {
 	Ghandle gdev_handle;
 	struct CUctx_st *ctx;
 	struct gdev_list sync_list; /* for gdev_cuda_fence.list_entry */
+	struct gdev_list event_list;
+	int wait;
 };
 
 struct CUgraphicsResource_st {
@@ -146,8 +164,8 @@ struct CUgraphicsResource_st {
 
 extern int gdev_initialized;
 extern int gdev_device_count;
-extern struct CUctx_st *gdev_ctx_current;
 extern struct gdev_list gdev_ctx_list;
+extern pthread_mutex_t gdev_ctx_list_mutex;
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);

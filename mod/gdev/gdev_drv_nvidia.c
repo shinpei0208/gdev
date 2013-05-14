@@ -598,6 +598,14 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *res)
 		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_AGP_SIZE, res);
 	case GDEV_QUERY_CHIPSET:
 		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_CHIPSET_ID, res);
+	case GDEV_QUERY_BUS_TYPE:
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_BUS_TYPE, res);
+	case GDEV_QUERY_AGP_SIZE:
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_AGP_SIZE, res);
+	case GDEV_QUERY_PCI_VENDOR:
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_PCI_VENDOR, res);
+	case GDEV_QUERY_PCI_DEVICE:
+		return gdev_drv_getparam(drm, GDEV_DRV_GETPARAM_PCI_DEVICE, res);
 	default:
 		return -EINVAL;
 	}

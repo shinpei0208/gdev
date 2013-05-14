@@ -90,6 +90,8 @@ uint64_t gvirtget(Ghandle h, const void *p);
 #if 1 /* add *//* axe */
 #define  GDEV_QUERY_BUS_TYPE 4
 #define  GDEV_QUERY_AGP_SIZE 5
+#define  GDEV_QUERY_PCI_VENDOR 6
+#define  GDEV_QUERY_PCI_DEVICE 7
 #endif
 
 /**

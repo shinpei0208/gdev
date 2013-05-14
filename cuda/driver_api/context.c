@@ -29,8 +29,8 @@
 #include "gdev_api.h"
 #include "gdev_list.h"
 
-struct CUctx_st *gdev_ctx_current = NULL;
 struct gdev_list gdev_ctx_list;
+pthread_mutex_t gdev_ctx_list_mutex;
 
 /**
  * Creates a new CUDA context and associates it with the calling thread. 
@@ -91,13 +91,14 @@ struct gdev_list gdev_ctx_list;
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_DEVICE, 
  * CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_OUT_OF_MEMORY, CUDA_ERROR_UNKNOWN 
  */
-CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
+CUresult cuCtxCreate_v2(CUcontext *pctx, unsigned int flags, CUdevice dev)
 {
 	CUresult res;
 	struct CUctx_st *ctx;
 	struct gdev_cuda_info *cuda_info;
 	Ghandle handle;
 	int minor = (int)dev;
+	int mp_count;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -125,10 +126,19 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_chipset;
 	}
+#if 0
 	if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &cuda_info->mp_count)) {
 		res = CUDA_ERROR_UNKNOWN;
 		goto fail_query_mp_count;
 	}
+#else
+	if ((res = cuDeviceGetAttribute(&mp_count,
+		CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev))
+		!= CUDA_SUCCESS) {
+		goto fail_query_mp_count;
+	}
+	cuda_info->mp_count = mp_count;
+#endif
 
 	/* FIXME: per-thread warp size and active warps */
 	switch (cuda_info->chipset & 0xf0) {
@@ -147,23 +157,33 @@ CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
 
 	/* save the current context to the stack, if necessary. */
 	gdev_list_init(&ctx->list_entry, ctx);
-	if (gdev_ctx_current) {
-		gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);		
-	}
 
 	/* initialize context synchronization list. */
 	gdev_list_init(&ctx->sync_list, NULL);
+	/* initialize context event list. */
+	gdev_list_init(&ctx->event_list, NULL);
 
 	/* we will trace # of kernels. */
 	ctx->launch_id = 0;
 	/* save the device ID. */
 	ctx->minor = minor;
 
-	gdev_ctx_current = ctx;	/* set to the current context. */
+	ctx->flags = flags;
+	ctx->usage = 0;
+	ctx->destroyed = 0;
+	ctx->owner = pthread_self();
+	ctx->user = (pthread_t)NULL;
+
+	/* set to the current context. */
+	res = cuCtxPushCurrent(ctx);
+	if (res != CUDA_SUCCESS)
+		goto fail_push_current;
+
 	*pctx = ctx;
 
 	return CUDA_SUCCESS;
 
+fail_push_current:
 fail_query_mp_count:
 fail_query_chipset:
 	gclose(handle);
@@ -171,6 +191,23 @@ fail_open_gdev:
 	FREE(ctx);
 fail_malloc_ctx:
 	return res;
+}
+CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev)
+{
+	return cuCtxCreate_v2(pctx, flags, dev);
+}
+
+static int freeDestroyedContext(CUcontext ctx)
+{
+	if (ctx->usage > 0)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	if (gclose(ctx->gdev_handle))
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	FREE(ctx);
+
+	return CUDA_SUCCESS;
 }
 
 /**
@@ -188,32 +225,28 @@ fail_malloc_ctx:
  */
 CUresult cuCtxDestroy(CUcontext ctx)
 {
-	struct gdev_list *list_head;
+	struct CUctx_st *cur = NULL;
+	CUresult res;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	/* wait for all on-the-fly kernels. */
-	cuCtxSynchronize();
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+	if (cur == ctx) {
+		res = cuCtxPopCurrent(&cur);
+		if (res != CUDA_SUCCESS)
+			return res;
+	}
 
-	if (gclose(ctx->gdev_handle))
-		return CUDA_ERROR_INVALID_CONTEXT;
+	ctx->destroyed = 1;
 
-	list_head = gdev_list_head(&gdev_ctx_list);
-	gdev_ctx_current = gdev_list_container(list_head);
-	if (gdev_ctx_current)
-		gdev_list_del(&gdev_ctx_current->list_entry);
+	if (cur)
+		return freeDestroyedContext(cur);
 
-	FREE(ctx);
-
-	return CUDA_SUCCESS;
-}
-
-CUresult cuCtxGetDevice(CUdevice *device)
-{
-	GDEV_PRINT("cuCtxGetDevice: Not Implemented Yet\n");
 	return CUDA_SUCCESS;
 }
 
@@ -226,6 +259,231 @@ CUresult cuCtxAttach(CUcontext *pctx, unsigned int flags)
 CUresult cuCtxDetach(CUcontext ctx)
 {
 	GDEV_PRINT("cuCtxDetach: Not Implemented Yet\n");
+	return CUDA_SUCCESS;
+}
+
+/**
+ * Returns a version number in version corresponding to the capabilities of
+ * the context (e.g. 3010 or 3020), which library developers can use to direct
+ * callers to a specific API version. If ctx is NULL, returns the API version
+ * used to create the currently bound context.
+ *
+ * Note that new API versions are only introduced when context capabilities
+ * are changed that break binary compatibility, so the API version and driver
+ * version may be different. For example, it is valid for the API version
+ * to be 3020 while the driver version is 4010.
+ *
+ * Parameters:
+ *     	ctx 	- Context to check
+ *     	version	- Pointer to version
+ *
+ * Returns:
+ *     	CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ *     	CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_UNKNOWN 
+ *
+ * Note:
+ *     	Note that this function may also return error codes from previous,
+ *     	asynchronous launches.
+ *
+ * See also:
+ *     	cuCtxCreate, cuCtxDestroy, cuCtxGetDevice, cuCtxGetLimit,
+ *     	cuCtxPopCurrent, cuCtxPushCurrent, cuCtxSetCacheConfig, cuCtxSetLimit,
+ *     	cuCtxSynchronize 
+ */
+CUresult cuCtxGetApiVersion(CUcontext ctx, unsigned int *version)
+{
+	*version = 3020; /* FIXME */
+
+	return CUDA_SUCCESS;
+}
+
+/**
+ * On devices where the L1 cache and shared memory use the same hardware
+ * resources, this function returns through pconfig the preferred cache
+ * configuration for the current context. This is only a preference.
+ * The driver will use the requested configuration if possible, but it is
+ * free to choose a different configuration if required to execute functions.
+ *
+ * This will return a pconfig of CU_FUNC_CACHE_PREFER_NONE on devices where
+ * the size of the L1 cache and shared memory are fixed.
+ *
+ * The supported cache configurations are:
+ *
+ *     CU_FUNC_CACHE_PREFER_NONE: no preference for shared memory or L1
+ *                                (default)
+ *     CU_FUNC_CACHE_PREFER_SHARED: prefer larger shared memory and smaller
+ *                                  L1 cache
+ *     CU_FUNC_CACHE_PREFER_L1: prefer larger L1 cache and smaller shared memory
+ *     CU_FUNC_CACHE_PREFER_EQUAL: prefer equal sized L1 cache and shared memory
+ *
+ * Parameters:
+ *     pconfig 	- Returned cache configuration
+ *
+ * Returns:
+ *     CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ *     CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ *
+ * Note:
+ *     Note that this function may also return error codes from previous,
+ *     asynchronous launches.
+ *
+ * See also:
+ *     cuCtxCreate, cuCtxDestroy, cuCtxGetApiVersion, cuCtxGetDevice,
+ *     cuCtxGetLimit, cuCtxPopCurrent, cuCtxPushCurrent, cuCtxSetCacheConfig,
+ *     cuCtxSetLimit, cuCtxSynchronize, cuFuncSetCacheConfig 
+ */
+CUresult cuCtxGetCacheConfig(CUfunc_cache *pconfig)
+{
+	CUresult res;
+	struct CUctx_st *ctx;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!pconfig)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	*pconfig = ctx->config;
+
+	return CUDA_SUCCESS;
+}
+
+/**
+ * Returns in *pctx the CUDA context bound to the calling CPU thread.
+ * If no context is bound to the calling CPU thread then *pctx is set to NULL
+ * and CUDA_SUCCESS is returned.
+ *
+ * Parameters:
+ *     	pctx 	- Returned context handle
+ *
+ * Returns:
+ *     	CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ *
+ * Note:
+ *     	Note that this function may also return error codes from previous,
+ *     	asynchronous launches.
+ *
+ * See also:
+ *     	cuCtxSetCurrent, cuCtxCreate, cuCtxDestroy 
+ */
+CUresult cuCtxGetCurrent(CUcontext *pctx)
+{
+	struct CUctx_st *ctx = NULL;
+	CUresult res;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!pctx)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	pthread_mutex_lock(&gdev_ctx_list_mutex);
+
+	gdev_list_for_each(ctx, &gdev_ctx_list, list_entry) {
+		if (ctx->user == pthread_self())
+			break;
+	}
+
+	pthread_mutex_unlock(&gdev_ctx_list_mutex);
+
+	if (ctx->destroyed) {
+		res = cuCtxPopCurrent(&ctx);
+		if (res != CUDA_SUCCESS)
+			return res;
+		res = freeDestroyedContext(ctx);
+		if (res != CUDA_SUCCESS)
+			return res;
+		*pctx = NULL;
+		return CUDA_ERROR_CONTEXT_IS_DESTROYED;
+	}
+
+	*pctx = ctx;
+
+	return CUDA_SUCCESS;
+}
+
+/**
+ * Returns in *device the ordinal of the current context's device.
+ *
+ * Parameters:
+ *     	device 	- Returned device ID for the current context
+ *
+ * Returns:
+ *     	CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ *     	CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
+ *
+ * Note:
+ *     	Note that this function may also return error codes from previous,
+ *     	asynchronous launches.
+ *
+ * See also:
+ *     	cuCtxCreate, cuCtxDestroy, cuCtxGetApiVersion, cuCtxGetCacheConfig,
+ *     	cuCtxGetLimit, cuCtxPopCurrent, cuCtxPushCurrent, cuCtxSetCacheConfig,
+ *     	cuCtxSetLimit, cuCtxSynchronize 
+ */
+CUresult cuCtxGetDevice(CUdevice *device)
+{
+	CUresult res;
+	struct CUctx_st *ctx;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!device)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	res = cuDeviceGet(device, ctx->minor);
+
+	return res;
+}
+
+/**
+ * Returns in *pvalue the current size of limit. The supported CUlimit values
+ * are:
+ *
+ *     CU_LIMIT_STACK_SIZE: stack size of each GPU thread;
+ *     CU_LIMIT_PRINTF_FIFO_SIZE: size of the FIFO used by the printf()
+ *                                device system call.
+ *     CU_LIMIT_MALLOC_HEAP_SIZE: size of the heap used by the malloc()
+ *                                and free() device system calls;
+ *
+ * Parameters:
+ *     limit 	- Limit to query
+ *     pvalue 	- Returned size in bytes of limit
+ *
+ * Returns:
+ *     CUDA_SUCCESS, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_UNSUPPORTED_LIMIT 
+ *
+ * Note:
+ *     Note that this function may also return error codes from previous,
+ *     asynchronous launches.
+ *
+ * See also:
+ *     cuCtxCreate, cuCtxDestroy, cuCtxGetApiVersion, cuCtxGetCacheConfig,
+ *     cuCtxGetDevice, cuCtxPopCurrent, cuCtxPushCurrent, cuCtxSetCacheConfig,
+ *     cuCtxSetLimit, cuCtxSynchronize 
+ */
+CUresult cuCtxGetLimit(size_t *pvalue, CUlimit limit)
+{
+	CUresult res;
+	struct CUctx_st *ctx;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!pvalue)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	GDEV_PRINT("cuCtxGetLimit: Not Implemented Yet\n");
+
 	return CUDA_SUCCESS;
 }
 
@@ -253,13 +511,17 @@ CUresult cuCtxPushCurrent(CUcontext ctx)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!ctx)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (!gdev_ctx_current)
+	if (ctx->usage)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
+	pthread_mutex_lock(&gdev_ctx_list_mutex);
+
 	/* save the current context to the stack. */
-	gdev_list_add(&gdev_ctx_current->list_entry, &gdev_ctx_list);
-	/* set @ctx to the current context. */
-	gdev_ctx_current = ctx;
+	ctx->usage++;
+	ctx->user = pthread_self();
+	gdev_list_add(&ctx->list_entry, &gdev_ctx_list);
+
+	pthread_mutex_unlock(&gdev_ctx_list_mutex);
 
 	return CUDA_SUCCESS;
 }
@@ -289,18 +551,214 @@ CUresult cuCtxPushCurrent(CUcontext ctx)
  */
 CUresult cuCtxPopCurrent(CUcontext *pctx)
 {
-	struct gdev_list *list_head;
+	struct CUctx_st *cur = NULL;
+	CUresult res;
+
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!pctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
-	*pctx = gdev_ctx_current;
-	list_head = gdev_list_head(&gdev_ctx_list);
-	gdev_ctx_current = gdev_list_container(list_head);
-	if (gdev_ctx_current)
-		gdev_list_del(&gdev_ctx_current->list_entry);
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+	if (!cur)
+		return CUDA_ERROR_INVALID_CONTEXT;
+
+	/* wait for all on-the-fly kernels. */
+	res = cuCtxSynchronize();
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	pthread_mutex_lock(&gdev_ctx_list_mutex);
+
+	gdev_list_del(&cur->list_entry);
+	cur->usage--;
+	cur->user = (pthread_t)NULL;
+
+	pthread_mutex_unlock(&gdev_ctx_list_mutex);
+
+	if (cur->destroyed) {
+		res = freeDestroyedContext(cur);
+		if (res != CUDA_SUCCESS)
+			return res;
+		*pctx = NULL;
+		return CUDA_ERROR_CONTEXT_IS_DESTROYED;
+	}
+
+	*pctx = cur;
 	
+	return CUDA_SUCCESS;
+}
+
+/**
+ * On devices where the L1 cache and shared memory use the same hardware
+ * resources, this sets through config the preferred cache configuration
+ * for the current context. This is only a preference.
+ * The driver will use the requested configuration if possible, but it is free
+ * to choose a different configuration if required to execute the function.
+ * Any function preference set via cuFuncSetCacheConfig() will be preferred
+ * over this context-wide setting. Setting the context-wide cache configuration
+ * to CU_FUNC_CACHE_PREFER_NONE will cause subsequent kernel launches to prefer
+ * to not change the cache configuration unless required to launch the kernel.
+ *
+ * This setting does nothing on devices where the size of the L1 cache and
+ * shared memory are fixed.
+ *
+ * Launching a kernel with a different preference than the most recent
+ * preference setting may insert a device-side synchronization point.
+ *
+ * The supported cache configurations are:
+ *
+ *     CU_FUNC_CACHE_PREFER_NONE: no preference for shared memory or L1
+ *                                (default)
+ *     CU_FUNC_CACHE_PREFER_SHARED: prefer larger shared memory and smaller
+ *                                  L1 cache
+ *     CU_FUNC_CACHE_PREFER_L1: prefer larger L1 cache and smaller shared memory
+ *     CU_FUNC_CACHE_PREFER_EQUAL: prefer equal sized L1 cache and shared memory
+ *
+ * Parameters:
+ *     config 	- Requested cache configuration
+ *
+ * Returns:
+ *     CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ *     CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ *
+ * Note:
+ *     Note that this function may also return error codes from previous,
+ *     asynchronous launches.
+ *
+ * See also:
+ *     cuCtxCreate, cuCtxDestroy, cuCtxGetApiVersion, cuCtxGetCacheConfig,
+ *     cuCtxGetDevice, cuCtxGetLimit, cuCtxPopCurrent, cuCtxPushCurrent,
+ *     cuCtxSetLimit, cuCtxSynchronize, cuFuncSetCacheConfig 
+ */
+CUresult cuCtxSetCacheConfig(CUfunc_cache config)
+{
+	CUresult res;
+	struct CUctx_st *ctx;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	ctx->config = config;
+
+	return CUDA_SUCCESS;
+}
+
+/**
+ * Binds the specified CUDA context to the calling CPU thread. If ctx is NULL
+ * then the CUDA context previously bound to the calling CPU thread is unbound
+ * and CUDA_SUCCESS is returned.
+ *
+ * If there exists a CUDA context stack on the calling CPU thread, this will
+ * replace the top of that stack with ctx. If ctx is NULL then this will be
+ * equivalent to popping the top of the calling CPU thread's CUDA context stack
+ * (or a no-op if the calling CPU thread's CUDA context stack is empty).
+ *
+ * Parameters:
+ *     ctx 	- Context to bind to the calling CPU thread
+ *
+ * Returns:
+ *     CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED,
+ *     CUDA_ERROR_INVALID_CONTEXT 
+ *
+ * Note:
+ *     Note that this function may also return error codes from previous,
+ *     asynchronous launches.
+ *
+ * See also:
+ *     cuCtxGetCurrent, cuCtxCreate, cuCtxDestroy 
+ */
+CUresult cuCtxSetCurrent(CUcontext ctx)
+{
+	CUresult res;
+	CUcontext cur;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+
+	res = cuCtxPopCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	if (ctx)
+		res = cuCtxPushCurrent(ctx);
+
+	return res;
+}
+
+/**
+ * Setting limit to value is a request by the application to update the
+ * current limit maintained by the context. The driver is free to modify
+ * the requested value to meet h/w requirements (this could be clamping to
+ * minimum or maximum values, rounding up to nearest element size, etc).
+ * The application can use cuCtxGetLimit() to find out exactly what the
+ * limit has been set to.
+ *
+ * Setting each CUlimit has its own specific restrictions, so each is
+ * discussed here.
+ *
+ *     CU_LIMIT_STACK_SIZE controls the stack size of each GPU thread.
+ *     This limit is only applicable to devices of compute capability 2.0 and
+ *     higher. Attempting to set this limit on devices of compute capability
+ *     less than 2.0 will result in the error CUDA_ERROR_UNSUPPORTED_LIMIT
+ *     being returned.
+ *
+ *     CU_LIMIT_PRINTF_FIFO_SIZE controls the size of the FIFO used by the
+ *     printf() device system call.
+ *     Setting CU_LIMIT_PRINTF_FIFO_SIZE must be performed before launching
+ *     any kernel that uses the printf() device system call, otherwise
+ *     CUDA_ERROR_INVALID_VALUE will be returned.
+ *     This limit is only applicable to devices of compute capability 2.0 and
+ *     higher. Attempting to set this limit on devices of compute capability
+ *     less than 2.0 will result in the error CUDA_ERROR_UNSUPPORTED_LIMIT
+ *     being returned.
+ *
+ *     CU_LIMIT_MALLOC_HEAP_SIZE controls the size of the heap used by the
+ *     malloc() and free() device system calls.
+ *     Setting CU_LIMIT_MALLOC_HEAP_SIZE must be performed before launching
+ *     any kernel that uses the malloc() or free() device system calls,
+ *     otherwise CUDA_ERROR_INVALID_VALUE will be returned.
+ *     This limit is only applicable to devices of compute capability 2.0 and
+ *     higher. Attempting to set this limit on devices of compute capability
+ *     less than 2.0 will result in the error CUDA_ERROR_UNSUPPORTED_LIMIT
+ *     being returned.
+ *
+ * Parameters:
+ *     limit 	- Limit to set
+ *     value 	- Size in bytes of limit
+ *
+ * Returns:
+ *     CUDA_SUCCESS, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_UNSUPPORTED_LIMIT 
+ *
+ * Note:
+ *     Note that this function may also return error codes from previous,
+ *     asynchronous launches.
+ *
+ * See also:
+ *     cuCtxCreate, cuCtxDestroy, cuCtxGetApiVersion, cuCtxGetCacheConfig,
+ *     cuCtxGetDevice, cuCtxGetLimit, cuCtxPopCurrent, cuCtxPushCurrent,
+ *     cuCtxSetCacheConfig, cuCtxSynchronize 
+ */
+CUresult cuCtxSetLimit(CUlimit limit, size_t value)
+{
+	CUresult res;
+	struct CUctx_st *ctx;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	GDEV_PRINT("cuCtxSetLimit: Not Implemented Yet\n");
+
 	return CUDA_SUCCESS;
 }
 
@@ -314,29 +772,47 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
  */
 CUresult cuCtxSynchronize(void)
 {
+	struct CUctx_st *cur = NULL;
+	CUresult res;
 	Ghandle handle;
 	struct gdev_cuda_fence *f;
 	struct gdev_list *p;
+	struct timespec time;
+	struct CUevent_st *e;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
+
+	res = cuCtxGetCurrent(&cur);
+	if (res != CUDA_SUCCESS)
+		return res;
+	if (!cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
-	if (gdev_list_empty(&gdev_ctx_current->sync_list))
+	if (gdev_list_empty(&cur->sync_list))
 		return CUDA_SUCCESS;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = cur->gdev_handle;
 
 	/* synchronize with all kernels. */
-	gdev_list_for_each(f, &gdev_ctx_current->sync_list, list_entry) {
+	gdev_list_for_each(f, &cur->sync_list, list_entry) {
 		/* if timeout is required, specify gdev_time value instead of NULL. */
 		if (gsync(handle, f->id, NULL))
 			return CUDA_ERROR_UNKNOWN;
 	}
 
+	/* complete event */
+	clock_gettime(CLOCK_MONOTONIC, &time);
+	while ((p = gdev_list_head(&cur->event_list))) {
+		gdev_list_del(p);
+		e = gdev_list_container(p);
+		e->time = time;
+		e->record = 0;
+		e->complete = 1;
+	}
+
 	/* remove all lists. */
-	while ((p = gdev_list_head(&gdev_ctx_current->sync_list))) {
+	while ((p = gdev_list_head(&cur->sync_list))) {
 		gdev_list_del(p);
 		f = gdev_list_container(p);
 		FREE(f);

@@ -100,6 +100,14 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_AGP_SIZE, result))
 			goto fail;
 		break;
+	case GDEV_QUERY_PCI_VENDOR:
+		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_PCI_VENDOR, result))
+			goto fail;
+		break;
+	case GDEV_QUERY_PCI_DEVICE:
+		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_PCI_DEVICE, result))
+			goto fail;
+		break;
 	default:
 		goto fail;
 	}
