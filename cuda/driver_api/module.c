@@ -57,10 +57,11 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!module || !fname)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
 
-	ctx = gdev_ctx_current;
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	handle = ctx->gdev_handle;
 
 	if (!(mod = MALLOC(sizeof(*mod)))) {
@@ -188,16 +189,19 @@ CUresult cuModuleUnload(CUmodule hmod)
 {
 	CUresult res;
 	struct CUmod_st *mod = hmod;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!mod)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
 
-	handle = gdev_ctx_current->gdev_handle;
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	handle = ctx->gdev_handle;
 
 	gfree(handle, mod->code_addr);
 	if (mod->sdata_size > 0)
@@ -231,15 +235,18 @@ CUresult cuModuleUnload(CUmodule hmod)
 CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name)
 {
 	CUresult res;
+	struct CUctx_st *ctx;
 	struct CUfunc_st *func;
 	struct CUmod_st *mod = hmod;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!hfunc || !mod || !name)
 		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
 
 	if ((res = gdev_cuda_search_function(&func, mod, name)) != CUDA_SUCCESS)
 		return res;
@@ -277,20 +284,23 @@ CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int nu
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, CUDA_ERROR_NOT_FOUND 
  */
-CUresult cuModuleGetGlobal
+CUresult cuModuleGetGlobal_v2
 (CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name)
 {
 	CUresult res;
 	uint64_t addr;
 	uint32_t size;
+	struct CUctx_st *ctx;
 	struct CUmod_st *mod = hmod;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!dptr || !bytes || !mod || !name)
 		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
 
 	if ((res = gdev_cuda_search_symbol(&addr, &size, mod, name)) 
 		!= CUDA_SUCCESS)
@@ -300,6 +310,11 @@ CUresult cuModuleGetGlobal
 	*bytes = size;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuModuleGetGlobal
+(CUdeviceptr *dptr, unsigned int *bytes, CUmodule hmod, const char *name)
+{
+	return cuModuleGetGlobal_v2(dptr, bytes, hmod, name);
 }
 
 CUresult cuModuleGetTexRef(CUtexref *pTexRef, CUmodule hmod, const char *name)

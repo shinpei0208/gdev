@@ -48,20 +48,25 @@
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
  * CUDA_ERROR_OUT_OF_MEMORY 
  */
-CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
+CUresult cuMemAlloc_v2(CUdeviceptr *dptr, unsigned int bytesize)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	uint64_t addr;
 	uint64_t size = bytesize;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!dptr)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 	if (!(addr = gmalloc(handle, size))) {
 		return CUDA_ERROR_OUT_OF_MEMORY;
 	}
@@ -69,6 +74,10 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
 	*dptr = addr;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
+{
+	return cuMemAlloc_v2(dptr, bytesize);
 }
 
 /**
@@ -82,26 +91,34 @@ CUresult cuMemAlloc(CUdeviceptr *dptr, unsigned int bytesize)
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemFree(CUdeviceptr dptr)
+CUresult cuMemFree_v2(CUdeviceptr dptr)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	uint64_t addr = dptr;
 	uint64_t size;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
 
 	/* wait for all kernels to complete - some may be using the memory. */
 	cuCtxSynchronize();
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (!(size = gfree(handle, addr)))
 		return CUDA_ERROR_INVALID_VALUE;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemFree(CUdeviceptr dptr)
+{
+	return cuMemFree_v2(dptr);
 }
 
 /**
@@ -132,26 +149,35 @@ CUresult cuMemFree(CUdeviceptr dptr)
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
  * CUDA_ERROR_OUT_OF_MEMORY 
  */
-CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
+CUresult cuMemAllocHost_v2(void **pp, unsigned int bytesize)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	void *buf;
 	uint64_t size = bytesize;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!pp)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 	if (!(buf = gmalloc_dma(handle, size)))
 		return CUDA_ERROR_OUT_OF_MEMORY;
 
 	*pp = buf;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
+{
+	return cuMemAllocHost_v2(pp, bytesize);
 }
 
 /**
@@ -167,19 +193,23 @@ CUresult cuMemAllocHost(void **pp, unsigned int bytesize)
  */
 CUresult cuMemFreeHost(void *p)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	void *buf = p;
 	uint64_t size;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
 
 	/* wait for all kernels to complete - some may be using the memory. */
 	cuCtxSynchronize();
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (!(size = gfree_dma(handle, buf)))
 		return CUDA_ERROR_INVALID_VALUE;
@@ -201,8 +231,10 @@ CUresult cuMemFreeHost(void *p)
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
+CUresult cuMemcpyHtoD_v2(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	const void *src_buf = srcHost;
 	uint64_t dst_addr = dstDevice;
@@ -210,17 +242,24 @@ CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int B
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!src_buf || !dst_addr || !size)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (gmemcpy_to_device(handle, dst_addr, src_buf, size))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount)
+{
+	return cuMemcpyHtoD_v2(dstDevice, srcHost, ByteCount);
 }
 
 /**
@@ -243,8 +282,10 @@ CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, unsigned int B
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream)
+CUresult cuMemcpyHtoDAsync_v2(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle, handle_r;
 	struct CUstream_st *stream = hStream;
 	const void *src_buf = srcHost;
@@ -261,14 +302,18 @@ CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned 
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!src_buf || !dst_addr || !size)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (gdev_ctx_current != stream->ctx)
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+	if (ctx != stream->ctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
 	fence = (struct gdev_cuda_fence *)MALLOC(sizeof(*fence));
 	if (!fence)
 		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
 	
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 	handle_r = stream->gdev_handle;
 
 	/* reference the device memory address. */
@@ -304,6 +349,10 @@ fail_gref:
 
 	return CUDA_ERROR_UNKNOWN;
 }
+CUresult cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, unsigned int ByteCount, CUstream hStream)
+{
+	return cuMemcpyHtoDAsync_v2(dstDevice, srcHost, ByteCount, hStream);
+}
 
 /**
  * Copies from device to host memory. dstHost and srcDevice specify the base 
@@ -319,8 +368,10 @@ fail_gref:
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
+CUresult cuMemcpyDtoH_v2(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	void *dst_buf = dstHost;
 	uint64_t src_addr = srcDevice;
@@ -328,17 +379,24 @@ CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCou
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!dst_buf || !src_addr || !size)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (gmemcpy_from_device(handle, dst_buf, src_addr, size))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount)
+{
+	return cuMemcpyDtoH_v2(dstHost, srcDevice, ByteCount);
 }
 
 /**
@@ -361,8 +419,10 @@ CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCou
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream)
+CUresult cuMemcpyDtoHAsync_v2(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle, handle_r;
 	struct CUstream_st *stream = hStream;
 	void *dst_buf = dstHost;
@@ -379,14 +439,18 @@ CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int By
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!dst_buf || !src_addr || !size)
 		return CUDA_ERROR_INVALID_VALUE;
-	if (gdev_ctx_current != stream->ctx)
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+	if (ctx != stream->ctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
 	fence = (struct gdev_cuda_fence *)MALLOC(sizeof(*fence));
 	if (!fence)
 		return CUDA_ERROR_OUT_OF_MEMORY; /* this API shouldn't return it... */
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 	handle_r = stream->gdev_handle;
 
 	/* reference the device memory address. */
@@ -422,6 +486,10 @@ fail_gref:
 
 	return CUDA_ERROR_UNKNOWN;
 }
+CUresult cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, unsigned int ByteCount, CUstream hStream)
+{
+	return cuMemcpyDtoHAsync_v2(dstHost, srcDevice, ByteCount, hStream);
+}
 
 /**
  * Copies from device memory to device memory. dstDevice and srcDevice are the 
@@ -438,8 +506,10 @@ fail_gref:
  * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
  */
-CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount)
+CUresult cuMemcpyDtoD_v2(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	uint64_t dst_addr = dstDevice;
 	uint64_t src_addr = srcDevice;
@@ -447,17 +517,24 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!dst_addr || !src_addr || !size)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (gmemcpy(handle, dst_addr, src_addr, size))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
+}
+CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, unsigned int ByteCount)
+{
+	return cuMemcpyDtoD_v2(dstDevice, srcDevice, ByteCount);
 }
 
 /**
@@ -561,17 +638,22 @@ CUresult cuMemHostAlloc(void **pp, unsigned int bytesize, unsigned int Flags)
  */
 CUresult cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	uint64_t addr;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!pdptr || !p || Flags != 0)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 	addr = gvirtget(handle, p);
 	*pdptr = (CUdeviceptr)addr;
 
@@ -591,18 +673,23 @@ CUresult cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Fla
  */
 CUresult cuMemMap(void **buf, CUdeviceptr dptr, unsigned int bytesize)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 	uint64_t addr = dptr;
 	void *map;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!addr || !buf || !bytesize)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (!(map = gmap(handle, addr, bytesize)))
 		return CUDA_ERROR_UNKNOWN;
@@ -624,16 +711,21 @@ CUresult cuMemMap(void **buf, CUdeviceptr dptr, unsigned int bytesize)
  */
 CUresult cuMemUnmap(void *buf)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!buf)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (gunmap(handle, buf))
 		return CUDA_ERROR_UNKNOWN;
@@ -655,16 +747,21 @@ CUresult cuMemUnmap(void *buf)
  */
 CUresult cuMemGetPhysAddr(unsigned long long *addr, void *p)
 {
+	CUresult res;
+	struct CUctx_st *ctx;
 	Ghandle handle;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
 	if (!addr || !p)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = ctx->gdev_handle;
 
 	if (!(*addr = gphysget(handle, p)))
 		return CUDA_ERROR_UNKNOWN;

@@ -33,6 +33,7 @@
 #include <stddef.h>
 #endif
 
+typedef struct CUarray_st * CUarray;
 typedef unsigned long long CUdeviceptr;
 typedef int CUdevice;
 typedef struct CUctx_st* CUcontext;
@@ -63,9 +64,10 @@ typedef enum CUctx_flags_enum {
  * Event creation flags
  */
 typedef enum CUevent_flags_enum {
-    CU_EVENT_DEFAULT        = 0, /**< Default event flag */
-    CU_EVENT_BLOCKING_SYNC  = 1, /**< Event uses blocking synchronization */
-    CU_EVENT_DISABLE_TIMING = 2  /**< Event will not record timing data */
+    CU_EVENT_DEFAULT        = 0x0, /**< Default event flag */
+    CU_EVENT_BLOCKING_SYNC  = 0x1, /**< Event uses blocking synchronization */
+    CU_EVENT_DISABLE_TIMING = 0x2, /**< Event will not record timing data */
+    CU_EVENT_INTERPROCESS   = 0x4  /**< Event is suitable for interprocess use. CU_EVENT_DISABLE_TIMING must be set */
 } CUevent_flags;
 
 /**
@@ -81,6 +83,28 @@ typedef enum CUarray_format_enum {
     CU_AD_FORMAT_HALF           = 0x10, /**< 16-bit floating point */
     CU_AD_FORMAT_FLOAT          = 0x20  /**< 32-bit floating point */
 } CUarray_format;
+
+/**
+ * 3D array descriptor
+ */
+typedef struct CUDA_ARRAY3D_DESCRIPTOR_st {
+    size_t Depth;
+    unsigned int Flags;
+    CUarray_format Format;
+    size_t Height;
+    unsigned int NumChannels;
+    size_t Width;
+} CUDA_ARRAY3D_DESCRIPTOR;
+
+/**
+ * Array descriptor
+ */
+typedef struct CUDA_ARRAY_DESCRIPTOR_st {
+    CUarray_format Format;
+    size_t Height;
+    unsigned int NumChannels;
+    size_t Width;
+} CUDA_ARRAY_DESCRIPTOR;
 
 /**
  * Texture reference addressing modes
@@ -152,7 +176,35 @@ typedef enum CUdevice_attribute_enum {
     CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING = 41,                /**< Device shares a unified address space with the host */    
     CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LAYERED_WIDTH = 42,   /**< Maximum 1D layered texture width */
     CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LAYERED_LAYERS = 43,  /**< Maximum layers in a 1D layered texture */
-    CU_DEVICE_ATTRIBUTE_PCI_DOMAIN_ID = 50                      /**< PCI domain ID of the device */
+    CU_DEVICE_ATTRIBUTE_CAN_TEX2D_GATHER = 44,			/**< Deprecated, do not use. */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_GATHER_WIDTH = 45,	/**< Maximum 2D texture width if CUDA_ARRAY3D_TEXTURE_GATHER is set */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_GATHER_HEIGHT = 46,	/**< Maximum 2D texture height if CUDA_ARRAY3D_TEXTURE_GATHER is set */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_WIDTH_ALTERNATE = 47,	/**< Alternate maximum 3D texture width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_HEIGHT_ALTERNATE = 48,/**< Alternate maximum 3D texture height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_DEPTH_ALTERNATE = 49,	/**< Alternate maximum 3D texture depth */
+    CU_DEVICE_ATTRIBUTE_PCI_DOMAIN_ID = 50,                     /**< PCI domain ID of the device */
+    CU_DEVICE_ATTRIBUTE_TEXTURE_PITCH_ALIGNMENT = 51,		/**< Pitch alignment requirement for textures*/
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURECUBEMAP_WIDTH = 52,	/**< Maximum cubemap texture width/height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURECUBEMAP_LAYERED_WIDTH = 53,/**< Maximum cubemap layered texture width/height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURECUBEMAP_LAYERED_LAYERS = 54,/**< Maximum layers in a cubemap layered texture */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE1D_WIDTH = 55,		/**< Maximum 1D surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE2D_WIDTH = 56,		/**< Maximum 2D surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE2D_HEIGHT = 57,		/**< Maximum 2D surface height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE3D_WIDTH = 58,		/**< Maximum 3D surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE3D_HEIGHT = 59,		/**< Maximum 3D surface height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE3D_DEPTH = 60,		/**< Maximum 3D surface depth */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE1D_LAYERED_WIDTH = 61,	/**< Maximum 1D layered surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE1D_LAYERED_LAYERS = 62,	/**< Maximum layers in a 1D layered surface */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE2D_LAYERED_WIDTH = 63,	/**< Maximum 2D layered surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE2D_LAYERED_HEIGHT = 64,	/**< Maximum 2D layered surface height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACE2D_LAYERED_LAYERS = 65,	/**< Maximum layers in a 2D layered surface */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACECUBEMAP_WIDTH = 66,	/**< Maximum cubemap surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACECUBEMAP_LAYERED_WIDTH = 67,/**< Maximum cubemap layered surface width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_SURFACECUBEMAP_LAYERED_LAYERS = 68,/**< Maximum layers in a cubemap layered surface */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LINEAR_WIDTH = 69,	/**< Maximum 1D linear texture width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_LINEAR_WIDTH = 70,	/**< Maximum 2D linear texture width */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_LINEAR_HEIGHT = 71,	/**< Maximum 2D linear texture height */
+    CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_LINEAR_PITCH = 72 	/**< Maximum 2D linear texture pitch in bytes */
 } CUdevice_attribute;
 
 /**
@@ -242,7 +294,8 @@ typedef enum CUfunction_attribute_enum {
 typedef enum CUfunc_cache_enum {
     CU_FUNC_CACHE_PREFER_NONE    = 0x00, /**< no preference for shared memory or L1 (default) */
     CU_FUNC_CACHE_PREFER_SHARED  = 0x01, /**< prefer larger shared memory and smaller L1 cache */
-    CU_FUNC_CACHE_PREFER_L1      = 0x02  /**< prefer larger L1 cache and smaller shared memory */
+    CU_FUNC_CACHE_PREFER_L1      = 0x02, /**< prefer larger L1 cache and smaller shared memory */
+    CU_FUNC_CACHE_PREFER_EQUAL   = 0x03  /**< prefer equal sized L1 cache and shared memory */
 } CUfunc_cache;
 
 /**
@@ -254,6 +307,90 @@ typedef enum CUmemorytype_enum {
     CU_MEMORYTYPE_ARRAY   = 0x03,    /**< Array memory */
     CU_MEMORYTYPE_UNIFIED = 0x04     /**< Unified device or host memory */
 } CUmemorytype;
+
+/**
+ * 2D memory copy parameters
+ */
+typedef struct CUDA_MEMCPY2D_st {
+    CUarray dstArray;
+    CUdeviceptr dstDevice;
+    void * dstHost;
+    CUmemorytype dstMemoryType;
+    size_t dstPitch;
+    size_t dstXInBytes;
+    size_t dstY;
+    size_t Height;
+    CUarray srcArray;
+    CUdeviceptr srcDevice;
+    const void * srcHost;
+    CUmemorytype srcMemoryType;
+    size_t srcPitch;
+    size_t srcXInBytes;
+    size_t srcY;
+    size_t WidthInBytes;
+} CUDA_MEMCPY2D;
+
+/**
+ * 3D memory copy parameters
+ */
+typedef struct CUDA_MEMCPY3D_st {
+    size_t Depth;
+    CUarray dstArray;
+    CUdeviceptr dstDevice;
+    size_t dstHeight;
+    void * dstHost;
+    size_t dstLOD;
+    CUmemorytype dstMemoryType;
+    size_t dstPitch;
+    size_t dstXInBytes;
+    size_t dstY;
+    size_t dstZ;
+    size_t Height;
+    void * reserved0;
+    void * reserved1;
+    CUarray srcArray;
+    CUdeviceptr srcDevice;
+    size_t srcHeight;
+    const void * srcHost;
+    size_t srcLOD;
+    CUmemorytype srcMemoryType;
+    size_t srcPitch;
+    size_t srcXInBytes;
+    size_t srcY;
+    size_t srcZ;
+    size_t WidthInBytes;
+} CUDA_MEMCPY3D;
+
+/**
+ * 3D memory cross-context copy parameters
+ */
+typedef struct CUDA_MEMCPY3D_PEER_st {
+    size_t Depth;
+    CUarray dstArray;
+    CUcontext dstContext;
+    CUdeviceptr dstDevice;
+    size_t dstHeight;
+    void * dstHost;
+    size_t dstLOD;
+    CUmemorytype dstMemoryType;
+    size_t dstPitch;
+    size_t dstXInBytes;
+    size_t dstY;
+    size_t dstZ;
+    size_t Height;
+    CUarray srcArray;
+    CUcontext srcContext;
+    CUdeviceptr srcDevice;
+    size_t srcHeight;
+    const void * srcHost;
+    size_t srcLOD;
+    CUmemorytype srcMemoryType;
+    size_t srcPitch;
+    size_t srcXInBytes;
+    size_t srcY;
+    size_t srcZ;
+    size_t WidthInBytes;
+} CUDA_MEMCPY3D_PEER;
 
 /**
  * Compute Modes
@@ -367,7 +504,8 @@ typedef enum CUjit_target_enum
     CU_TARGET_COMPUTE_12,       /**< Compute device class 1.2 */
     CU_TARGET_COMPUTE_13,       /**< Compute device class 1.3 */
     CU_TARGET_COMPUTE_20,       /**< Compute device class 2.0 */
-    CU_TARGET_COMPUTE_21        /**< Compute device class 2.1 */
+    CU_TARGET_COMPUTE_21,       /**< Compute device class 2.1 */
+    CU_TARGET_COMPUTE_30        /**< Compute device class 3.0 */
 } CUjit_target;
 
 /**
@@ -376,7 +514,6 @@ typedef enum CUjit_target_enum
 typedef enum CUjit_fallback_enum
 {
     CU_PREFER_PTX = 0,  /**< Prefer to compile ptx */
-
     CU_PREFER_BINARY    /**< Prefer to fall back to compatible binary code */
 
 } CUjit_fallback;
@@ -420,6 +557,13 @@ typedef enum CUlimit_enum {
     CU_LIMIT_PRINTF_FIFO_SIZE  = 0x01, /**< GPU printf FIFO size */
     CU_LIMIT_MALLOC_HEAP_SIZE  = 0x02  /**< GPU malloc heap size */
 } CUlimit;
+
+/**
+ * Interprocess Handles
+ */
+typedef enum CUipcMem_flags_enum {
+    CU_IPC_MEM_LAZY_ENABLE_PEER_ACCESS = 0x1  /** < Automatically enable peer access between remote devices as needed */
+} CUipcMem_flags;
 
 /**
  * Error codes
@@ -698,10 +842,67 @@ typedef enum cudaError_enum {
     CUDA_ERROR_CONTEXT_IS_DESTROYED           = 709,
 
     /**
+     * A device-side assert triggered during kernel execution.
+     * The context cannot be used anymore, and must be destroyed.
+     * All existing device memory allocations from this context are invalid
+     * and must be reconstructed if the program is to continue using CUDA.
+     */
+    CUDA_ERROR_ASSERT				= 710,
+
+    /**
+     * This error indicates that the hardware resources required to enable
+     * peer access have been exhausted for one or more of the devices passed
+     * to cuCtxEnablePeerAccess().
+     */
+    CUDA_ERROR_TOO_MANY_PEERS			= 711,
+
+    /**
+     * This error indicates that the memory range passed to cuMemHostRegister()
+     * has already been registered.
+     */
+    CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED	= 712,
+
+    /**
+     * This error indicates that the pointer passed to cuMemHostUnregister()
+     * does not correspond to any currently registered memory region.
+     */
+    CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED	= 713, 
+
+    /**
      * This indicates that an unknown internal error has occurred.
      */
     CUDA_ERROR_UNKNOWN                        = 999
 } CUresult;
+
+/**
+ * Interprocess Handles
+ */
+#define CU_IPC_HANDLE_SIZE		64
+
+/**
+ * End of array terminator for the extra parameter to cuLaunchKernel
+ */
+#define CU_LAUNCH_PARAM_END		((void*)0x00)
+
+/**
+ * Indicator that the next value in the extra parameter to cuLaunchKernel
+ * will be a pointer to a buffer containing all kernel parameters used for
+ * launching kernel f. This buffer needs to honor all alignment/padding
+ * requirements of the individual parameters.
+ * If CU_LAUNCH_PARAM_BUFFER_SIZE is not also specified in the extra array,
+ * then CU_LAUNCH_PARAM_BUFFER_POINTER will have no effect. 
+ */
+#define CU_LAUNCH_PARAM_BUFFER_POINTER	((void*)0x01)
+
+/**
+ * Indicator that the next value in the extra parameter to cuLaunchKernel
+ * will be a pointer to a size_t which contains the size of the buffer
+ * specified with CU_LAUNCH_PARAM_BUFFER_POINTER.
+ * It is required that CU_LAUNCH_PARAM_BUFFER_POINTER also be specified in
+ * the extra array if the value associated with CU_LAUNCH_PARAM_BUFFER_SIZE
+ * is not zero.
+ */
+#define CU_LAUNCH_PARAM_BUFFER_SIZE	((void*)0x02)
 
 /**
  * If set, host memory is portable between CUDA contexts.
@@ -724,6 +925,88 @@ typedef enum cudaError_enum {
  */
 #define CU_MEMHOSTALLOC_WRITECOMBINED   0x04
 
+/**
+ * If set, host memory is portable between CUDA contexts.
+ * Flag for cuMemHostRegister()
+ */
+#define CU_MEMHOSTREGISTER_PORTABLE	0x01
+
+/**
+ * If set, host memory is mapped into CUDA address space and
+ * cuMemHostGetDevicePointer() may be called on the host pointer.
+ * Flag for cuMemHostRegister()
+ */
+#define CU_MEMHOSTREGISTER_DEVICEMAP	0x02
+
+/**
+ * For texture references loaded into the module, use default texunit from
+ * texture reference.
+ */
+#define CU_PARAM_TR_DEFAULT		-1
+
+/**
+ * Override the texref format with a format inferred from the array.
+ * Flag for cuTexRefSetArray()
+ */
+#define CU_TRSA_OVERRIDE_FORMAT		0x01
+
+/**
+ * Read the texture as integers rather than promoting the values to floats
+ * in the range [0,1].
+ * Flag for cuTexRefSetFlags()
+ */
+#define CU_TRSF_READ_AS_INTEGER		0x01
+
+/**
+ * Use normalized texture coordinates in the range [0,1) instead of [0,dim).
+ * Flag for cuTexRefSetFlags()
+ */
+#define CU_TRSF_NORMALIZED_COORDINATES	0x02
+
+/**
+ * Perform sRGB->linear conversion during texture read.
+ * Flag for cuTexRefSetFlags()
+ */
+#define CU_TRSF_SRGB			0x10
+
+/**
+ * If set, the CUDA array is a collection of layers, where each layer is
+ * either a 1D or a 2D array and the Depth member of CUDA_ARRAY3D_DESCRIPTOR
+ * specifies the number of layers, not the depth of a 3D array. 
+ */
+#define CUDA_ARRAY3D_LAYERED		0x01
+
+/**
+ * Deprecated, use CUDA_ARRAY3D_LAYERED
+ */
+#define CUDA_ARRAY3D_2DARRAY		0x01
+
+/**
+ * This flag must be set in order to bind a surface reference to the CUDA
+ * array
+ */
+#define CUDA_ARRAY3D_SURFACE_LDST	0x02
+
+/**
+ * If set, the CUDA array is a collection of six 2D arrays, representing
+ * faces of a cube. The width of such a CUDA array must be equal to its
+ * height, and Depth must be six. If CUDA_ARRAY3D_LAYERED flag is also set,
+ * then the CUDA array is a collection of cubemaps and Depth must be a
+ * multiple of six. 
+ */
+#define CUDA_ARRAY3D_CUBEMAP		0x04
+
+/**
+ * This flag must be set in order to perform texture gather operations on
+ * a CUDA array.
+ */
+#define CUDA_ARRAY3D_TEXTURE_GATHER	0x08
+
+/**
+ * CUDA API version number
+ */
+#define CUDA_VERSION			4020
+
 /* Initialization */
 CUresult cuInit(unsigned int Flags);
 
@@ -736,6 +1019,14 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev);
 CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev);
 CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev);
 
+/* Event Management */
+CUresult cuEventCreate(CUevent *phEvent, unsigned int Flags);
+CUresult cuEventDestroy(CUevent hEvent);
+CUresult cuEventElapsedTime(float *pMilliseconds, CUevent hStart, CUevent hEnd);
+CUresult cuEventQuery(CUevent hEvent);
+CUresult cuEventRecord(CUevent hEvent, CUstream hStream);
+CUresult cuEventSynchronize(CUevent hEvent);
+
 /* Version Management */
 CUresult cuDriverGetVersion (int *driverVersion);
 
@@ -744,9 +1035,16 @@ CUresult cuCtxAttach(CUcontext *pctx, unsigned int flags);
 CUresult cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev);
 CUresult cuCtxDestroy(CUcontext ctx);
 CUresult cuCtxDetach(CUcontext ctx);
+CUresult cuCtxGetApiVersion(CUcontext ctx, unsigned int *version);
+CUresult cuCtxGetCacheConfig(CUfunc_cache *pconfig);
+CUresult cuCtxGetCurrent(CUcontext *pctx);
 CUresult cuCtxGetDevice(CUdevice *device);
+CUresult cuCtxGetLimit(size_t *pvalue, CUlimit limit);
 CUresult cuCtxPopCurrent(CUcontext *pctx);
 CUresult cuCtxPushCurrent(CUcontext ctx);
+CUresult cuCtxSetCacheConfig(CUfunc_cache config);
+CUresult cuCtxSetCurrent(CUcontext ctx);
+CUresult cuCtxSetLimit(CUlimit limit, size_t value);
 CUresult cuCtxSynchronize(void);
 
 /* Module Management */

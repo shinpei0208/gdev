@@ -26,6 +26,7 @@
 
 #include "cuda.h"
 #include "gdev_cuda.h"
+#include "device.h"
 
 int gdev_device_count = 0;
 
@@ -45,7 +46,18 @@ int gdev_device_count = 0;
  */
 CUresult cuDeviceComputeCapability(int *major, int *minor, CUdevice dev)
 {
-	GDEV_PRINT("cuDeviceComputeCapability: Not Implemented Yet\n");
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_device_count)
+		return CUDA_ERROR_INVALID_DEVICE;
+	if (!major)
+		return CUDA_ERROR_INVALID_VALUE;
+	if (!minor)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	*major = 2;
+	*minor = 0;
+
 	return CUDA_SUCCESS;
 }
 
@@ -151,8 +163,73 @@ CUresult cuDeviceGet(CUdevice *device, int ordinal)
  */
 CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 {
-	GDEV_PRINT("cuDeviceGetAttribute: Not Implemented Yet\n");
-	return CUDA_SUCCESS;
+	int res = CUDA_SUCCESS;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+
+	switch (attrib) {
+	case CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT:
+		{
+			uint64_t pci_vendor, pci_device, mp_count;
+			int minor = (int)dev;
+			Ghandle handle;
+			struct device_properties *props;
+
+			handle = gopen(minor);
+			if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor))
+				res = CUDA_ERROR_INVALID_DEVICE;
+			else {
+				if (pci_vendor != 0x10de)
+					res = CUDA_ERROR_INVALID_DEVICE;
+			}
+			if (res != CUDA_SUCCESS) {
+				gclose(handle);
+				break;
+			}
+			if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device))
+				res = CUDA_ERROR_INVALID_DEVICE;
+			else {
+				props = get_device_properties(pci_device);
+				if (!props)
+					res = CUDA_ERROR_INVALID_DEVICE;
+				else
+					*pi = props->mp_count;
+			}
+			if (res != CUDA_SUCCESS) {
+				gclose(handle);
+				break;
+			}
+			if (!*pi) {
+				if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT,
+					&mp_count))
+					res = CUDA_ERROR_INVALID_DEVICE;
+				else
+					*pi = mp_count;
+			}
+			gclose(handle);
+		}
+		break;
+	case CU_DEVICE_ATTRIBUTE_PCI_DEVICE_ID:
+		{
+			uint64_t pci_device;
+			int minor = (int)dev;
+			Ghandle handle;
+
+			handle = gopen(minor);
+			if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device))
+				res = CUDA_ERROR_INVALID_DEVICE;
+			else
+				*pi = pci_device;
+			gclose(handle);
+		}
+		break;
+	default:
+		GDEV_PRINT("cuDeviceGetAttribute: Not Implemented Yet\n");
+		break;
+	}
+
+	return res;
 }
 
 /**
@@ -196,7 +273,44 @@ CUresult cuDeviceGetCount(int *count)
  */
 CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
 {
-	GDEV_PRINT("cuDeviceGetName: Not Implemented Yet\n");
+	int minor = (int)dev;
+	Ghandle handle;
+	uint64_t pci_vendor, pci_device;
+	struct device_properties *props;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_device_count)
+		return CUDA_ERROR_INVALID_DEVICE;
+	if (!name)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gopen(minor);
+
+	if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor)) {
+		gclose(handle);
+		return CUDA_ERROR_UNKNOWN;
+	}
+	if (pci_vendor != 0x10de) {
+		name[0] = '\0';
+		goto end;
+	}
+
+	if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device)) {
+		gclose(handle);
+		return CUDA_ERROR_UNKNOWN;
+	}
+	props = get_device_properties(pci_device);
+	if (!props) {
+		name[0] = '\0';
+		goto end;
+	}
+	strncpy(name, props->name, len-1);
+	name[len-1] = '\0';
+
+end:
+	gclose(handle);
+
 	return CUDA_SUCCESS;
 }
 
@@ -245,7 +359,71 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
  */
 CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
 {
-	GDEV_PRINT("cuDeviceGetProperties: Not Implemented Yet\n");
+	int minor = (int)dev;
+	Ghandle handle;
+	uint64_t pci_vendor, pci_device;
+	struct device_properties *props;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!gdev_device_count)
+		return CUDA_ERROR_INVALID_DEVICE;
+	if (!prop)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	handle = gopen(minor);
+
+	if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor)) {
+		return CUDA_ERROR_UNKNOWN;
+	}
+	if (pci_vendor != 0x10de) {
+		goto unknown;
+	}
+
+	if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device)) {
+		return CUDA_ERROR_UNKNOWN;
+	}
+	props = get_device_properties(pci_device);
+	if (!props) {
+		goto unknown;
+	}
+
+	prop->maxThreadsPerBlock = 1; 
+	prop->maxThreadsDim[0] = 1;
+	prop->maxThreadsDim[1] = 1;
+	prop->maxThreadsDim[2] = 1;
+	prop->maxGridSize[0] = 1; 
+	prop->maxGridSize[1] = 1; 
+	prop->maxGridSize[2] = 1; 
+	prop->sharedMemPerBlock = 0;
+	prop->totalConstantMemory = 0;
+	prop->SIMDWidth = 0;
+	prop->memPitch = 0;
+	prop->regsPerBlock = 0;
+	prop->clockRate = 0;
+	prop->textureAlign = 0;
+
+	goto end;
+
+unknown:
+	prop->maxThreadsPerBlock = 1; 
+	prop->maxThreadsDim[0] = 1;
+	prop->maxThreadsDim[1] = 1;
+	prop->maxThreadsDim[2] = 1;
+	prop->maxGridSize[0] = 1; 
+	prop->maxGridSize[1] = 1; 
+	prop->maxGridSize[2] = 1; 
+	prop->sharedMemPerBlock = 0;
+	prop->totalConstantMemory = 0;
+	prop->SIMDWidth = 0;
+	prop->memPitch = 0;
+	prop->regsPerBlock = 0;
+	prop->clockRate = 0;
+	prop->textureAlign = 0;
+
+end:
+	gclose(handle);
+
 	return CUDA_SUCCESS;
 }
 
@@ -262,8 +440,9 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
  * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE, 
  * CUDA_ERROR_INVALID_DEVICE 
  */
-CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
+CUresult cuDeviceTotalMem_v2(size_t *bytes, CUdevice dev)
 {
+	int minor = (int)dev;
 	Ghandle handle;
 	uint64_t total_mem;
 
@@ -271,19 +450,24 @@ CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
 		return CUDA_ERROR_NOT_INITIALIZED;
 	if (!gdev_device_count)
 		return CUDA_ERROR_INVALID_DEVICE;
-	if (!gdev_ctx_current)
-		return CUDA_ERROR_INVALID_CONTEXT;
 	if (!bytes)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gdev_ctx_current->gdev_handle;
+	handle = gopen(minor);
 
 	if (gquery(handle, GDEV_QUERY_DEVICE_MEM_SIZE, &total_mem)) {
+		gclose(handle);
 		return CUDA_ERROR_UNKNOWN;
 	}
 
 	*bytes = total_mem;
 
+	gclose(handle);
+
 	return CUDA_SUCCESS;
+}
+CUresult cuDeviceTotalMem(size_t *bytes, CUdevice dev)
+{
+	return cuDeviceTotalMem_v2(bytes, dev);
 }
 
