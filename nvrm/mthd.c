@@ -64,6 +64,27 @@ int nvrm_device_get_chipset(struct nvrm_device *dev, uint32_t *major, uint32_t *
 	return 0;
 }
 
+int nvrm_device_get_fb_size(struct nvrm_device *dev, uint64_t *fb_size) {
+	int res = nvrm_ioctl_get_fb_size(dev->ctx, dev->idx, fb_size);
+	if (res)
+		return res;
+	return 0;
+}
+
+int nvrm_device_get_vendor_id(struct nvrm_device *dev, uint16_t *vendor_id) {
+	int res = nvrm_ioctl_get_vendor_id(dev->ctx, dev->idx, vendor_id);
+	if (res)
+		return res;
+	return 0;
+}
+
+int nvrm_device_get_device_id(struct nvrm_device *dev, uint16_t *device_id) {
+	int res = nvrm_ioctl_get_device_id(dev->ctx, dev->idx, device_id);
+	if (res)
+		return res;
+	return 0;
+}
+
 int nvrm_device_get_gpc_mask(struct nvrm_device *dev, uint32_t *mask) {
 	struct nvrm_mthd_subdevice_get_gpc_mask arg = {
 	};
