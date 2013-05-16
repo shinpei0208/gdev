@@ -104,6 +104,9 @@ int nvrm_ioctl_create(struct nvrm_context *ctx, uint32_t parent, uint32_t handle
 int nvrm_ioctl_destroy(struct nvrm_context *ctx, uint32_t parent, uint32_t handle);
 int nvrm_ioctl_unk4d(struct nvrm_context *ctx, uint32_t handle, const char *str);
 int nvrm_ioctl_card_info(struct nvrm_context *ctx);
+int nvrm_ioctl_get_fb_size(struct nvrm_context *ctx, int idx, uint64_t *size);
+int nvrm_ioctl_get_vendor_id(struct nvrm_context *ctx, int idx, uint16_t *id);
+int nvrm_ioctl_get_device_id(struct nvrm_context *ctx, int idx, uint16_t *id);
 int nvrm_ioctl_env_info(struct nvrm_context *ctx, uint32_t *pat_supported);
 int nvrm_ioctl_check_version_str(struct nvrm_context *ctx, uint32_t cmd, const char *vernum);
 int nvrm_ioctl_memory(struct nvrm_context *ctx, uint32_t parent, uint32_t vspace, uint32_t handle, uint32_t flags1, uint32_t flags2, uint64_t base, uint64_t size);

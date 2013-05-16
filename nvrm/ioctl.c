@@ -141,6 +141,36 @@ int nvrm_ioctl_card_info(struct nvrm_context *ctx) {
 	return 0;
 }
 
+int nvrm_ioctl_get_fb_size(struct nvrm_context *ctx, int idx, uint64_t *size) {
+	struct nvrm_ioctl_card_info arg = { {
+		{ 0xffffffff },
+	} };
+	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, &arg) < 0)
+		return -1;
+	*size = arg.card[idx].fb_size;
+	return 0;
+}
+
+int nvrm_ioctl_get_vendor_id(struct nvrm_context *ctx, int idx, uint16_t *id) {
+	struct nvrm_ioctl_card_info arg = { {
+		{ 0xffffffff },
+	} };
+	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, &arg) < 0)
+		return -1;
+	*id = arg.card[idx].vendor_id;
+	return 0;
+}
+
+int nvrm_ioctl_get_device_id(struct nvrm_context *ctx, int idx, uint16_t *id) {
+	struct nvrm_ioctl_card_info arg = { {
+		{ 0xffffffff },
+	} };
+	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, &arg) < 0)
+		return -1;
+	*id = arg.card[idx].device_id;
+	return 0;
+}
+
 int nvrm_ioctl_env_info(struct nvrm_context *ctx, uint32_t *pat_supported) {
 	struct nvrm_ioctl_env_info arg = {
 	};

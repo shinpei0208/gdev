@@ -37,6 +37,8 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 	struct nvrm_device *dev = gdev->priv;
 	uint32_t chip_major, chip_minor;
+	uint16_t vendor_id, device_id;
+	uint64_t fb_size;
 	int count;
 
 	switch (type) {
@@ -46,8 +48,10 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		*result = count;
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
-		/* XXX */
-		goto fail;
+		if (nvrm_device_get_fb_size(dev, &fb_size))
+			goto fail;
+		*result = fb_size;
+		break;
 	case GDEV_QUERY_DMA_MEM_SIZE:
 		/* XXX */
 		goto fail;
@@ -55,6 +59,16 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		if (nvrm_device_get_chipset(dev, &chip_major, &chip_minor, 0))
 			goto fail;
 		*result = chip_major | chip_minor;
+		break;
+	case GDEV_QUERY_PCI_VENDOR:
+		if (nvrm_device_get_vendor_id(dev, &vendor_id))
+			goto fail;
+		*result = vendor_id;
+		break;
+	case GDEV_QUERY_PCI_DEVICE:
+		if (nvrm_device_get_device_id(dev, &device_id))
+			goto fail;
+		*result = device_id;
 		break;
 	default:
 		goto fail;
