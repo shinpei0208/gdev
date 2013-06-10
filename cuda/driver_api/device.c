@@ -30,6 +30,40 @@
 
 int gdev_device_count = 0;
 
+static Ghandle __gopen(int minor)
+{
+#if 0
+	return gopen(minor);
+#else
+	Ghandle handle = NULL;
+	CUresult res;
+	CUcontext ctx;
+	res = cuCtxGetCurrent(&ctx);
+	if (res == CUDA_SUCCESS) {
+		if (ctx)
+			handle = ctx->gdev_handle;
+	}
+	if (handle == NULL)
+		handle = gopen(minor);
+	return handle;
+#endif
+}
+static int __gclose(Ghandle handle)
+{
+#if 0
+	return gclose(handle);
+#else
+	CUresult res;
+	CUcontext ctx;
+	res = cuCtxGetCurrent(&ctx);
+	if (res == CUDA_SUCCESS) {
+		if (ctx && handle == ctx->gdev_handle)
+				return 0;
+	}
+	return gclose(handle);
+#endif
+}
+
 /**
  * Returns in *major and *minor the major and minor revision numbers that 
  * define the compute capability of the device dev.
@@ -176,7 +210,13 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 			Ghandle handle;
 			struct device_properties *props;
 
-			handle = gopen(minor);
+			handle = __gopen(minor);
+			if (handle == NULL) {
+				res = CUDA_ERROR_INVALID_CONTEXT;
+				break;
+			}
+			*pi = 0;
+#ifndef __KERNEL__
 			if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor))
 				res = CUDA_ERROR_INVALID_DEVICE;
 			else {
@@ -184,7 +224,7 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 					res = CUDA_ERROR_INVALID_DEVICE;
 			}
 			if (res != CUDA_SUCCESS) {
-				gclose(handle);
+				__gclose(handle);
 				break;
 			}
 			if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device))
@@ -197,9 +237,10 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 					*pi = props->mp_count;
 			}
 			if (res != CUDA_SUCCESS) {
-				gclose(handle);
+				__gclose(handle);
 				break;
 			}
+#endif
 			if (!*pi) {
 				if (gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT,
 					&mp_count))
@@ -207,7 +248,7 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 				else
 					*pi = mp_count;
 			}
-			gclose(handle);
+			__gclose(handle);
 		}
 		break;
 	case CU_DEVICE_ATTRIBUTE_PCI_DEVICE_ID:
@@ -216,12 +257,16 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 			int minor = (int)dev;
 			Ghandle handle;
 
-			handle = gopen(minor);
+			handle = __gopen(minor);
+			if (handle == NULL) {
+				res = CUDA_ERROR_INVALID_CONTEXT;
+				break;
+			}
 			if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device))
 				res = CUDA_ERROR_INVALID_DEVICE;
 			else
 				*pi = pci_device;
-			gclose(handle);
+			__gclose(handle);
 		}
 		break;
 	default:
@@ -285,10 +330,12 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
 	if (!name)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gopen(minor);
+	handle = __gopen(minor);
+	if (handle == NULL)
+		return CUDA_ERROR_INVALID_CONTEXT;
 
 	if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor)) {
-		gclose(handle);
+		__gclose(handle);
 		return CUDA_ERROR_UNKNOWN;
 	}
 	if (pci_vendor != 0x10de) {
@@ -297,7 +344,7 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
 	}
 
 	if (gquery(handle, GDEV_QUERY_PCI_DEVICE, &pci_device)) {
-		gclose(handle);
+		__gclose(handle);
 		return CUDA_ERROR_UNKNOWN;
 	}
 	props = get_device_properties(pci_device);
@@ -309,7 +356,7 @@ CUresult cuDeviceGetName(char *name, int len, CUdevice dev)
 	name[len-1] = '\0';
 
 end:
-	gclose(handle);
+	__gclose(handle);
 
 	return CUDA_SUCCESS;
 }
@@ -371,7 +418,9 @@ CUresult cuDeviceGetProperties(CUdevprop *prop, CUdevice dev)
 	if (!prop)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gopen(minor);
+	handle = __gopen(minor);
+	if (handle == NULL)
+		return CUDA_ERROR_INVALID_CONTEXT;
 
 	if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor)) {
 		return CUDA_ERROR_UNKNOWN;
@@ -422,7 +471,7 @@ unknown:
 	prop->textureAlign = 0;
 
 end:
-	gclose(handle);
+	__gclose(handle);
 
 	return CUDA_SUCCESS;
 }
@@ -453,16 +502,18 @@ CUresult cuDeviceTotalMem_v2(size_t *bytes, CUdevice dev)
 	if (!bytes)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	handle = gopen(minor);
+	handle = __gopen(minor);
+	if (handle == NULL)
+		return CUDA_ERROR_INVALID_CONTEXT;
 
 	if (gquery(handle, GDEV_QUERY_DEVICE_MEM_SIZE, &total_mem)) {
-		gclose(handle);
+		__gclose(handle);
 		return CUDA_ERROR_UNKNOWN;
 	}
 
 	*bytes = total_mem;
 
-	gclose(handle);
+	__gclose(handle);
 
 	return CUDA_SUCCESS;
 }

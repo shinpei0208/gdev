@@ -30,7 +30,7 @@
 #include "gdev_list.h"
 
 struct gdev_list gdev_ctx_list;
-pthread_mutex_t gdev_ctx_list_mutex;
+LOCK_T gdev_ctx_list_lock;
 
 /**
  * Creates a new CUDA context and associates it with the calling thread. 
@@ -120,6 +120,30 @@ CUresult cuCtxCreate_v2(CUcontext *pctx, unsigned int flags, CUdevice dev)
 	/* save the Gdev handle. */
 	ctx->gdev_handle = handle;
 
+	/* save the current context to the stack, if necessary. */
+	gdev_list_init(&ctx->list_entry, ctx);
+
+	/* initialize context synchronization list. */
+	gdev_list_init(&ctx->sync_list, NULL);
+	/* initialize context event list. */
+	gdev_list_init(&ctx->event_list, NULL);
+
+	/* we will trace # of kernels. */
+	ctx->launch_id = 0;
+	/* save the device ID. */
+	ctx->minor = minor;
+
+	ctx->flags = flags;
+	ctx->usage = 0;
+	ctx->destroyed = 0;
+	ctx->owner = GETTID();
+	ctx->user = 0;
+
+	/* set to the current context. */
+	res = cuCtxPushCurrent(ctx);
+	if (res != CUDA_SUCCESS)
+		goto fail_push_current;
+
 	/* get the CUDA-specific device information. */
 	cuda_info = &ctx->cuda_info;
 	if (gquery(handle, GDEV_QUERY_CHIPSET, &cuda_info->chipset)) {
@@ -155,37 +179,14 @@ CUresult cuCtxCreate_v2(CUcontext *pctx, unsigned int flags, CUdevice dev)
 		cuda_info->warp_size = 32;
 	}
 
-	/* save the current context to the stack, if necessary. */
-	gdev_list_init(&ctx->list_entry, ctx);
-
-	/* initialize context synchronization list. */
-	gdev_list_init(&ctx->sync_list, NULL);
-	/* initialize context event list. */
-	gdev_list_init(&ctx->event_list, NULL);
-
-	/* we will trace # of kernels. */
-	ctx->launch_id = 0;
-	/* save the device ID. */
-	ctx->minor = minor;
-
-	ctx->flags = flags;
-	ctx->usage = 0;
-	ctx->destroyed = 0;
-	ctx->owner = pthread_self();
-	ctx->user = (pthread_t)NULL;
-
-	/* set to the current context. */
-	res = cuCtxPushCurrent(ctx);
-	if (res != CUDA_SUCCESS)
-		goto fail_push_current;
-
 	*pctx = ctx;
 
 	return CUDA_SUCCESS;
 
-fail_push_current:
 fail_query_mp_count:
 fail_query_chipset:
+	cuCtxPopCurrent(&ctx);
+fail_push_current:
 	gclose(handle);
 fail_open_gdev:
 	FREE(ctx);
@@ -379,16 +380,16 @@ CUresult cuCtxGetCurrent(CUcontext *pctx)
 	if (!pctx)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
-	pthread_mutex_lock(&gdev_ctx_list_mutex);
+	LOCK(&gdev_ctx_list_lock);
 
 	gdev_list_for_each(ctx, &gdev_ctx_list, list_entry) {
-		if (ctx->user == pthread_self())
+		if (ctx->user == GETTID())
 			break;
 	}
 
-	pthread_mutex_unlock(&gdev_ctx_list_mutex);
+	UNLOCK(&gdev_ctx_list_lock);
 
-	if (ctx->destroyed) {
+	if (ctx && ctx->destroyed) {
 		res = cuCtxPopCurrent(&ctx);
 		if (res != CUDA_SUCCESS)
 			return res;
@@ -514,14 +515,14 @@ CUresult cuCtxPushCurrent(CUcontext ctx)
 	if (ctx->usage)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
-	pthread_mutex_lock(&gdev_ctx_list_mutex);
+	LOCK(&gdev_ctx_list_lock);
 
 	/* save the current context to the stack. */
 	ctx->usage++;
-	ctx->user = pthread_self();
+	ctx->user = GETTID();
 	gdev_list_add(&ctx->list_entry, &gdev_ctx_list);
 
-	pthread_mutex_unlock(&gdev_ctx_list_mutex);
+	UNLOCK(&gdev_ctx_list_lock);
 
 	return CUDA_SUCCESS;
 }
@@ -570,13 +571,13 @@ CUresult cuCtxPopCurrent(CUcontext *pctx)
 	if (res != CUDA_SUCCESS)
 		return res;
 
-	pthread_mutex_lock(&gdev_ctx_list_mutex);
+	LOCK(&gdev_ctx_list_lock);
 
 	gdev_list_del(&cur->list_entry);
 	cur->usage--;
-	cur->user = (pthread_t)NULL;
+	cur->user = 0;
 
-	pthread_mutex_unlock(&gdev_ctx_list_mutex);
+	UNLOCK(&gdev_ctx_list_lock);
 
 	if (cur->destroyed) {
 		res = freeDestroyedContext(cur);
@@ -777,7 +778,7 @@ CUresult cuCtxSynchronize(void)
 	Ghandle handle;
 	struct gdev_cuda_fence *f;
 	struct gdev_list *p;
-	struct timespec time;
+	TIME_T time;
 	struct CUevent_st *e;
 
 	if (!gdev_initialized)
@@ -802,7 +803,7 @@ CUresult cuCtxSynchronize(void)
 	}
 
 	/* complete event */
-	clock_gettime(CLOCK_MONOTONIC, &time);
+	GETTIME(&time);
 	while ((p = gdev_list_head(&cur->event_list))) {
 		gdev_list_del(p);
 		e = gdev_list_container(p);

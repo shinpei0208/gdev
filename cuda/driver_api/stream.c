@@ -155,7 +155,7 @@ CUresult cuStreamSynchronize(CUstream hStream)
 	struct CUstream_st *stream = hStream;
 	struct gdev_cuda_fence *f;
 	struct gdev_list *p;
-	struct timespec time;
+	TIME_T time;
 	struct CUevent_st *e;
 
 	if (!gdev_initialized)
@@ -182,7 +182,7 @@ CUresult cuStreamSynchronize(CUstream hStream)
 	}
 
 	/* complete event */
-	clock_gettime(CLOCK_MONOTONIC, &time);
+	GETTIME(&time);
 	while ((p = gdev_list_head(&stream->event_list))) {
 		gdev_list_del(p);
 		e = gdev_list_container(p);
@@ -265,7 +265,7 @@ CUresult cuStreamWaitEvent(CUstream hStream, CUevent hEvent, unsigned int Flags)
 		res = cuEventSynchronize(hEvent);
 	} else {
 		while (hEvent->record)
-			sched_yield();
+			YIELD();
 		res = CUDA_SUCCESS;
 	}
 

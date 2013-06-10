@@ -52,7 +52,7 @@ CUresult cuInit(unsigned int Flags)
 		return CUDA_ERROR_INVALID_DEVICE;
 
 	gdev_list_init(&gdev_ctx_list, NULL);
-	pthread_mutex_init(&gdev_ctx_list_mutex, NULL);
+	LOCK_INIT(&gdev_ctx_list_lock);
 
 	return CUDA_SUCCESS;
 }

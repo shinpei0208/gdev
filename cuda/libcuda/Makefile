@@ -8,7 +8,7 @@ CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include
 LDFLAGS = -L $(GDEVDIR)/lib64 -lgdev -ldrm_nouveau -Wl,-Bsymbolic
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
-OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o stream.o ipc.o gdev_cuda.o event.o
+OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o stream.o ipc.o event.o gdev_cuda.o
 CUDUMP_OBJS = cudump.o gdev_cuda.o
 ZOMBIE  = $(wildcard ./*~)
 

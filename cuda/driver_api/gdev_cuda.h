@@ -40,7 +40,36 @@
 #include "gdev_list.h"
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
 
+#ifdef __KERNEL__
+#include <linux/sched.h>
+#include <linux/spinlock.h>
+#if 0
+#define GETTID()	task_pid_vnr(current)/*sys_gettid()*/
+#else
+#define GETTID()	task_pid_nr(current)
+#endif
+typedef spinlock_t	LOCK_T;
+#define LOCK_INIT(l)	spin_lock_init(l)
+#define LOCK(l)		spin_lock(l)
+#define UNLOCK(l)	spin_unlock(l)
+typedef struct timeval	TIME_T;
+#define GETTIME(t)	do_gettimeofday(t)
+#define YIELD()		yield()
+#else
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <pthread.h>
+#define GETTID()	syscall(SYS_gettid)
+typedef pthread_mutex_t	LOCK_T;
+#define LOCK_INIT(l)	pthread_mutex_init(l,NULL)
+#define LOCK(l)		pthread_mutex_lock(l)
+#define UNLOCK(l)	pthread_mutex_unlock(l)
+typedef struct timespec	TIME_T;
+#define GETTIME(t)	clock_gettime(CLOCK_MONOTONIC,t);
+#define YIELD()		sched_yield()
+#endif
 
 struct gdev_cuda_info {
 	uint64_t chipset;
@@ -102,8 +131,8 @@ struct CUctx_st {
 	unsigned int flags;
 	int usage;
 	int destroyed;
-	pthread_t owner;
-	pthread_t user;
+	pid_t owner;
+	pid_t user;
 	CUfunc_cache config;
 };
 
@@ -145,7 +174,7 @@ struct CUevent_st {
 	int record;
 	int complete;
 	unsigned int flags;
-	struct timespec time;
+	TIME_T time;
 	struct CUctx_st *ctx;
 	struct CUstream_st *stream;
 	struct gdev_list list_entry;
@@ -165,7 +194,7 @@ struct CUgraphicsResource_st {
 extern int gdev_initialized;
 extern int gdev_device_count;
 extern struct gdev_list gdev_ctx_list;
-extern pthread_mutex_t gdev_ctx_list_mutex;
+extern LOCK_T gdev_ctx_list_lock;
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);

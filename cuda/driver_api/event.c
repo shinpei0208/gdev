@@ -186,7 +186,7 @@ CUresult cuEventDestroy(CUevent hEvent)
  */
 CUresult cuEventElapsedTime(float *pMilliseconds, CUevent hStart, CUevent hEnd)
 {
-	struct timespec elapsed;
+	TIME_T elapsed;
 	long long round;
 
 	if (!gdev_initialized)
@@ -201,12 +201,17 @@ CUresult cuEventElapsedTime(float *pMilliseconds, CUevent hStart, CUevent hEnd)
 	if (!hEnd->complete)
 		return CUDA_ERROR_NOT_READY;
 
+#ifdef __KERNEL__
+	elapsed.tv_sec = hEnd->time.tv_sec - hStart->time.tv_sec;
+	elapsed.tv_usec = hEnd->time.tv_usec - hStart->time.tv_usec;
+	round = elapsed.tv_sec * 1000000 + elapsed.tv_usec;
+	*pMilliseconds = (float)round / 1000.0;
+#else
 	elapsed.tv_sec = hEnd->time.tv_sec - hStart->time.tv_sec;
 	elapsed.tv_nsec = hEnd->time.tv_nsec - hStart->time.tv_nsec;
-
 	round = (elapsed.tv_sec * 1000000000 + elapsed.tv_nsec) / 500;
-
 	*pMilliseconds = (float)round / 2000.0;
+#endif
 
 	return CUDA_SUCCESS;
 }
