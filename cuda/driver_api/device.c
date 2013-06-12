@@ -216,7 +216,7 @@ CUresult cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev)
 				break;
 			}
 			*pi = 0;
-#ifndef __KERNEL__
+#if !defined(__KERNEL__) || (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))
 			if (gquery(handle, GDEV_QUERY_PCI_VENDOR, &pci_vendor))
 				res = CUDA_ERROR_INVALID_DEVICE;
 			else {

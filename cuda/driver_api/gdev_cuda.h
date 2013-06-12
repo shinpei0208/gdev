@@ -40,6 +40,7 @@
 #include "gdev_list.h"
 #include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
 
+#include <linux/version.h>
 #ifdef __KERNEL__
 #include <linux/sched.h>
 #include <linux/spinlock.h>

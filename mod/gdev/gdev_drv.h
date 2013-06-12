@@ -40,6 +40,9 @@
 #include "drmP.h"
 #include "drm.h"
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+#include <linux/sched/rt.h>
+#endif
 
 struct gdev_lock {
 	spinlock_t lock;
