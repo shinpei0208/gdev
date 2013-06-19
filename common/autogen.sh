@@ -1,19 +1,45 @@
 #!/bin/sh
 
-# detect the driver
-if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
+
+target=$1
+driver=$2
+
+## object for each driver
+nvrm_OBJS="nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o"
+pscnv_OBJS="pscnv_gdev.o libpscnv.o libpscnv_ib.o"
+nouveau_OBJS="nouveau_gdev.o libnouveau.o libnouveau_ib.o"
+
+## library for each driver
+nvrm_LIBS=''
+pscnv_LIBS=''
+nouveau_LIBS="-ldrm_nouveau"
+
+if [ $(echo ${#driver}) -eq 0 ] ; then
+    # detect the driver
+    if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
 	driver="nvrm"
-elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
+    elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
 	driver="nouveau"
-elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
+    elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
 	driver="nouveau"
-elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
+    elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
 	driver="pscnv"
-else
+    else
 	echo "Device driver not found"
 	exit
+    fi
+    echo "Device driver detected: $driver"
+else
+    echo "Device driver selected: $driver"
 fi
-echo "Device driver detected: $driver"
+
+if [ $(echo ${#target}) -ne 0 ] ; then
+    if [ $target = 'user' ] ; then
+	eval EXTRA_OBJS="EXTRA_OBJS="'$'$driver"_OBJS"
+	eval EXTRA_LIBS="EXTRA_LIBS="'$'$driver"_LIBS"
+    fi
+fi
+
 
 # create Driver.mk
 cat > Driver.mk << EOF
@@ -25,6 +51,8 @@ cat > Driver.mk << EOF
 #
 
 DRIVER_NAME=$driver
+$EXTRA_OBJS
+$EXTRA_LIBS
 EOF
 
 DRIVER=$(echo $driver | tr "a-z" "A-Z")

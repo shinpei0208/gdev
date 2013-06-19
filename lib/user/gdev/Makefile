@@ -7,17 +7,10 @@ TARGET = libgdev
 CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
-EXTRA_LIBS = -ldrm_nouveau
-
-nvrm_OBJS = nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o
-
-gdev_OBJS = gdev_gdev.o libgdev.o libgdev_ib.o
-pscnv_OBJS = pscnv_gdev.o libpscnv.o libpscnv_ib.o
-nouveau_OBJS = nouveau_gdev.o libnouveau.o libnouveau_ib.o
 
 OBJS =	gdev_lib.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
-	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o $($(DRIVER_NAME)_OBJS)
+	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o $(EXTRA_OBJS)
 
 ZOMBIE  = $(wildcard ./*~)
 
@@ -35,6 +28,7 @@ install:
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
 	cp -f $(HEADERS) $(DESTDIR)/$(GDEVDIR)/include
+	@make echo
 
 uninstall:
 	rm -f $(GDEVDIR)/lib64/$(TARGET).*
@@ -43,3 +37,16 @@ uninstall:
 clean:
 	rm -f $(TARGET).so.* $(OBJS) $(ZOMBIE)
 
+echo:
+	@echo ---------------------------------------------------------------
+	@echo Gdev Library installation was completed! 
+	@echo
+	@echo *Please make sure your PATH includes /usr/local/gdev/bin
+	@echo *Please make sure your LD_LIBRARY_PATH includes /usr/local/gdev/lib64
+	@echo 
+	@echo Please type follows commands':'
+	@echo     export LD_LIBRARY_PATH='"'/usr/local/gdev/lib64:'$$'LD_LIBRARY_PATH'"'
+	@echo     export PATH='"'/usr/local/gdev/bin:'$$'PATH'"'
+	@echo 
+	@echo If you are administrator, write to /etc/ld.so.conf and run ldconfig 
+	@echo ---------------------------------------------------------------
