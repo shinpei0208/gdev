@@ -38,7 +38,7 @@
 
 #include "gdev_api.h"
 #include "gdev_list.h"
-#include "gdev_cuda_util.h" /* dependent on libcuda or kcuda. */
+#include "gdev_cuda_util.h" /* dependent on libucuda or kcuda. */
 
 #include <linux/version.h>
 #ifdef __KERNEL__

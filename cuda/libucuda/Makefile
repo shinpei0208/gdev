@@ -1,11 +1,11 @@
 # Makefile
 
 CC		= gcc
-TARGET		= libcuda
+TARGET		= libucuda
 CUDUMP		= cudump
 GDEVDIR		= /usr/local/gdev
 CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include
-LDFLAGS = -L $(GDEVDIR)/lib64 -lgdev -ldrm_nouveau -Wl,-Bsymbolic
+LDFLAGS = -L $(GDEVDIR)/lib64 -lgdev -Wl,-Bsymbolic
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o stream.o ipc.o event.o gdev_cuda.o
