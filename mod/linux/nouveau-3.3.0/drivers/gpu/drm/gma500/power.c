@@ -1,5 +1,5 @@
 /**************************************************************************
- * Copyright (c) 2009-2011, Intel Corporation.
+ * Copyright (C) 2009-2011, Intel Corporation.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

@@ -4,9 +4,9 @@
  *               extra sysfs attribute from DRM. Normal drm_sysfs_class
  *               does not allow adding attributes.
  *
- * Copyright (c) 2004 Jon Smirl <jonsmirl@gmail.com>
- * Copyright (c) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (c) 2003-2004 IBM Corp.
+ * Copyright (C) 2004 Jon Smirl <jonsmirl@gmail.com>
+ * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003-2004 IBM Corp.
  *
  * This file is released under the GPLv2
  *

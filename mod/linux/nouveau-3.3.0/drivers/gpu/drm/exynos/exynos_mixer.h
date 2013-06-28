@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2011 Samsung Electronics Co., Ltd.
  * Authors:
  *	Seung-Woo Kim <sw0312.kim@samsung.com>
  *	Inki Dae <inki.dae@samsung.com>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Intel Corporation
+ * Copyright (C) 2007-2008 Intel Corporation
  *   Jesse Barnes <jesse.barnes@intel.com>
  * Copyright 2010 Red Hat, Inc.
  *

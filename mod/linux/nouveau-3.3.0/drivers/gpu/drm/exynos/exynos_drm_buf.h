@@ -1,6 +1,6 @@
 /* exynos_drm_buf.h
  *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2011 Samsung Electronics Co., Ltd.
  * Author: Inki Dae <inki.dae@samsung.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

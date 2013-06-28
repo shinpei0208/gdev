@@ -1,5 +1,5 @@
 /**************************************************************************
- * Copyright (c) 2007-2008, Intel Corporation.
+ * Copyright (C) 2007-2008, Intel Corporation.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it

@@ -1,6 +1,6 @@
 /* exynos_drm_gem.h
  *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2011 Samsung Electronics Co., Ltd.
  * Authoer: Inki Dae <inki.dae@samsung.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Shinpei Kato
+ * Copyright (C) Shinpei Kato
  *
  * Nagoya University
  * Parallel and Distributed Computing Lab.

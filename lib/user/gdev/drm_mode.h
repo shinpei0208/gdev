@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2007 Dave Airlie <airlied@linux.ie>
- * Copyright (c) 2007 Jakob Bornecrantz <wallbraker@gmail.com>
- * Copyright (c) 2008 Red Hat Inc.
- * Copyright (c) 2007-2008 Tungsten Graphics, Inc., Cedar Park, TX., USA
- * Copyright (c) 2007-2008 Intel Corporation
+ * Copyright (C) 2007 Dave Airlie <airlied@linux.ie>
+ * Copyright (C) 2007 Jakob Bornecrantz <wallbraker@gmail.com>
+ * Copyright (C) 2008 Red Hat Inc.
+ * Copyright (C) 2007-2008 Tungsten Graphics, Inc., Cedar Park, TX., USA
+ * Copyright (C) 2007-2008 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

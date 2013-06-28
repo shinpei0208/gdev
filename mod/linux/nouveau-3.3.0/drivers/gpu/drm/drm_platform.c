@@ -3,7 +3,7 @@
  *
  * Copyright 2003 José Fonseca.
  * Copyright 2003 Leif Delgass.
- * Copyright (c) 2009, Code Aurora Forum.
+ * Copyright (C) 2009, Code Aurora Forum.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

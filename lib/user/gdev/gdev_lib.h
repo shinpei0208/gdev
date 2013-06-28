@@ -1,5 +1,5 @@
 /*
-* Copyright 2011 Shinpei Kato
+* Copyright (C) Shinpei Kato
 * All Rights Reserved.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a

@@ -1,7 +1,7 @@
 /**************************************************************************
- * Copyright (c) 2007-2011, Intel Corporation.
+ * Copyright (C) 2007-2011, Intel Corporation.
  * All Rights Reserved.
- * Copyright (c) 2008, Tungsten Graphics Inc.  Cedar Park, TX., USA.
+ * Copyright (C) 2008, Tungsten Graphics Inc.  Cedar Park, TX., USA.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it

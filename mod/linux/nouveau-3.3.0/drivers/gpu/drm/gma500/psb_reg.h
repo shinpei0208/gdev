@@ -1,7 +1,7 @@
 /**************************************************************************
  *
- * Copyright (c) (2005-2007) Imagination Technologies Limited.
- * Copyright (c) 2007, Intel Corporation.
+ * Copyright (C) (2005-2007) Imagination Technologies Limited.
+ * Copyright (C) 2007, Intel Corporation.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it

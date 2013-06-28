@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Dave Airlie <airlied@linux.ie>
+ * Copyright (C) 2006 Dave Airlie <airlied@linux.ie>
  * Copyright © 2006-2008,2010 Intel Corporation
  *   Jesse Barnes <jesse.barnes@intel.com>
  *

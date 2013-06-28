@@ -2,7 +2,7 @@
  *
  *  Cloned from drivers/media/video/s5p-tv/regs-mixer.h
  *
- * Copyright (c) 2010-2011 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2010-2011 Samsung Electronics Co., Ltd.
  * http://www.samsung.com/
  *
  * Mixer register header file for Samsung Mixer driver

@@ -1,6 +1,6 @@
 /* exynos_drm_core.c
  *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2011 Samsung Electronics Co., Ltd.
  * Author:
  *	Inki Dae <inki.dae@samsung.com>
  *	Joonyoung Shim <jy0922.shim@samsung.com>

@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2007-2008 Tungsten Graphics, Inc., Cedar Park, TX., USA,
+ * Copyright (C) 2007-2008 Tungsten Graphics, Inc., Cedar Park, TX., USA,
  * All Rights Reserved.
- * Copyright (c) 2009 VMware, Inc., Palo Alto, CA., USA,
+ * Copyright (C) 2009 VMware, Inc., Palo Alto, CA., USA,
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

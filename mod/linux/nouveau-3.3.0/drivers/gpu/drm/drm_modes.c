@@ -4,7 +4,7 @@
  * Copyright © 2007-2008 Intel Corporation
  *   Jesse Barnes <jesse.barnes@intel.com>
  * Copyright 2005-2006 Luc Verhaegen
- * Copyright (c) 2001, Andy Ritger  aritger@nvidia.com
+ * Copyright (C) 2001, Andy Ritger  aritger@nvidia.com
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

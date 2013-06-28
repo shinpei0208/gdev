@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2006-2009 Red Hat Inc.
- * Copyright (c) 2006-2008 Intel Corporation
- * Copyright (c) 2007 Dave Airlie <airlied@linux.ie>
+ * Copyright (C) 2006-2009 Red Hat Inc.
+ * Copyright (C) 2006-2008 Intel Corporation
+ * Copyright (C) 2007 Dave Airlie <airlied@linux.ie>
  *
  * DRM framebuffer helper functions
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Christian König.
+ * Copyright (C) Christian König.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

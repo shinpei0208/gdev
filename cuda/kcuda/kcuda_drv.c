@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Shinpei Kato
+ * Copyright (C) Shinpei Kato
  *
  * University of California at Santa Cruz
  * Systems Research Lab.

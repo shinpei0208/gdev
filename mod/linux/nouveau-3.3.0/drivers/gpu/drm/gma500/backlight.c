@@ -1,7 +1,7 @@
 /*
  * GMA500 Backlight Interface
  *
- * Copyright (c) 2009-2011, Intel Corporation.
+ * Copyright (C) 2009-2011, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,

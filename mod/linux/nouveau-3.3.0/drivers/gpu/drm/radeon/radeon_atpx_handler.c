@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Red Hat Inc.
+ * Copyright (C) 2010 Red Hat Inc.
  * Author : Dave Airlie <airlied@redhat.com>
  *
  * Licensed under GPLv2
