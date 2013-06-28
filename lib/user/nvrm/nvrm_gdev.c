@@ -28,6 +28,7 @@
 #include "gdev_nvidia_fifo.h"
 #include "nvrm.h"
 #include "nvrm_def.h"
+#include "nvrm_priv.h"
 
 #define GDEV_DEVICE_MAX_COUNT 32
 
@@ -465,6 +466,7 @@ void gdev_raw_mem_unmap(struct gdev_mem *mem, void *map)
 uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
 {
 	/* XXX */
-	return 0;
+	struct nvrm_bo *bo = mem->bo;
+	return bo->foffset;
 }
 
