@@ -198,6 +198,8 @@ extern struct gdev_list gdev_ctx_list;
 extern LOCK_T gdev_ctx_list_lock;
 
 CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname);
+CUresult gdev_cuda_load_cubin_file(struct CUmod_st *mod, const char *fname);
+CUresult gdev_cuda_load_cubin_image(struct CUmod_st *mod, const void *image);
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod);
 CUresult gdev_cuda_construct_kernels
 (struct CUmod_st *mod, struct gdev_cuda_info *cuda_info);

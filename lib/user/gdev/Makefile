@@ -5,6 +5,7 @@ include Driver.mk
 CC = gcc
 TARGET = libgdev
 CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
+LDFLAGS = -Bsymbolic
 GDEVDIR	= /usr/local/gdev
 HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 

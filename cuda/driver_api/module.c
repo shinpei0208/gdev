@@ -71,7 +71,7 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	}
 
 	/* load the cubin image from the given object file. */
-	if ((res = gdev_cuda_load_cubin(mod, fname)) != CUDA_SUCCESS) {
+	if ((res = gdev_cuda_load_cubin_file(mod, fname)) != CUDA_SUCCESS) {
 		GDEV_PRINT("Failed to load cubin\n");
 		goto fail_load_cubin;
 	}
@@ -258,14 +258,131 @@ CUresult cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name)
 
 CUresult cuModuleLoadData(CUmodule *module, const void *image)
 {
-	GDEV_PRINT("cuModuleLoadData: Not Implemented Yet\n");
+	CUresult res;
+	struct CUmod_st *mod;
+	struct CUctx_st *ctx;
+	void *bnc_buf;
+	Ghandle handle;
+
+	if (!gdev_initialized)
+		return CUDA_ERROR_NOT_INITIALIZED;
+	if (!module || !image)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	res = cuCtxGetCurrent(&ctx);
+	if (res != CUDA_SUCCESS)
+		return res;
+
+	handle = ctx->gdev_handle;
+
+	if (!(mod = MALLOC(sizeof(*mod)))) {
+		GDEV_PRINT("Failed to allocate memory for module\n");
+		res = CUDA_ERROR_OUT_OF_MEMORY;
+		goto fail_malloc_mod;
+	}
+
+	/* load the cubin image from the given object file. */
+	if ((res = gdev_cuda_load_cubin_image(mod, image)) != CUDA_SUCCESS) {
+		GDEV_PRINT("Failed to load cubin\n");
+		goto fail_load_cubin;
+	}
+
+	/* check compatibility of code and device. */
+	if ((ctx->cuda_info.chipset & 0xf0) != mod->arch) {
+		res = CUDA_ERROR_INVALID_SOURCE;
+		goto fail_load_cubin;
+	}
+
+	/* construct the kernels based on the cubin data. */
+	if ((res = gdev_cuda_construct_kernels(mod, &ctx->cuda_info)) 
+		!= CUDA_SUCCESS) {
+		GDEV_PRINT("Failed to construct kernels\n");
+		goto fail_construct_kernels;
+	}
+
+	/* allocate (local) static data memory. */
+	if (mod->sdata_size > 0) {
+		if (!(mod->sdata_addr = gmalloc(handle, mod->sdata_size))) {
+			GDEV_PRINT("Failed to allocate device memory for static data\n");
+			res = CUDA_ERROR_OUT_OF_MEMORY;
+			goto fail_gmalloc_sdata;
+		}
+	}
+
+	/* locate the static data information for each kernel. */
+	if ((res = gdev_cuda_locate_sdata(mod)) != CUDA_SUCCESS) {
+		GDEV_PRINT("Failed to locate static data\n");
+		goto fail_locate_sdata;
+	}
+
+	/* allocate code and constant memory. */
+	if (!(mod->code_addr = gmalloc(handle, mod->code_size))) {
+		GDEV_PRINT("Failed to allocate device memory for code\n");
+		goto fail_gmalloc_code;
+	}
+
+	/* locate the code information for each kernel. */
+	if ((res = gdev_cuda_locate_code(mod)) != CUDA_SUCCESS) {
+		GDEV_PRINT("Failed to locate code\n");
+		goto fail_locate_code;
+	}
+
+
+	/* the following malloc() and memcpy() for bounce buffer could be 
+	   removed if we use gmalloc_host() here, but they are just an easy 
+	   implementation, and don't really affect performance anyway. */
+	if (!(bnc_buf = MALLOC(mod->code_size))) {
+		GDEV_PRINT("Failed to allocate host memory for code\n");
+		res = CUDA_ERROR_OUT_OF_MEMORY;
+		goto fail_malloc_code;
+	}
+	memset(bnc_buf, 0, mod->code_size);
+
+	if ((res = gdev_cuda_memcpy_code(mod, bnc_buf)) 
+		!= CUDA_SUCCESS) {
+		GDEV_PRINT("Failed to copy code to host\n");
+		goto fail_memcpy_code;
+	}
+
+	/* transfer the code and constant memory onto the device. */
+	if (gmemcpy_to_device(handle, mod->code_addr, bnc_buf, mod->code_size)) {
+		GDEV_PRINT("Failed to copy code to device\n");
+		res = CUDA_ERROR_UNKNOWN;
+		goto fail_gmemcpy_code;
+	}
+
+	/* free the bounce buffer now. */
+	FREE(bnc_buf);
+
+	mod->ctx = ctx;
+	*module = mod;
+
 	return CUDA_SUCCESS;
+
+fail_gmemcpy_code:
+fail_memcpy_code:
+	FREE(bnc_buf);
+fail_malloc_code:
+fail_locate_code:
+	gfree(handle, mod->code_addr);
+fail_gmalloc_code:
+fail_locate_sdata:
+	if (mod->sdata_size > 0)
+		gfree(handle, mod->sdata_addr);
+fail_gmalloc_sdata:
+	gdev_cuda_destruct_kernels(mod);
+fail_construct_kernels:
+	gdev_cuda_unload_cubin(mod);
+fail_load_cubin:
+	FREE(mod);
+fail_malloc_mod:
+	*module = NULL;
+	return res;
 }
 
 CUresult cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int numOptions, CUjit_option *options, void **optionValues)
 {
-	GDEV_PRINT("cuModuleLoadDataEx: Not Implemented Yet\n");
-	return CUDA_SUCCESS;
+	return cuModuleLoadData(module, image);
 }
 
 /**

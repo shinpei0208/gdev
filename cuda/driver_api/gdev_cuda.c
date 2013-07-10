@@ -83,7 +83,7 @@ typedef struct symbol_entry {
 static int cubin_func_type
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func);
 
-static int load_bin(char **pbin, file_t **pfp, const char *fname)
+static int load_file(char **pbin, const char *fname)
 {
 	char *bin;
 	file_t *fp;
@@ -96,8 +96,10 @@ static int load_bin(char **pbin, file_t **pfp, const char *fname)
 	len = FTELL(fp);
 	FSEEK(fp, 0, SEEK_SET);
 
-	if (!(bin = (char *) MALLOC(len + 1)))
+	if (!(bin = (char *) MALLOC(len + 1))) {
+		FCLOSE(fp);
 		return -ENOMEM;
+	}
 
 	if (!FREAD(bin, len, fp)) {
 		FREE(bin);
@@ -105,16 +107,19 @@ static int load_bin(char **pbin, file_t **pfp, const char *fname)
 		return -EIO;
 	}
 
+	FCLOSE(fp);
+
 	*pbin = bin;
-	*pfp = fp;
 
 	return 0;
 }
 
-static void unload_bin(char *bin, file_t *fp)
+static void unload_cubin(struct CUmod_st *mod)
 {
-	FREE(bin);
-	FCLOSE(fp);
+	if (mod->bin) {
+		FREE(mod->bin);
+		mod->bin = NULL;
+	}
 }
 
 static void cubin_func_skip(char **pos, section_entry_t *e)
@@ -296,12 +301,11 @@ static int cubin_func_type
 	return 0;
 }
 
-static void init_mod(struct CUmod_st *mod, char *bin, file_t *fp)
+static void init_mod(struct CUmod_st *mod, char *bin)
 {
 	int i;
 
 	mod->bin = bin;
-	mod->fp = fp;
 	mod->func_count = 0;
 	mod->symbol_count = 0;
 	for (i = 0; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
@@ -416,7 +420,7 @@ static void malloc_func_if_necessary(struct CUfunc_st **pfunc, char *name)
 	}
 }
 
-CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
+static int load_cubin(struct CUmod_st *mod, char *bin)
 {
 	Elf_Ehdr *ehead;
 	Elf_Shdr *sheads;
@@ -433,18 +437,12 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 	void *sh;
 	char *sh_name;
 	char *pos;
-	char *bin;
-	file_t *fp;
-	int i, ret;
+	int i, ret = 0;
 	struct CUfunc_st *func = NULL;
 	struct gdev_cuda_raw_func *raw_func = NULL;
 
-	ret = load_bin(&bin, &fp, fname);
-	if (ret)
-		goto fail_load_bin;
-
-	/* initialize module. */
-	init_mod(mod, bin, fp);
+	if (memcmp(bin, "\177ELF", 4))
+		return -ENOENT;
 
 	/* initialize ELF variables. */
 	ehead = (Elf_Ehdr *)bin;
@@ -656,15 +654,174 @@ CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
 		mod->arch = GDEV_ARCH_SM_1X;
 	}
 
-	return CUDA_SUCCESS;
+	return 0;
 
+fail_symbol:
 fail_cubin_func_type:
-	FREE(func);
+	if (func)
+		FREE(func);
 fail_malloc_func:
 	destroy_all_functions(mod);
-fail_symbol:
-	unload_bin(bin, fp);
-fail_load_bin:
+
+	return ret;
+}
+
+#ifndef __KERNEL__
+static int save_ptx(char *ptx_file, const char *image)
+{
+	int fd;
+	size_t len;
+
+	fd = mkstemp(ptx_file);
+	if (fd < 0)
+		return -ENOENT;
+
+	len = strlen(image);
+
+	write(fd, image, len);
+
+	close(fd);
+
+	return 0;
+}
+
+static int assemble_ptx(char *cubin_file, const char *ptx_file)
+{
+	char command[256];
+	int fd;
+
+	fd = mkstemp(cubin_file);
+	if (fd < 0)
+		return -ENOENT;
+
+	sprintf(command, "ptxas --gpu-name sm_20 -o %s %s", cubin_file, ptx_file);
+
+	system(command);
+
+	return 0;
+}
+
+CUresult gdev_cuda_load_cubin_ptx(struct CUmod_st *mod, const char *fname)
+{
+	char *bin;
+	int ret;
+	char cubin_file[16] = "/tmp/GDEVXXXXXX";
+
+	ret = assemble_ptx(cubin_file, fname);
+	if (ret)
+		goto fail_compile_ptx;
+
+	ret = load_file(&bin, cubin_file);
+	if (ret)
+		goto fail_load_file;
+
+	/* initialize module. */
+	init_mod(mod, bin);
+
+	ret = load_cubin(mod, bin);
+	if (ret)
+		goto fail_load_cubin;
+
+	unlink(cubin_file);
+
+	return CUDA_SUCCESS;
+
+fail_load_cubin:
+	unload_cubin(mod);
+fail_load_file:
+	unlink(cubin_file);
+fail_compile_ptx:
+	switch (ret) {
+	case -ENOMEM:
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	case -ENOENT:
+		return CUDA_ERROR_FILE_NOT_FOUND;
+	default:
+		return CUDA_ERROR_UNKNOWN;
+	}
+}
+#endif
+
+CUresult gdev_cuda_load_cubin(struct CUmod_st *mod, const char *fname)
+{
+	return  gdev_cuda_load_cubin_file(mod, fname);
+}
+
+CUresult gdev_cuda_load_cubin_file(struct CUmod_st *mod, const char *fname)
+{
+	char *bin;
+	int ret;
+
+	ret = load_file(&bin, fname);
+	if (ret)
+		goto fail_load_file;
+
+	/* initialize module. */
+	init_mod(mod, bin);
+
+	ret = load_cubin(mod, bin);
+	if (ret) {
+#ifdef __KERNEL__
+		goto fail_load_cubin;
+#else
+		unload_cubin(mod);
+
+		return gdev_cuda_load_cubin_ptx(mod, fname);
+#endif
+	}
+
+	return CUDA_SUCCESS;
+
+#ifdef __KERNEL__
+fail_load_cubin:
+	unload_cubin(mod);
+#endif
+fail_load_file:
+	switch (ret) {
+	case -ENOMEM:
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	case -ENOENT:
+		return CUDA_ERROR_FILE_NOT_FOUND;
+	default:
+		return CUDA_ERROR_UNKNOWN;
+	}
+}
+
+CUresult gdev_cuda_load_cubin_image(struct CUmod_st *mod, const void *image)
+{
+	int ret;
+
+	/* initialize module. */
+	init_mod(mod, NULL);
+
+	ret = load_cubin(mod, (char *)image);
+	if (ret) {
+#ifdef __KERNEL__
+		goto fail_load_cubin;
+#else
+		char ptx_file[16] = "/tmp/GDEVXXXXXX";
+
+		unload_cubin(mod);
+
+		ret = save_ptx(ptx_file, image);
+		if (ret)
+			goto fail_save_ptx;
+
+		ret = gdev_cuda_load_cubin_ptx(mod, ptx_file);
+
+		unlink(ptx_file);
+
+		return ret;
+#endif
+	}
+
+	return CUDA_SUCCESS;
+
+#ifdef __KERNEL__
+fail_load_cubin:
+	unload_cubin(mod);
+#endif
+fail_save_ptx:
 	switch (ret) {
 	case -ENOMEM:
 		return CUDA_ERROR_OUT_OF_MEMORY;
@@ -677,16 +834,13 @@ fail_load_bin:
 
 CUresult gdev_cuda_unload_cubin(struct CUmod_st *mod)
 {
-	if (!mod->bin || !mod->fp)
-		return CUDA_ERROR_INVALID_VALUE;
-
 	/* destroy functions and constant symbols:
 	   use while() instead of gdev_list_for_each(), as FREE(func) will 
 	   delte the entry itself in gdev_list_for_each(). */
 	destroy_all_functions(mod);
 	destroy_all_symbols(mod);
 
-	unload_bin(mod->bin, mod->fp);
+	unload_cubin(mod);
 
 	return CUDA_SUCCESS;
 }

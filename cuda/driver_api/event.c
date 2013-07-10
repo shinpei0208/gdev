@@ -93,6 +93,8 @@ CUresult cuEventCreate(CUevent *phEvent, unsigned int Flags)
 	/* save the current context to the stack, if necessary. */
 	gdev_list_init(&event->list_entry, event);
 
+	*phEvent = event;
+
 	return CUDA_SUCCESS;
 
 fail_malloc_event:

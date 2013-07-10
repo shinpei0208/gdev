@@ -21,6 +21,7 @@ if [ $target = 'libucuda' ] ; then
 cp -f ../libucuda/* .
 cp -f ../driver_api/* .
 cp -f ../cudump/* .
+cp -rf ../runtime .
 elif [ $target = 'kcuda' ] ; then
 cp -f ../kcuda/* .
 cp -f ../driver_api/* .

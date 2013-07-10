@@ -790,8 +790,10 @@ CUresult cuCtxSynchronize(void)
 	if (!cur)
 		return CUDA_ERROR_INVALID_CONTEXT;
 
+#if 0
 	if (gdev_list_empty(&cur->sync_list))
 		return CUDA_SUCCESS;
+#endif
 
 	handle = cur->gdev_handle;
 

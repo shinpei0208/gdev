@@ -4,6 +4,11 @@
 target=$1
 driver=$2
 
+## cflags for each driver
+nvrm_CFLAGS=''
+pscnv_CFLAGS=''
+nouveau_CFLAGS="-I /usr/include/libdrm"
+
 ## object for each driver
 nvrm_OBJS="nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o"
 pscnv_OBJS="pscnv_gdev.o libpscnv.o libpscnv_ib.o"
@@ -35,6 +40,7 @@ fi
 
 if [ $(echo ${#target}) -ne 0 ] ; then
     if [ $target = 'user' ] ; then
+	eval EXTRA_CFLAGS="EXTRA_CFLAGS?="'$'$driver"_CFLAGS"
 	eval EXTRA_OBJS="EXTRA_OBJS="'$'$driver"_OBJS"
 	eval EXTRA_LIBS="EXTRA_LIBS="'$'$driver"_LIBS"
     fi
@@ -51,6 +57,7 @@ cat > Driver.mk << EOF
 #
 
 DRIVER_NAME=$driver
+$EXTRA_CFLAGS
 $EXTRA_OBJS
 $EXTRA_LIBS
 EOF

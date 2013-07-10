@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 	}
 
 	fname = argv[1];
-	if ((res = gdev_cuda_load_cubin(&mod, fname)) != CUDA_SUCCESS)
+	if ((res = gdev_cuda_load_cubin_file(&mod, fname)) != CUDA_SUCCESS)
 		goto fail_load_cubin;
 
 	/* code dump. */
