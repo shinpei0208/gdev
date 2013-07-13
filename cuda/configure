@@ -19,12 +19,12 @@ done
 
 if [ $target = 'libucuda' ] ; then
 cp -f ../libucuda/* .
-cp -f ../driver/* .
+cp -rf ../driver/* .
 cp -f ../cudump/* .
-cp -rf ../runtime .
+cp -rf ../runtime/* .
 elif [ $target = 'kcuda' ] ; then
 cp -f ../kcuda/* .
-cp -f ../driver/* .
+cp -rf ../driver/* .
 else
 echo "Error: invalid target '$target'"
 fi
