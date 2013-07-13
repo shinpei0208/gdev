@@ -11,7 +11,7 @@ HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 
 OBJS =	gdev_lib.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
-	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o $(EXTRA_OBJS)
+	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o gdev_nvidia_nve4.o $(EXTRA_OBJS)
 
 ZOMBIE  = $(wildcard ./*~)
 

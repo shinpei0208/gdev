@@ -33,6 +33,9 @@
 int gdev_compute_setup(struct gdev_device *gdev)
 {
     switch (gdev->chipset & 0xf0) {
+    case 0xE0:
+		nve4_compute_setup(gdev);
+        break;
     case 0xC0:
 		nvc0_compute_setup(gdev);
         break;
@@ -106,8 +109,14 @@ uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr,
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
 	compute->fence_reset(ctx, seq);
-	compute->fence_write(ctx, GDEV_OP_MEMCPY /* == M2MF */, seq);
-	compute->memcpy(ctx, dst_addr, src_addr, size);
+	if( (gdev->chipset & 0xf0) >= 0xe0) {
+	    compute->memcpy(ctx, dst_addr, src_addr, size);
+	    compute->fence_write(ctx, GDEV_OP_COMPUTE /* == COMPUTE */, seq);
+	}
+	else {
+	    compute->fence_write(ctx, GDEV_OP_MEMCPY /* == M2MF */, seq);
+	    compute->memcpy(ctx, dst_addr, src_addr, size);
+	}
 
 	return seq;
 }
@@ -130,8 +139,14 @@ uint32_t gdev_memcpy_async(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
 	compute->fence_reset(ctx, seq);
-	compute->fence_write(ctx, GDEV_OP_MEMCPY_ASYNC /* == PCOPY0 */, seq);
-	compute->memcpy_async(ctx, dst_addr, src_addr, size);
+	if( (gdev->chipset & 0xf0) >= 0xe0) {
+	    compute->memcpy_async(ctx, dst_addr, src_addr, size);
+	    compute->fence_write(ctx, GDEV_OP_COMPUTE /* == COMPUTE */, seq);
+	}
+	else {
+	    compute->fence_write(ctx, GDEV_OP_MEMCPY_ASYNC /* == PCOPY0 */, seq);
+	    compute->memcpy_async(ctx, dst_addr, src_addr, size);
+	}
 
 	return seq;
 }

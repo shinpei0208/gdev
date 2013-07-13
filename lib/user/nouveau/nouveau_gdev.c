@@ -26,6 +26,7 @@
 #include "gdev_device.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
+#include "gdev_nvidia_nve4.h"
 #include "xf86drm.h"
 #include "xf86drmMode.h"
 #include "nouveau_drm.h"
@@ -242,6 +243,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct nouveau_bo *push_bo;
 	struct nouveau_bo *fence_bo;
 	struct nouveau_bo *notify_bo;
+	struct nouveau_bo *desc_bo;
 	unsigned int push_domain;
 	unsigned int fence_domain;
 	unsigned int notify_domain;
@@ -367,19 +369,41 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 #endif
 
 	ctx->pdata = (void *)ctx_objects;
+	
+#if 1
+	if ((gdev->chipset & 0xf0) == 0xe0){
+	    if( nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, sizeof(struct gdev_nve4_compute_desc), NULL, &desc_bo)){
+		goto fail_desc;
+	    }
+	    ctx->desc.bo = desc_bo;
+	    ctx->desc.addr = desc_bo->offset;
+	    if(ctx->desc.addr & 0xff || nouveau_bo_map(desc_bo, NOUVEAU_BO_WR, client)){
+		goto fail_desc_map;
+	    }
+	    ctx->desc.map = desc_bo->map;
+	    memset(desc_bo->map, 0,sizeof(struct gdev_nve4_compute_desc));
+	}
+#endif
 
 	nouveau_bufctx_refn(bufctx, 0, push_bo, push_domain | push_flags);
 	nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_domain | fence_flags);
 	nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_domain | NOUVEAU_BO_RDWR);
+#if 1
+	nouveau_bufctx_refn(bufctx, 0x50/* NVC0_BIND_CP_DESC */, desc_bo, NOUVEAU_BO_GART | NOUVEAU_BO_RD)->priv=NULL;
+#endif
 	nouveau_pushbuf_bufctx(push, bufctx);
 	nouveau_pushbuf_validate(push);
 
 	return ctx;
 
-#if 0 /* un-necessary */
-fail_comp:
+fail_desc_map:
+	nouveau_bo_ref(NULL, (struct nouveau_bo **)&desc_bo);
+fail_desc:
+//#if 0 /* un-necessary */
+//	nouveau_object_del(&comp);
+//fail_comp:
+//#endif
 	nouveau_object_del(&m2mf);
-#endif
 fail_m2mf:
 	free(ctx_objects);
 fail_ctx_objects:
