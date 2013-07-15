@@ -38,9 +38,7 @@
 #define GDEV_DEVICE_MAX_COUNT 32
 
 struct gdev_nouveau_ctx_objects {
-#if 0 /* un-necessary */
 	struct nouveau_object *comp;
-#endif
 	struct nouveau_object *m2mf;
 };
 
@@ -257,7 +255,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct gdev_nouveau_ctx_objects *ctx_objects;
 	struct nouveau_object *m2mf;
 	uint32_t m2mf_class = 0;
-#if 0 /* un-necessary */
+#if 1 /* un-necessary */
 	struct nouveau_object *comp;
 	uint32_t comp_class = 0;
 #endif
@@ -355,7 +353,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef323f, m2mf_class, NULL, 0, &m2mf))
 		goto fail_m2mf;
 	ctx_objects->m2mf = m2mf;
-#if 0 /* un-necessary */
+
 	/* allocating PGRAPH context for COMPUTE */
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		comp_class = 0x50c0;
@@ -366,11 +364,12 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef90c0, comp_class, NULL, 0, &comp))
 		goto fail_comp;
 	ctx_objects->comp = comp;
-#endif
 
 	ctx->pdata = (void *)ctx_objects;
 	
-#if 1
+	/* compute desc struct. 
+	 * But really, need to structure for each launch grid 
+	 */
 	if ((gdev->chipset & 0xf0) == 0xe0){
 	    if( nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, sizeof(struct gdev_nve4_compute_desc), NULL, &desc_bo)){
 		goto fail_desc;
@@ -383,14 +382,11 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	    ctx->desc.map = desc_bo->map;
 	    memset(desc_bo->map, 0,sizeof(struct gdev_nve4_compute_desc));
 	}
-#endif
 
 	nouveau_bufctx_refn(bufctx, 0, push_bo, push_domain | push_flags);
 	nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_domain | fence_flags);
 	nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_domain | NOUVEAU_BO_RDWR);
-#if 1
 	nouveau_bufctx_refn(bufctx, 0x50/* NVC0_BIND_CP_DESC */, desc_bo, NOUVEAU_BO_GART | NOUVEAU_BO_RD)->priv=NULL;
-#endif
 	nouveau_pushbuf_bufctx(push, bufctx);
 	nouveau_pushbuf_validate(push);
 
@@ -399,10 +395,8 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 fail_desc_map:
 	nouveau_bo_ref(NULL, (struct nouveau_bo **)&desc_bo);
 fail_desc:
-//#if 0 /* un-necessary */
-//	nouveau_object_del(&comp);
-//fail_comp:
-//#endif
+	nouveau_object_del(&comp);
+fail_comp:
 	nouveau_object_del(&m2mf);
 fail_m2mf:
 	free(ctx_objects);

@@ -77,11 +77,12 @@ CUresult cuModuleLoad(CUmodule *module, const char *fname)
 	}
 
 	/* check compatibility of code and device. */
-	if ((ctx->cuda_info.chipset & 0xf0) != mod->arch) {
+	if ((ctx->cuda_info.chipset & 0xf0) !=  mod->arch) {
+	    if ((ctx->cuda_info.chipset & 0xf0) !=  0xe0 ) { /* fix this */
 		res = CUDA_ERROR_INVALID_SOURCE;
 		goto fail_load_cubin;
+	    }
 	}
-
 	/* construct the kernels based on the cubin data. */
 	if ((res = gdev_cuda_construct_kernels(mod, &ctx->cuda_info)) 
 		!= CUDA_SUCCESS) {

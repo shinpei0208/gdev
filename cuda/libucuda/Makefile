@@ -1,6 +1,6 @@
 # Makefile
 
-WITHOUT_RUNTIME ?= 0
+WITHOUT_RUNTIME ?= 1 #enable: 0, disable:1
 
 CC		= gcc
 TARGET		= libucuda

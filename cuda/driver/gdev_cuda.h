@@ -31,6 +31,7 @@
 
 #define GDEV_ARCH_SM_1X 0x50 /* sm_1x */
 #define GDEV_ARCH_SM_2X 0xc0 /* sm_2x */
+#define GDEV_ARCH_SM_3X 0xe0 /* sm_3x */
 
 #ifndef NULL
 #define NULL 0

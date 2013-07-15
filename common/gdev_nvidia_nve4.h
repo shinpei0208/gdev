@@ -1,7 +1,6 @@
 #ifndef __GDEV_NVIDIA_NVE4_H__
 #define __GDEV_NVIDIA_NVE4_H__
 
-#include "nouveau.h"
 #include "gdev_device.h"
 #include "gdev_conf.h"
 
@@ -41,12 +40,6 @@ struct gdev_nve4_compute_desc{
 	uint32_t unk47_20     : 12;
 	uint32_t unk48[16];
 };
-
-#ifdef __KERNEL__
-#define KEP_PRINT(fmt, arg...) printk("[gdev:kepler]" fmt, ##arg)
-#else
-#define KEP_PRINT(fmt, arg...) fprintf(stderr,"[gdev:kepler]" fmt, ##arg)
-#endif
 
 #define GDEV_SUBCH_NV_P2MF GDEV_SUBCH_NV_M2MF
 
