@@ -19,6 +19,10 @@ all: $(OBJS)
 %.o:implementation/%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
 
+implementation/Module.cpp: ../../ptxgrammar.hpp
+
+../../ptxgrammar.hpp:
+	$(MAKE) -C ../parser/ $@
 clean:
 	rm -f $(OBJS) $(ZOMBIE)
 
