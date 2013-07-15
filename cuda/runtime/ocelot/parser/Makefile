@@ -13,7 +13,7 @@ ZOMBIE  = $(wildcard ./*~)
 all: $(OBJS)
 
 implementation/%.cpp:implementation/%.yy
-	$(YACC) -o $@ $^
+	$(YACC) -o $@ --defines=../../$(basename $(notdir $@)).hpp $^
 
 implementation/%.cpp:implementation/%.ll
 	$(LEX) -o$@ $^
@@ -24,6 +24,12 @@ implementation/%.cpp:implementation/%.ll
 %.o:implementation/%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS)
 
-clean:
+../../ptxgrammar.hpp: implementation/ptxgrammar.cpp
+
+implementation/PTXLexer.cpp: ../../ptxgrammar.hpp
+
+clean: ptxgrammar-clean
 	rm -f $(OBJS) $(ZOMBIE)
 
+ptxgrammar-clean:
+	rm -f ../../ptxgrammar.hpp implementation/ptxgrammar.cpp
