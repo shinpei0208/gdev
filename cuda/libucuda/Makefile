@@ -10,7 +10,7 @@ CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include
 LDFLAGS = -L $(GDEVDIR)/lib64 -lgdev -lrt -Wl,-Bsymbolic
 
 #OBJS 	= $(patsubst %.c,%.o,$(wildcard ./*.c))
-OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o stream.o ipc.o event.o gdev_cuda.o dummy.o extension/memmap.o extension/ipc.o
+OBJS 	= init.o device.o version.o context.o module.o execution.o memory.o stream.o event.o gdev_cuda.o dummy.o extension/memmap.o extension/ipc.o
 CUDUMP_OBJS = cudump.o gdev_cuda.o
 OCELOT_OBJS = runtime/ocelot/*/*.o
 HYDRAZ_OBJS = runtime/hydrazine/*.o

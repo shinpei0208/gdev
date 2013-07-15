@@ -24,9 +24,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "cuda.h"
+#include "../cuda.h"
 #include "gdev_api.h"
-#include "gdev_cuda.h"
+#include "../gdev_cuda.h"
 
 
 /**

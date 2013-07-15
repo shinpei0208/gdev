@@ -26,9 +26,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "cuda.h"
+#include "../cuda.h"
 #include "gdev_api.h"
-#include "gdev_cuda.h"
+#include "../gdev_cuda.h"
 
 CUresult cuShmGet(int *ptr, int key, size_t size, int flags)
 {
