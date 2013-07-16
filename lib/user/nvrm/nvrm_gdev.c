@@ -189,9 +189,9 @@ struct gdev_ctx *gdev_raw_ctx_new
 	else if (chipset < 0xe0)
 		cls = 0x906f, ccls = 0x90c0;
 	else if (chipset < 0xf0)
-		cls = 0xa06f, ccls = 0xa0c0, accls = 0xa0b5;
+		cls = 0xa06f, ccls = 0xa0c0, accls = 0xa040;
 	else
-		cls = 0xa16f, ccls = 0xa1c0, accls = 0xa0b5;
+		cls = 0xa16f, ccls = 0xa1c0, accls = 0xa140;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
@@ -229,9 +229,11 @@ struct gdev_ctx *gdev_raw_ctx_new
 	if (!nvrm_eng_create(chan, NVRM_FIFO_ENG_GRAPH, ccls))
 		goto fail_eng;
 
+#if 0 /* fix this  */
 	/* copy init */
 	if (accls && !nvrm_eng_create(chan, NVRM_FIFO_ENG_COPY2, accls))
 		goto fail_eng;
+#endif
 
 	/* bring it up */
 	if (nvrm_channel_activate(chan))
