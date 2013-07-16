@@ -34,6 +34,7 @@ int gdev_compute_setup(struct gdev_device *gdev)
 {
     switch (gdev->chipset & 0xf0) {
     case 0xE0:
+    case 0xF0:
 		nve4_compute_setup(gdev);
         break;
     case 0xC0:
