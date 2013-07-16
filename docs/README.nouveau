@@ -72,12 +72,10 @@ sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
 
-4. CUDA Driver API
+4. CUDA Runtime
 
-Gdev currently supports a limited set of CUDA Driver API. We plan to 
-support a full set of CUDA Driver API in future work. If you need
-CUDA Runtime API, you should use some compiler framework, such as
-Ocelot, which can translate CUDA Drier API to Runtime API.
+Gdev currently supports a limited set of CUDA Driver/Runtime API. 
+It is defined as Micro CUDA (uCUDA) in Gdev.
 
 cd $(TOPDIR)/gdev/cuda
 mkdir build
@@ -86,16 +84,9 @@ cd build
 make
 sudo make install
 
-5. CUDA Driver API test (user-space programs)
+5. CUDA Driver API test
 
 cd $(TOPDIR)/test/cuda/user/madd
 make # you will need to add "-ldrm -ldrm_nouveau -L /usr/lib"
 ./user_test 256 # a[256] + b[256] = c[256]
 
-make
-sudo insmod ./kernel_test.ko size=10000 # copy 0x10000 size
-
-NOTE: Please be careful when doing this test as it runs a program
-in module_init(). If you run a very long program as it is, you may
-crash your system. If you want to run a very long program, you must
-provide a proper module implementation, e.g., using kernel threads.

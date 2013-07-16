@@ -88,12 +88,10 @@ sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
 
-6. CUDA Driver API
+6. CUDA Runtime
 
-Gdev currently supports a limited set of CUDA Driver API. We plan to 
-support a full set of CUDA Driver API in future work. If you prefer
-CUDA Runtime API, you should use some compiler framework, such as
-GPU Ocelot, which can translate CUDA Drier API to Runtime API.
+Gdev currently supports a limited set of CUDA Driver/Runtime API. 
+It is defined as Micro CUDA (uCUDA) in Gdev.
 
 cd $(TOPDIR)/gdev/cuda
 mkdir build
