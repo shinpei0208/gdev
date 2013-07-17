@@ -406,6 +406,21 @@ int gdev_drv_getparam(struct drm_device *drm, uint32_t type, uint64_t *res)
 		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
 		*res = getparam.value;
 		break;
+	case GDEV_DRV_GETPARAM_BUS_TYPE:
+		getparam.param = NOUVEAU_GETPARAM_BUS_TYPE;
+		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	case GDEV_DRV_GETPARAM_PCI_VENDOR:
+		getparam.param = NOUVEAU_GETPARAM_PCI_VENDOR;
+		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
+	case GDEV_DRV_GETPARAM_PCI_DEVICE:
+		getparam.param = NOUVEAU_GETPARAM_PCI_DEVICE;
+		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
+		*res = getparam.value;
+		break;
 	default:
 		ret = -EINVAL;
 	}

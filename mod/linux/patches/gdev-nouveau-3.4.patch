@@ -1,9 +1,30 @@
+diff -crN a/drivers/gpu/drm/nouveau/Makefile b/drivers/gpu/drm/nouveau/Makefile
+*** a/drivers/gpu/drm/nouveau/Makefile	2012-05-21 07:29:13.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/Makefile	2013-07-11 18:55:09.174310536 +0900
+***************
+*** 3,9 ****
+  # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
+  
+  ccflags-y := -Iinclude/drm
+! nouveau-y := nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
+               nouveau_object.o nouveau_irq.o nouveau_notifier.o \
+               nouveau_sgdma.o nouveau_dma.o nouveau_util.o \
+               nouveau_bo.o nouveau_fence.o nouveau_gem.o nouveau_ttm.o \
+--- 3,10 ----
+  # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
+  
+  ccflags-y := -Iinclude/drm
+! nouveau-y := gdev_interface.o \
+!              nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
+               nouveau_object.o nouveau_irq.o nouveau_notifier.o \
+               nouveau_sgdma.o nouveau_dma.o nouveau_util.o \
+               nouveau_bo.o nouveau_fence.o nouveau_gem.o nouveau_ttm.o \
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/gdev_interface.c
 *** a/drivers/gpu/drm/nouveau/gdev_interface.c	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.c	2012-11-06 16:27:30.466458616 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.c	2013-07-11 18:55:09.174310536 +0900
 ***************
 *** 0 ****
---- 1,452 ----
+--- 1,467 ----
 + #include <linux/module.h>
 + #include "gdev_interface.h"
 + #include "nouveau_drv.h"
@@ -412,6 +433,21 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + 		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
 + 		*res = getparam.value;
 + 		break;
++ 	case GDEV_DRV_GETPARAM_BUS_TYPE:
++ 		getparam.param = NOUVEAU_GETPARAM_BUS_TYPE;
++ 		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
++ 	case GDEV_DRV_GETPARAM_PCI_VENDOR:
++ 		getparam.param = NOUVEAU_GETPARAM_PCI_VENDOR;
++ 		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
++ 	case GDEV_DRV_GETPARAM_PCI_DEVICE:
++ 		getparam.param = NOUVEAU_GETPARAM_PCI_DEVICE;
++ 		ret = nouveau_ioctl_getparam(drm, &getparam, NULL);
++ 		*res = getparam.value;
++ 		break;
 + 	default:
 + 		ret = -EINVAL;
 + 	}
@@ -458,10 +494,10 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + EXPORT_SYMBOL(gdev_drv_unsetnotify);
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/gdev_interface.h
 *** a/drivers/gpu/drm/nouveau/gdev_interface.h	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.h	2012-11-06 16:27:30.466458616 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-07-11 18:55:09.175310570 +0900
 ***************
 *** 0 ****
---- 1,66 ----
+--- 1,69 ----
 + #ifndef __GDEV_INTERFACE_H__
 + #define __GDEV_INTERFACE_H__
 + 
@@ -477,6 +513,9 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + #define GDEV_DRV_GETPARAM_FB_SIZE 2
 + #define GDEV_DRV_GETPARAM_AGP_SIZE 3
 + #define GDEV_DRV_GETPARAM_CHIPSET_ID 4
++ #define GDEV_DRV_GETPARAM_BUS_TYPE 5
++ #define GDEV_DRV_GETPARAM_PCI_VENDOR 6
++ #define GDEV_DRV_GETPARAM_PCI_DEVICE 7
 + 
 + struct gdev_drv_vspace {
 + 	void *priv;
@@ -528,49 +567,9 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + int gdev_drv_unsetnotify(void (*func)(int subc, uint32_t data));
 + 
 + #endif
-Binary files a/drivers/gpu/drm/nouveau/gdev_interface.o and b/drivers/gpu/drm/nouveau/gdev_interface.o differ
-diff -crN a/drivers/gpu/drm/nouveau/Makefile b/drivers/gpu/drm/nouveau/Makefile
-*** a/drivers/gpu/drm/nouveau/Makefile	2012-05-21 07:29:13.000000000 +0900
---- b/drivers/gpu/drm/nouveau/Makefile	2012-11-06 16:19:53.451482470 +0900
-***************
-*** 3,9 ****
-  # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
-  
-  ccflags-y := -Iinclude/drm
-! nouveau-y := nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
-               nouveau_object.o nouveau_irq.o nouveau_notifier.o \
-               nouveau_sgdma.o nouveau_dma.o nouveau_util.o \
-               nouveau_bo.o nouveau_fence.o nouveau_gem.o nouveau_ttm.o \
---- 3,10 ----
-  # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
-  
-  ccflags-y := -Iinclude/drm
-! nouveau-y := gdev_interface.o \
-!              nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
-               nouveau_object.o nouveau_irq.o nouveau_notifier.o \
-               nouveau_sgdma.o nouveau_dma.o nouveau_util.o \
-               nouveau_bo.o nouveau_fence.o nouveau_gem.o nouveau_ttm.o \
-diff -crN a/drivers/gpu/drm/nouveau/Makefile.rej b/drivers/gpu/drm/nouveau/Makefile.rej
-*** a/drivers/gpu/drm/nouveau/Makefile.rej	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/Makefile.rej	2012-11-06 16:22:23.269473299 +0900
-***************
-*** 0 ****
---- 1,12 ----
-+ --- gpu/drm/nouveau/Makefile
-+ +++ gpu/drm/nouveau/Makefile
-+ @@ -3,7 +3,8 @@
-+  # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
-+  
-+  ccflags-y := -Iinclude/drm
-+ -nouveau-y := nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
-+ +nouveau-y := gdev_interface.o \
-+ +             nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
-+               nouveau_object.o nouveau_irq.o nouveau_notifier.o \
-+               nouveau_sgdma.o nouveau_dma.o nouveau_util.o \
-+               nouveau_bo.o nouveau_fence.o nouveau_gem.o nouveau_ttm.o \
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_drv.c b/drivers/gpu/drm/nouveau/nouveau_drv.c
 *** a/drivers/gpu/drm/nouveau/nouveau_drv.c	2012-05-21 07:29:13.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_drv.c	2012-11-06 16:33:04.832442664 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_drv.c	2013-07-11 18:55:09.180310715 +0900
 ***************
 *** 460,467 ****
 --- 460,497 ----
@@ -614,7 +613,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drv.c b/drivers/gpu/drm/nouveau/nouv
   	if (nouveau_modeset == -1) {
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_state.c b/drivers/gpu/drm/nouveau/nouveau_state.c
 *** a/drivers/gpu/drm/nouveau/nouveau_state.c	2012-05-21 07:29:13.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_state.c	2012-11-06 16:31:50.857446193 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_state.c	2013-07-11 18:55:09.185310851 +0900
 ***************
 *** 1094,1099 ****
 --- 1094,1102 ----
@@ -641,7 +640,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_state.c b/drivers/gpu/drm/nouveau/no
   err_ramin:
 diff -crN a/drivers/gpu/drm/nouveau/nvc0_graph.c b/drivers/gpu/drm/nouveau/nvc0_graph.c
 *** a/drivers/gpu/drm/nouveau/nvc0_graph.c	2012-05-21 07:29:13.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nvc0_graph.c	2012-11-06 16:32:52.881443234 +0900
+--- b/drivers/gpu/drm/nouveau/nvc0_graph.c	2013-07-11 18:55:09.194311022 +0900
 ***************
 *** 654,659 ****
 --- 654,661 ----

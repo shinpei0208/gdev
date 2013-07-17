@@ -819,8 +819,9 @@ CUresult gdev_cuda_load_cubin_image(struct CUmod_st *mod, const void *image)
 #ifdef __KERNEL__
 fail_load_cubin:
 	unload_cubin(mod);
-#endif
+#else
 fail_save_ptx:
+#endif
 	switch (ret) {
 	case -ENOMEM:
 		return CUDA_ERROR_OUT_OF_MEMORY;

@@ -13,7 +13,10 @@ ZOMBIE  = $(wildcard ./*~)
 all: $(OBJS)
 
 implementation/%.cpp:implementation/%.yy
-	$(YACC) -o $@ --defines=../../$(basename $(notdir $@)).hpp $^
+	(TEMPFILE=`mktemp`; \
+	$(YACC) -o $@ --defines=$$TEMPFILE $^; \
+	cat $$TEMPFILE | sed 's/^#ifdef YYPARSE_PARAM$$/#if 0\n\0/g' | sed 's/^#endif \/\* ! YYPARSE_PARAM \*\/$$/\0\n#endif/g' > ../../$(basename $(notdir $@)).hpp; \
+	unlink $$TEMPFILE)
 
 implementation/%.cpp:implementation/%.ll
 	$(LEX) -o$@ $^
