@@ -250,8 +250,11 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.addr = nvrm_bo_gpu_addr(ctx->fence.bo);
 	ctx->fence.seq = 0;
 
-	/* desc buffer. */
-	if ((gdev->chipset & 0xf0) == 0xe0){
+	/* desc buffer create.
+	 *  In fact, it must be created for each kernel launch.
+	 *  Need fix.
+	 * */
+	if ((gdev->chipset & 0xf0) >= 0xe0){
 	    ctx->desc.bo = nvrm_bo_create(nvas, sizeof(struct gdev_nve4_compute_desc), 1);
 	    if (!ctx->desc.bo)
 		goto fail_desc_alloc;

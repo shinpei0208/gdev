@@ -368,9 +368,10 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->pdata = (void *)ctx_objects;
 	
 	/* compute desc struct. 
-	 * But really, need to structure for each launch grid 
+	 * In fact, it must be created for each kernel launch.
+	 * need fix.
 	 */
-	if ((gdev->chipset & 0xf0) == 0xe0){
+	if ((gdev->chipset & 0xf0) >= 0xe0){
 	    if( nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, sizeof(struct gdev_nve4_compute_desc), NULL, &desc_bo)){
 		goto fail_desc;
 	    }
