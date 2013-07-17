@@ -274,7 +274,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 	return ctx;
 
 fail_notify_alloc:
-	if ((gdev->chipset & 0xf0) == 0xe0)
+	if ((gdev->chipset & 0xf0) >= 0xe0)
 	    nvrm_bo_destroy(ctx->desc.bo);
 fail_desc_alloc:
 	nvrm_bo_destroy(ctx->fence.bo);
