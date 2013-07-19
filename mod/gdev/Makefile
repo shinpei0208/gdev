@@ -9,10 +9,14 @@ include $(PWD)/Driver.mk # export $(DRIVER_NAME)
 
 SYSSRC = /lib/modules/$(shell uname -r)/build
 
+GDEVDIR = /usr/local/gdev
+GDEVINC = $(GDEVDIR)/include
+GDEVETC = $(GDEVDIR)/etc
+
 ifeq ($(wildcard ($(SYSSRC)/drivers/gpu/drm/nouveau/gdev_interface.h)),)
 	GDEV_INTERFACE = $(SYSSRC)/drivers/gpu/drm/nouveau
 else
-	GDEV_INTERFACE = /usr/local/gdev/$(DRIVER_NAME)
+	GDEV_INTERFACE = $(GDEVDIR)/$(DRIVER_NAME)
 	KBUILD_EXTRA_SYMBOLS = $(GDEV_INTERFACE)/Module.symvers
 endif
 
@@ -24,3 +28,26 @@ all:
 clean:
 	+make -C $(SYSSRC) M=$(PWD) clean
 	rm -f *~
+
+install: all
+	-sudo rmmod $(TARGET)
+	+sudo make -C $(SYSSRC) M=$(PWD) modules_install
+	sudo install -o root -m 0755 -d $(GDEVDIR)
+	sudo install -o root -m 0755 -d $(GDEVINC)
+	sudo install -o root -m 0755 -d $(GDEVETC)
+	sudo install -o root -m 0644 Module.symvers \
+	             $(GDEVETC)/Module.symvers.$(TARGET)
+	sudo install -o root -m 0644 gdev_api.h gdev_autogen.h \
+	             gdev_nvidia_def.h gdev_list.h gdev_time.h $(GDEVINC)
+	sudo install -o root -m 0644 $(TARGET).rules \
+	             /etc/udev/rules.d/80-$(TARGET).rules
+	-sudo modprobe $(TARGET)
+
+uninstall:
+	-sudo rmmod $(TARGET)
+	sudo rm -f $(GDEVETC)/Module.symvers.$(TARGET)
+	sudo rm -f $(GDEVINC)/gdev_api.h $(GDEVINC)/gdev_autogen.h \
+	        $(GDEVINC)/gdev_nvidia_def.h $(GDEVINC)/gdev_list.h \
+	        $(GDEVINC)/gdev_time.h
+	sudo rm -f /lib/modules/$(shell uname -r)/extra/$(TARGET).ko
+	sudo depmod

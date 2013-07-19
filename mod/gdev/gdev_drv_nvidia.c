@@ -291,6 +291,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	mem->size = bo.size;
 	mem->map = bo.map;
 	mem->bo = bo.priv;
+	mem->pdata = (void *)drm;
 	
 	return mem;
 
@@ -328,6 +329,7 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	struct gdev_drv_bo bo;
 
 	vspace.priv = vas->pvas;
+	vspace.drm = mem->pdata;
 	bo.priv = mem->bo;
 	bo.addr = mem->addr;
 	bo.size = mem->size;
@@ -362,6 +364,7 @@ struct gdev_mem *gdev_raw_swap_alloc(struct gdev_device *gdev, uint64_t size)
 	mem->addr = 0;
 	mem->size = bo.size;
 	mem->map = NULL;
+	mem->pdata = (void *)drm;
 
 	return mem;
 
@@ -382,6 +385,7 @@ void gdev_raw_swap_free(struct gdev_mem *mem)
 
 	if (mem) {
 		vspace.priv = NULL; /* indicate that bo doensn't have vspace. */
+		vspace.drm = mem->pdata;
 		bo.priv = mem->bo;
 		bo.addr = mem->addr; /* not really used. */
 		bo.size = mem->size; /* not really used. */
@@ -404,6 +408,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem)
 		goto fail_mem;
 
 	vspace.priv = vas->pvas;
+	vspace.drm = mem->pdata;
 	bo.priv = mem->bo;
 	bo.addr = 0; /* will be obtained. */
 	bo.size = 0; /* will be obtained. */
@@ -418,6 +423,7 @@ struct gdev_mem *gdev_raw_mem_share(struct gdev_vas *vas, struct gdev_mem *mem)
 	new->size = bo.size;
 	new->map = bo.map;
 	new->bo = (void *)bo.priv; /* private driver object. */
+	new->pdata = (void *)drm;
 
 	GDEV_DPRINT("Shared memory of 0x%llx bytes at 0x%llx\n", bo.size, bo.addr);
 
@@ -437,6 +443,7 @@ void gdev_raw_mem_unshare(struct gdev_mem *mem)
 	struct gdev_vas *vas = mem->vas;
 
 	vspace.priv = vas->pvas;
+	vspace.drm = mem->pdata;
 	bo.priv = mem->bo;
 	bo.addr = mem->addr;
 	bo.size = mem->size; /* not really used. */

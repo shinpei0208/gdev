@@ -53,6 +53,7 @@ MODULE_AUTHOR("Shinpei Kato");
  * global variables.
  */
 static dev_t dev;
+static struct class *dev_class;
 static int cdevs_registered = 0;
 static struct cdev *cdevs; /* character devices for virtual devices */
 
@@ -388,6 +389,9 @@ int gdev_minor_init(int physid)
 #endif
 		/* create /proc/gdev/vd%d entries  */
 		gdev_proc_minor_create(i);
+
+		device_create(dev_class, NULL, MKDEV(MAJOR(dev), i), NULL,
+			      MODULE_NAME"%d", i);
 	}
 
 	return 0;
@@ -398,7 +402,7 @@ int gdev_minor_init(int physid)
  */
 int gdev_minor_exit(int physid)
 {
-	int i;
+	int i, j;
 
 	if (!gdevs) {
 		GDEV_PRINT("Failed to exit minor device %d, "
@@ -411,7 +415,14 @@ int gdev_minor_exit(int physid)
 	}
 
 	if (physid < gdev_count) {
-		for (i = 0; i < gdev_vcount; i++) {
+
+		for (i = 0, j = 0; i < physid; i++)
+			j += VCOUNT_LIST[i];
+
+		for (i = 0; i < gdev_vcount; i++, j++) {
+
+			device_destroy(dev_class, MKDEV(MAJOR(dev), j));
+
 			if (gdev_vds[i].parent == &gdevs[physid]) {
 #ifndef GDEV_SCHED_DISABLED
 				gdev_exit_scheduler(&gdev_vds[i]);
@@ -490,6 +501,8 @@ int gdev_major_init(void)
 	gdev_drv_setnotify(__gdev_notify_handler);
 #endif
 
+	dev_class = class_create(THIS_MODULE, MODULE_NAME);
+
 	return 0;
 
 fail_proc_create:
@@ -516,6 +529,8 @@ fail_getdevice:
 int gdev_major_exit(void)
 {
 	int i;
+
+	 class_destroy(dev_class);
 
 #ifndef GDEV_SCHED_DISABLED
 	gdev_drv_unsetnotify(__gdev_notify_handler);

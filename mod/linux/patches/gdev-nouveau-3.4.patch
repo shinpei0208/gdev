@@ -497,7 +497,7 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 --- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-07-11 18:55:09.175310570 +0900
 ***************
 *** 0 ****
---- 1,69 ----
+--- 1,70 ----
 + #ifndef __GDEV_INTERFACE_H__
 + #define __GDEV_INTERFACE_H__
 + 
@@ -519,6 +519,7 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + 
 + struct gdev_drv_vspace {
 + 	void *priv;
++ 	void *drm;
 + };
 + 
 + struct gdev_drv_chan {

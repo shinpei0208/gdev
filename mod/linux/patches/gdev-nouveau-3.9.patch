@@ -46,10 +46,10 @@ diff -crN a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c b/drivers/gpu/drm/n
   		if (!handle || nv_call(handle->object, mthd, data)) {
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/gdev_interface.c
 *** a/drivers/gpu/drm/nouveau/gdev_interface.c	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.c	2013-06-11 15:25:43.101614053 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.c	2013-07-18 16:51:56.836910176 +0900
 ***************
 *** 0 ****
---- 1,521 ----
+--- 1,530 ----
 + #include <linux/module.h>
 + #include <linux/version.h>
 + #include <engine/graph.h>
@@ -300,11 +300,20 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + int gdev_drv_bo_free(struct gdev_drv_vspace *drv_vspace, struct gdev_drv_bo *drv_bo)
 + {
 + 	struct nouveau_channel *chan = (struct nouveau_channel *)drv_vspace->priv;
-+ 	struct nouveau_client *client = nv_client(chan->cli);
++ 	struct drm_device *drm = (struct drm_device *)drv_vspace->drm;
++ 	struct nouveau_drm *nvdrm;
++ 	struct nouveau_client *client; // = nv_client(chan->cli);
 + 	struct nouveau_bo *bo = (struct nouveau_bo *)drv_bo->priv;
 + 	struct nouveau_vma *vma;
 + 	uint64_t addr = drv_bo->addr;
 + 	void *map = drv_bo->map;
++ 
++ 	if (chan)
++ 		client = nv_client(chan->cli);
++ 	else { /* swap space doesn't have a parent channel, for instance... */
++ 		nvdrm = nouveau_drm(drm);
++ 		client = nv_client(&nvdrm->client);
++ 	}
 + 
 + 	if (map && bo->kmap.bo) /* dirty validation.. */
 + 		nouveau_bo_unmap(bo);
@@ -573,10 +582,10 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + EXPORT_SYMBOL(gdev_drv_unsetnotify);
 diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/gdev_interface.h
 *** a/drivers/gpu/drm/nouveau/gdev_interface.h	1970-01-01 09:00:00.000000000 +0900
---- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-06-11 15:25:43.101614053 +0900
+--- b/drivers/gpu/drm/nouveau/gdev_interface.h	2013-07-18 16:53:05.017964286 +0900
 ***************
 *** 0 ****
---- 1,70 ----
+--- 1,71 ----
 + #ifndef __GDEV_INTERFACE_H__
 + #define __GDEV_INTERFACE_H__
 + 
@@ -597,6 +606,7 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + 
 + struct gdev_drv_vspace {
 + 	void *priv;
++ 	void *drm;
 + };
 + 
 + struct gdev_drv_chan {

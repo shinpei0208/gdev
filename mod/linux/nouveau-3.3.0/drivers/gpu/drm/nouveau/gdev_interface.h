@@ -19,6 +19,7 @@
 
 struct gdev_drv_vspace {
 	void *priv;
+	void *drm;
 };
 
 struct gdev_drv_chan {

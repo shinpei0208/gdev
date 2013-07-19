@@ -192,6 +192,7 @@ struct gdev_mem {
 	int type; /* device or host dma? */
 	void *map; /* memory-mapped buffer */
 	int map_users; /* # of users referencing the map */
+	void *pdata; /* arch-specific private data object. */
 };
 
 /**
