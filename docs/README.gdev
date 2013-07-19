@@ -70,8 +70,7 @@ mkdir build
 cd build
 ../configure
 make
-sudo insmod gdev.ko
-sudo sh gdev.sh
+make install
 
 5. Gdev Library
 
