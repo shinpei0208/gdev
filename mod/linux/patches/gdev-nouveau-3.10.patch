@@ -1,9 +1,9 @@
 diff -crN a/drivers/gpu/drm/nouveau/Makefile b/drivers/gpu/drm/nouveau/Makefile
-*** a/drivers/gpu/drm/nouveau/Makefile	2013-02-19 08:58:34.000000000 +0900
---- b/drivers/gpu/drm/nouveau/Makefile	2013-06-11 13:59:28.233125938 +0900
+*** a/drivers/gpu/drm/nouveau/Makefile	2013-07-01 07:13:29.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/Makefile	2013-07-16 17:56:11.858194120 +0900
 ***************
-*** 214,219 ****
---- 214,222 ----
+*** 236,241 ****
+--- 236,244 ----
   nouveau-y += nv04_pm.o nv40_pm.o nv50_pm.o nva3_pm.o nvc0_pm.o
   nouveau-y += nouveau_mem.o
   
@@ -12,13 +12,13 @@ diff -crN a/drivers/gpu/drm/nouveau/Makefile b/drivers/gpu/drm/nouveau/Makefile
 + 
   # other random bits
   nouveau-$(CONFIG_COMPAT) += nouveau_ioc32.o
-  nouveau-$(CONFIG_ACPI) += nouveau_acpi.o
+  ifdef CONFIG_X86
 diff -crN a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c b/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c
-*** a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c	2013-02-19 08:58:34.000000000 +0900
---- b/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c	2013-06-11 13:59:28.241126041 +0900
+*** a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c	2013-07-01 07:13:29.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c	2013-07-16 17:56:11.860194294 +0900
 ***************
-*** 409,414 ****
---- 409,416 ----
+*** 423,428 ****
+--- 423,430 ----
   	}
   }
   
@@ -28,8 +28,8 @@ diff -crN a/drivers/gpu/drm/nouveau/core/engine/graph/nvc0.c b/drivers/gpu/drm/n
   nvc0_graph_intr(struct nouveau_subdev *subdev)
   {
 ***************
-*** 430,435 ****
---- 432,445 ----
+*** 444,449 ****
+--- 446,459 ----
   	engctx = nouveau_engctx_get(engine, inst);
   	chid   = pfifo->chid(pfifo, engctx);
   
@@ -658,11 +658,11 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.h b/drivers/gpu/drm/nouveau/g
 + 
 + #endif
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/nouveau_chan.c
-*** a/drivers/gpu/drm/nouveau/nouveau_chan.c	2013-02-19 08:58:34.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_chan.c	2013-06-11 13:59:28.250126045 +0900
+*** a/drivers/gpu/drm/nouveau/nouveau_chan.c	2013-07-01 07:13:29.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_chan.c	2013-07-16 17:56:11.862194458 +0900
 ***************
-*** 369,374 ****
---- 369,385 ----
+*** 370,375 ****
+--- 370,386 ----
   		OUT_RING  (chan, NvSw);
   		FIRE_RING (chan);
   	}
@@ -681,8 +681,8 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/nou
   	/* initialise synchronisation */
   	return nouveau_fence(chan->drm)->context_new(chan);
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_dma.h b/drivers/gpu/drm/nouveau/nouveau_dma.h
-*** a/drivers/gpu/drm/nouveau/nouveau_dma.h	2013-02-19 08:58:34.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_dma.h	2013-06-11 13:59:28.250126045 +0900
+*** a/drivers/gpu/drm/nouveau/nouveau_dma.h	2013-07-01 07:13:29.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_dma.h	2013-07-16 17:56:11.863194537 +0900
 ***************
 *** 54,59 ****
 --- 54,60 ----
@@ -694,22 +694,22 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_dma.h b/drivers/gpu/drm/nouveau/nouv
   
   /* Object handles. */
 diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
-*** a/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-02-19 08:58:34.000000000 +0900
---- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-06-11 13:59:28.251126046 +0900
+*** a/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-07-01 07:13:29.000000000 +0900
+--- b/drivers/gpu/drm/nouveau/nouveau_drm.c	2013-07-16 17:56:11.864194613 +0900
 ***************
-*** 68,73 ****
---- 68,76 ----
+*** 71,76 ****
+--- 71,79 ----
   
   static struct drm_driver driver;
   
 + int nouveau_device_count = 0; /* Gdev */
 + struct drm_device **nouveau_drm_device = NULL; /* Gdev */
 + 
-  static u64
-  nouveau_name(struct pci_dev *pdev)
+  static int
+  nouveau_drm_vblank_handler(struct nouveau_eventh *event, int head)
   {
 ***************
-*** 313,319 ****
+*** 352,358 ****
   
   	if (device->card_type >= NV_50) {
   		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
@@ -717,7 +717,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   		if (ret)
   			goto fail_device;
   	}
---- 316,322 ----
+--- 355,361 ----
   
   	if (device->card_type >= NV_50) {
   		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
@@ -726,8 +726,8 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   			goto fail_device;
   	}
 ***************
-*** 344,349 ****
---- 347,363 ----
+*** 379,384 ****
+--- 382,398 ----
   
   	nouveau_accel_init(drm);
   	nouveau_fbcon_init(dev);
@@ -746,7 +746,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   
   fail_dispinit:
 ***************
-*** 557,563 ****
+*** 604,610 ****
   
   	if (nv_device(drm->device)->card_type >= NV_50) {
   		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
@@ -754,7 +754,7 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   		if (ret) {
   			nouveau_cli_destroy(cli);
   			return ret;
---- 571,577 ----
+--- 618,624 ----
   
   	if (nv_device(drm->device)->card_type >= NV_50) {
   		ret = nouveau_vm_new(nv_device(drm->device), 0, (1ULL << 40),
@@ -763,8 +763,8 @@ diff -crN a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouv
   			nouveau_cli_destroy(cli);
   			return ret;
 ***************
-*** 710,718 ****
---- 724,765 ----
+*** 761,769 ****
+--- 775,816 ----
   	.driver.pm = &nouveau_pm_ops,
   };
   
