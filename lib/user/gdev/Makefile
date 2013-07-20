@@ -1,6 +1,7 @@
 # Makefile
 
 include Driver.mk
+include Extra.mk
 
 CC = gcc
 TARGET = libgdev
