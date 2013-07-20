@@ -1,3 +1,5 @@
+include API.mk
+
 TARGET = kcuda
 $(TARGET)-y := kcuda_drv.o init.o device.o version.o context.o module.o memory.o execution.o stream.o ipc.o event.o gdev_cuda.o dummy.o
 GDEVDIR = /usr/local/gdev

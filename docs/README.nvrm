@@ -22,20 +22,20 @@ your environment. $(TOPDIR) represents your top working directory.
 
 1. Download
 
-cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git
-wget http://www.ertl.jp/~shinpei/download/nvidia/NVIDIA-Linux-x86_64-313.18.run
-# More recent versions of the NVIDIA binary driver may also work.
+  cd $(TOPDIR)
+  git clone git://github.com/CS005/gdev.git
+  wget http://www.ertl.jp/~shinpei/download/nvidia/NVIDIA-Linux-x86_64-313.18.run
+  # the latest versions of the NVIDIA binary driver should also work.
 
 2. Device Driver
 
 Gdev disgregates from the device driver. You need to install a native
 GPU device driver to use Gdev. 
 
-cd $(TOPDIR)
-sudo init 3
-sudo sh NVIDIA-Linux-x86_64-313.18.run
-sudo init 5
+  cd $(TOPDIR)
+  sudo init 3
+  sudo sh NVIDIA-Linux-x86_64-313.18.run
+  sudo init 5
 
 3. Gdev Library
 
@@ -43,31 +43,12 @@ Gdev's user-space library provides Gdev API. This API can be used
 by either user programs directly or another high-level API library.
 For instance, third party's CUDA library can use Gdev API.
 
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure --target=user
-make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
-
-4. CUDA Runtime
-
-Gdev currently supports a limited set of CUDA Driver/Runtime API.
-It is defined as Micro CUDA (uCUDA) in Gdev.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir build
-cd build
-../configure
-make
-sudo make install
-
-5. CUDA Driver API test
-
-cd $(TOPDIR)/test/cuda/user/madd
-make
-./user_test 256 # a[256] + b[256] = c[256]
-# You may need root access - if so add "sudo" before "./user_test"!
+  cd $(TOPDIR)/gdev/lib
+  mkdir build
+  cd build
+  ../configure --target=user
+  make
+  sudo make install
+  export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
+  export PATH="/usr/local/gdev/bin:$PATH"
 

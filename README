@@ -19,13 +19,15 @@
 Gdev is a rich set of open-source GPGPU runtime and driver software.
 Currently it supports NVIDIA GPUs but is also portable to other GPUs.
 The supported API implementaions include:
+
   "Gdev API": A low-level API to manage details of GPUs.
   "CUDA Driver API": A low-level API adovocated by NVIDIA.
   "CUDA Runtime API": A high-level API adovocated by NVIDIA. 
+
 The implementation of CUDA Driver API and CUDA Runtime API is built
 on top of Gdev API. For CUDA Runtime API we make use of GPU Ocelot as
 a front-end implementation. You can add your favorite high-level API
-to Gdev other than CUDA Driver/Runtime APIs, leveraging Gdev API.
+to Gdev other than CUDA Driver/Runtime APIs on top of Gdev API.
 
 Gdev provides runtime support in both the device driver and the user-
 space library. Device-driver runtime support is a unique feature of
@@ -35,6 +37,7 @@ manage GPUs as first-class citizens and execute CUDA programs itself.
 Gdev's user-space runtime support is also unique in a sense that it 
 is available for multiple open-source and proprietary device drivers.
 The supported device drivers include:
+
   "Nouveau": An open-source driver developed by the Linux community.
   "PSCNV": An open-source driver developed by PathScale.
   "NVRM": A proprietary binary driver provided by NVIDIA.
@@ -51,17 +54,25 @@ To summarize, Gdev offers the following advantages:
 # How to download, install, and use Gdev
 #####################################################################
 
-Do you want to employ runtime support in the OS?
- -> See docs/README.gdev
+You can choose one of the following for what driver to be used:
 
-Do you want to use user-space runtime with Nouveau?
+1. Do you want to use runtime support in the OS?
+ -> See docs/README.gdev 
+
+2. Do you want to use user-space runtime with Nouveau?
  -> See docs/README.nouveau
 
-Do you want to use user-space runtime with PSCNV?
+3. Do you want to use user-space runtime with PSCNV?
  -> See docs/README.pscnv
 
-Do you want to use user-space runtime with NVRM (NVIDIA Driver)?
+4. Do you want to use user-space runtime with NVRM (NVIDIA Driver)?
  -> See docs/README.nvrm
+
+
+Once the driver is successfully installed, you can install high-level API:
+
+1. Do you want to use CUDA?
+ -> See docs/README.cuda
 
 
 #####################################################################

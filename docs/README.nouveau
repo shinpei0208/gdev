@@ -23,25 +23,25 @@ working directory.
 
 1. Download
 
-cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git
+  cd $(TOPDIR)
+  git clone git://github.com/CS005/gdev.git
 
 2. Linux Kernel and Nouveau Device Driver
 
 To use Gdev's user-space runtime library, you need to install a
 native GPU device driver. 
 
-cd $(TOPDIR)
-git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
-cd linux-2.6
-git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
-git remote update
-git checkout -b nouveau-master nouveau/master
-make oldconfig
-make 
-sudo make modules_install install
-sudo shutdown -r now # will reboot your machine
-modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
+  cd $(TOPDIR)
+  git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
+  cd linux-2.6
+  git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
+  git remote update
+  git checkout -b nouveau-master nouveau/master
+  make oldconfig
+  make 
+  sudo make modules_install install
+  sudo shutdown -r now # will reboot your machine
+  modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 
 3. Gdev Library
 
@@ -50,43 +50,24 @@ by either user programs directly or another high-level API library.
 For instance, third party's CUDA libraries may use Gdev API.
 
 The Gdev user-space runtime library requires Nouveau's LIBDRM.
-You would need to install at least the following packages to build:
-    autoconf, automake, libtool, libxcb-devel, libpciaccess-devel
+You would need to install some distro packages to build.
+e.g, autoconf, automake, libtool, libxcb-devel, libpciaccess-devel
 
-cd $(TOPDIR)
-git clone git://anongit.freedesktop.org/git/mesa/drm/
-cd drm
-./autogen.sh
-./configure --enable-nouveau-experimental-api --prefix=/usr/
-make
-sudo make install
+  cd $(TOPDIR)
+  git clone git://anongit.freedesktop.org/git/mesa/drm/
+  cd drm
+  ./autogen.sh
+  ./configure --enable-nouveau-experimental-api --prefix=/usr/
+  make
+  sudo make install
 
 Now you build the Gdev user-space runtime library as follows:
 
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure --target=user
-EXTRA_CFLAGS="-I /usr/include/libdrm" make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
-
-4. CUDA Runtime
-
-Gdev currently supports a limited set of CUDA Driver/Runtime API. 
-It is defined as Micro CUDA (uCUDA) in Gdev.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir build
-cd build
-../configure
-make
-sudo make install
-
-5. CUDA Driver API test
-
-cd $(TOPDIR)/test/cuda/user/madd
-make # you will need to add "-ldrm -ldrm_nouveau -L /usr/lib"
-./user_test 256 # a[256] + b[256] = c[256]
+  cd $(TOPDIR)/gdev/lib
+  mkdir build
+  cd build
+  ../configure --target=user
+  sudo make install
+  export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
+  export PATH="/usr/local/gdev/bin:$PATH"
 

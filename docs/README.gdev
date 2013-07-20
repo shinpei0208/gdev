@@ -22,9 +22,9 @@ your environment. $(TOPDIR) represents your top working directory.
 
 1. Download
 
-cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git
-git clone git://0x04.net/envytools.git
+  cd $(TOPDIR)
+  git clone git://github.com/CS005/gdev.git
+  git clone git://0x04.net/envytools.git
 
 2. envytools
 
@@ -36,41 +36,41 @@ while are not disclosed to the public so far. If you are interested
 in GPU system software development, this is what you should read!
 Please follow the instruction below to install envytools.
 
-cd $(TOPDIR)/envytools
-mkdir build
-cd build
-cmake .. # may require some packages on your distro
-make
-sudo make install # will install tools to /usr/local/{bin,lib}
+  cd $(TOPDIR)/envytools
+  mkdir build
+  cd build
+  cmake .. # may require some packages on your distro
+  make
+  sudo make install # will install tools to /usr/local/{bin,lib}
 
 3. Linux Kernel and Nouveau Device Driver
 
 Gdev disgregates from the device driver. You need to install a native
 GPU device driver to use Gdev. 
 
-cd $(TOPDIR)
-git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
-cd linux-2.6
-git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
-git remote update
-git checkout -b nouveau-master nouveau/master
-patch -p1 < $(TOPDIR)/gdev/mod/linux/patches/gdev-nouveau-X.X.patch 
-make oldconfig
-make 
-sudo make modules_install install
-sudo shutdown -r now # will reboot your machine
-modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
+  cd $(TOPDIR)
+  git clone --depth 1 git://anongit.freedesktop.org/nouveau/linux-2.6
+  cd linux-2.6
+  git remote add nouveau git://anongit.freedesktop.org/nouveau/linux-2.6
+  git remote update
+  git checkout -b nouveau-master nouveau/master
+  patch -p1 < $(TOPDIR)/gdev/mod/linux/patches/gdev-nouveau-X.X.patch 
+  make oldconfig
+  make 
+  sudo make modules_install install
+  sudo shutdown -r now # will reboot your machine
+  modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 
 4. Gdev Kernel Module
 
 This is a main module of Gdev providing OS runtime support.
 
-cd $(TOPDIR)/gdev/mod
-mkdir build
-cd build
-../configure
-make
-make install
+  cd $(TOPDIR)/gdev/mod
+  mkdir build
+  cd build
+  ../configure
+  make
+  make install
 
 5. Gdev Library
 
@@ -78,51 +78,12 @@ Since this version of Gdev provides runtime support in the OS, this
 library is just a set of wrapper functions that call the Gdev module
 functions via ioctl.
 
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure
-make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
-
-6. CUDA Runtime
-
-Gdev currently supports a limited set of CUDA Driver/Runtime API. 
-It is defined as Micro CUDA (uCUDA) in Gdev.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir build
-cd build
-../configure
-make
-sudo make install
-
-Gdev also supports CUDA in the operating system. You are required to
-install "kcuda" module to use this functionality.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir kbuild
-cd kbuild
-../configure --target=kcuda
-make
-sudo make install
-
-7. CUDA Driver API test (user-space programs)
-
-cd $(TOPDIR)/test/cuda/user/madd
-make
-./user_test 256 # a[256] + b[256] = c[256]
-
-8. CUDA Driver API test (kernel-space programs)
-
-cd $(TOPDIR)/test/cuda/kernel/memcpy
-make
-sudo insmod ./kernel_test.ko size=10000 # copy 0x10000 size
-
-NOTE: Please be careful when doing this test as it runs a program
-in module_init(). If you run a very long program as it is, you may
-crash your system. If you want to run a very long program, you must
-provide a proper module implementation, e.g., using kernel threads.
+  cd $(TOPDIR)/gdev/lib
+  mkdir build
+  cd build
+  ../configure
+  make
+  sudo make install
+  export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
+  export PATH="/usr/local/gdev/bin:$PATH"
 
