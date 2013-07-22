@@ -30,6 +30,8 @@
 #include "nvrm_def.h"
 #include "nvrm_priv.h"
 
+#include "gdev_nvidia_nve4.h"
+
 #define GDEV_DEVICE_MAX_COUNT 32
 
 static struct nvrm_context *nvrm_ctx = 0;
@@ -187,9 +189,9 @@ struct gdev_ctx *gdev_raw_ctx_new
 	else if (chipset < 0xe0)
 		cls = 0x906f, ccls = 0x90c0;
 	else if (chipset < 0xf0)
-		cls = 0xa06f, ccls = 0xa0c0, accls = 0xa0b5;
+		cls = 0xa06f, ccls = 0xa0c0, accls = 0xa040;
 	else
-		cls = 0xa16f, ccls = 0xa1c0, accls = 0xa0b5;
+		cls = 0xa16f, ccls = 0xa1c0, accls = 0xa140;
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
@@ -227,9 +229,11 @@ struct gdev_ctx *gdev_raw_ctx_new
 	if (!nvrm_eng_create(chan, NVRM_FIFO_ENG_GRAPH, ccls))
 		goto fail_eng;
 
+#if 0 /* fix this  */
 	/* copy init */
 	if (accls && !nvrm_eng_create(chan, NVRM_FIFO_ENG_COPY2, accls))
 		goto fail_eng;
+#endif
 
 	/* bring it up */
 	if (nvrm_channel_activate(chan))
@@ -246,6 +250,18 @@ struct gdev_ctx *gdev_raw_ctx_new
 	ctx->fence.addr = nvrm_bo_gpu_addr(ctx->fence.bo);
 	ctx->fence.seq = 0;
 
+	/* desc buffer create.
+	 *  In fact, it must be created for each kernel launch.
+	 *  Need fix.
+	 * */
+	if ((gdev->chipset & 0xf0) >= 0xe0){
+	    ctx->desc.bo = nvrm_bo_create(nvas, sizeof(struct gdev_nve4_compute_desc), 1);
+	    if (!ctx->desc.bo)
+		goto fail_desc_alloc;
+	    ctx->desc.map = nvrm_bo_host_map(ctx->desc.bo);
+	    ctx->desc.addr = nvrm_bo_gpu_addr(ctx->desc.bo);
+	}
+
 	/* interrupt buffer. */
 	ctx->notify.bo = nvrm_bo_create(nvas, 64, 0);
 	if (!ctx->notify.bo)
@@ -258,6 +274,9 @@ struct gdev_ctx *gdev_raw_ctx_new
 	return ctx;
 
 fail_notify_alloc:
+	if ((gdev->chipset & 0xf0) >= 0xe0)
+	    nvrm_bo_destroy(ctx->desc.bo);
+fail_desc_alloc:
 	nvrm_bo_destroy(ctx->fence.bo);
 fail_fence_alloc:
 fail_activate:

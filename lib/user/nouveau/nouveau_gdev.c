@@ -26,6 +26,7 @@
 #include "gdev_device.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
+#include "gdev_nvidia_nve4.h"
 #include "xf86drm.h"
 #include "xf86drmMode.h"
 #include "nouveau_drm.h"
@@ -37,9 +38,7 @@
 #define GDEV_DEVICE_MAX_COUNT 32
 
 struct gdev_nouveau_ctx_objects {
-#if 0 /* un-necessary */
 	struct nouveau_object *comp;
-#endif
 	struct nouveau_object *m2mf;
 };
 
@@ -242,6 +241,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct nouveau_bo *push_bo;
 	struct nouveau_bo *fence_bo;
 	struct nouveau_bo *notify_bo;
+	struct nouveau_bo *desc_bo;
 	unsigned int push_domain;
 	unsigned int fence_domain;
 	unsigned int notify_domain;
@@ -255,7 +255,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct gdev_nouveau_ctx_objects *ctx_objects;
 	struct nouveau_object *m2mf;
 	uint32_t m2mf_class = 0;
-#if 0 /* un-necessary */
+#if 1 /* un-necessary */
 	struct nouveau_object *comp;
 	uint32_t comp_class = 0;
 #endif
@@ -353,7 +353,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef323f, m2mf_class, NULL, 0, &m2mf))
 		goto fail_m2mf;
 	ctx_objects->m2mf = m2mf;
-#if 0 /* un-necessary */
+
 	/* allocating PGRAPH context for COMPUTE */
 	if ((gdev->chipset & 0xf0) < 0xc0)
 		comp_class = 0x50c0;
@@ -364,22 +364,46 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (nouveau_object_new(chan, 0xbeef90c0, comp_class, NULL, 0, &comp))
 		goto fail_comp;
 	ctx_objects->comp = comp;
-#endif
 
 	ctx->pdata = (void *)ctx_objects;
+	
+	/* compute desc struct. 
+	 * In fact, it must be created for each kernel launch.
+	 * need fix.
+	 */
+	if ((gdev->chipset & 0xf0) >= 0xe0){
+	    if( nouveau_bo_new(dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0, sizeof(struct gdev_nve4_compute_desc), NULL, &desc_bo)){
+		goto fail_desc;
+	    }
+	    ctx->desc.bo = desc_bo;
+	    ctx->desc.addr = desc_bo->offset;
+	    if(ctx->desc.addr & 0xff || nouveau_bo_map(desc_bo, NOUVEAU_BO_WR, client)){
+		goto fail_desc_map;
+	    }
+	    ctx->desc.map = desc_bo->map;
+	    memset(desc_bo->map, 0,sizeof(struct gdev_nve4_compute_desc));
+	}else{
+	    ctx->desc.bo = NULL;
+	}
 
 	nouveau_bufctx_refn(bufctx, 0, push_bo, push_domain | push_flags);
 	nouveau_bufctx_refn(bufctx, 0, fence_bo, fence_domain | fence_flags);
 	nouveau_bufctx_refn(bufctx, 0, notify_bo, notify_domain | NOUVEAU_BO_RDWR);
+
+	if ((gdev->chipset & 0xf0) >= 0xe0)
+	   nouveau_bufctx_refn(bufctx, 0x50/* NVC0_BIND_CP_DESC */, desc_bo, NOUVEAU_BO_GART | NOUVEAU_BO_RD)->priv=NULL;
+	
 	nouveau_pushbuf_bufctx(push, bufctx);
 	nouveau_pushbuf_validate(push);
 
 	return ctx;
 
-#if 0 /* un-necessary */
+fail_desc_map:
+	nouveau_bo_ref(NULL, (struct nouveau_bo **)&desc_bo);
+fail_desc:
+	nouveau_object_del(&comp);
 fail_comp:
 	nouveau_object_del(&m2mf);
-#endif
 fail_m2mf:
 	free(ctx_objects);
 fail_ctx_objects:
@@ -408,18 +432,20 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	struct nouveau_bo *push_bo = (struct nouveau_bo *)ctx->fifo.pb_bo;
 	struct nouveau_bo *fence_bo = (struct nouveau_bo *)ctx->fence.bo;
 	struct nouveau_bo *notify_bo = (struct nouveau_bo *)ctx->notify.bo;
+	struct nouveau_bo *desc_bo = (struct nouveau_bo *)ctx->desc.bo;
 	struct gdev_nouveau_ctx_objects *ctx_objects = (struct gdev_nouveau_ctx_objects *)ctx->pdata;
 
 	nouveau_bufctx_reset(bufctx, 0);
 
+	if(desc_bo)
+	   nouveau_bo_ref(NULL, &desc_bo);
+	
 	nouveau_bo_ref(NULL, &notify_bo);
 	nouveau_bo_ref(NULL, &fence_bo);
 	nouveau_bo_ref(NULL, &push_bo);
 	nouveau_bufctx_del(&bufctx);
 	nouveau_pushbuf_del(&push);
-#if 0 /* un-necessary */
 	nouveau_object_del(&ctx_objects->comp);
-#endif
 	nouveau_object_del(&ctx_objects->m2mf);
 	free(ctx_objects);
 	free(ctx);

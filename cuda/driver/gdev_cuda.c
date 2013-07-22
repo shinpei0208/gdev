@@ -627,7 +627,6 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 			 goto fail_symbol;
 		 }
 	}
-
 	if (nvinfo) { /* >= sm_20 */
 		/* parse nv.info sections. */
 		pos = (char*)nvinfo;
@@ -869,6 +868,7 @@ CUresult gdev_cuda_construct_kernels
 	struct gdev_kernel *k;
 	struct gdev_cuda_raw_func *f;
 	uint32_t mp_count, warp_count, warp_size, stack_size, chipset;
+	uint32_t cmem_size_align = 0;
 	int i;
 	
 	mp_count = cuda_info->mp_count;
@@ -877,6 +877,9 @@ CUresult gdev_cuda_construct_kernels
 	chipset = cuda_info->chipset;
 	mod->code_size = 0;
 	mod->sdata_size = 0;
+
+	if ((chipset&0xf0) >= 0xe0)
+	    cmem_size_align = 0xff;
 
 	gdev_list_for_each(func, &mod->func_list, list_entry) {
 		k = &func->kernel;
@@ -893,7 +896,7 @@ CUresult gdev_cuda_construct_kernels
 		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
 		/* c0[] is a parameter list. */
 		memcpy(k->param_buf, f->cmem[0].buf, f->param_base);
-		k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size);
+		k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size + cmem_size_align);
 		k->cmem[0].offset = 0;
 		for (i = 1; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);

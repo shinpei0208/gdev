@@ -23,8 +23,8 @@ working directory.
 
 1. Download
 
-cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git
+  cd $(TOPDIR)
+  git clone git://github.com/CS005/gdev.git
 
 2. PSCNV Driver
 
@@ -32,11 +32,11 @@ Note that PSCNV works only for a limited version of the Linux kernel.
 We have confirmed that the Linux kernel of version 2.6.{33-38} is
 available with PSCNV.
 
-cd $(TOPDIR)/gdev/mod/linux/pscnv
-./configure
-make
-sudo make modules_install
-sudo shutdown -r now # will reboot your machine
+  cd $(TOPDIR)/gdev/mod/linux/pscnv
+  ./configure
+  make
+  sudo make modules_install
+  sudo shutdown -r now # will reboot your machine
 
 3. Gdev Library
 
@@ -44,31 +44,12 @@ Gdev's user-space library provides Gdev API. This API can be used
 by either user programs directly or another high-level API library.
 For instance, third party's CUDA library can use Gdev API.
 
-cd $(TOPDIR)/gdev/lib
-mkdir build
-cd build
-../configure --target=user
-make
-sudo make install
-export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
-export PATH="/usr/local/gdev/bin:$PATH"
+  cd $(TOPDIR)/gdev/lib
+  mkdir build
+  cd build
+  ../configure --target=user
+  make
+  sudo make install
+  export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
+  export PATH="/usr/local/gdev/bin:$PATH"
 
-4. CUDA Driver API
-
-Gdev currently supports a limited set of CUDA Driver API. We plan to 
-support a full set of CUDA Driver API in future work. If you need
-CUDA Runtime API, you should use some compiler framework, such as
-Ocelot, which can translate CUDA Drier API to Runtime API.
-
-cd $(TOPDIR)/gdev/cuda
-mkdir build
-cd build
-../configure
-make
-sudo make install
-
-5. CUDA Driver API test (user-space programs)
-
-cd $(TOPDIR)/test/cuda/user/madd
-make
-./user_test 256 # a[256] + b[256] = c[256]

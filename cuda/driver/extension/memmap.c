@@ -1,9 +1,7 @@
 /*
  * Copyright (C) 2011 Shinpei Kato
  *
- * University of California, Santa Cruz
- * Systems Research Lab. 
- *
+ * Systems Research Lab, University of California at Santa Cruz
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -26,15 +24,29 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "cuda.h"
+#include "../cuda.h"
 #include "gdev_api.h"
-#include "gdev_cuda.h"
+#include "../gdev_cuda.h"
 
-CUresult cuShmGet(int *ptr, int key, size_t size, int flags)
+
+/**
+ * Gdev extension: maps device memory to host memory.
+ *
+ * Parameters:
+ * dptr - Device pointer
+ * buf - Pointer to user buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemMap(void **buf, CUdeviceptr dptr, unsigned int bytesize)
 {
 	CUresult res;
 	struct CUctx_st *ctx;
 	Ghandle handle;
+	uint64_t addr = dptr;
+	void *map;
 
 	if (!gdev_initialized)
 		return CUDA_ERROR_NOT_INITIALIZED;
@@ -43,18 +55,30 @@ CUresult cuShmGet(int *ptr, int key, size_t size, int flags)
 	if (res != CUDA_SUCCESS)
 		return res;
 
-	if (!ptr)
+	if (!addr || !buf || !bytesize)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	handle = ctx->gdev_handle;
-	if ((*ptr = gshmget(handle, key, size, flags)) < 0) {
-		return CUDA_ERROR_OUT_OF_MEMORY;
-	}
+
+	if (!(map = gmap(handle, addr, bytesize)))
+		return CUDA_ERROR_UNKNOWN;
+
+	*buf = map;
 
 	return CUDA_SUCCESS;
 }
 
-CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags)
+/**
+ * Gdev extension: unmaps device memory from host memory.
+ *
+ * Parameters:
+ * buf - User buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemUnmap(void *buf)
 {
 	CUresult res;
 	struct CUctx_st *ctx;
@@ -67,45 +91,30 @@ CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags)
 	if (res != CUDA_SUCCESS)
 		return res;
 
-	if (!dptr || id < 0)
+	if (!buf)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	handle = ctx->gdev_handle;
-	if (!(*dptr = (CUdeviceptr) gshmat(handle, id, 0 /* addr */, flags))) {
-		return CUDA_ERROR_OUT_OF_MEMORY;
-	}
 
-	return CUDA_SUCCESS;
-}
-
-CUresult cuShmDt(CUdeviceptr dptr)
-{
-	CUresult res;
-	struct CUctx_st *ctx;
-	Ghandle handle;
-
-	if (!gdev_initialized)
-		return CUDA_ERROR_NOT_INITIALIZED;
-
-	res = cuCtxGetCurrent(&ctx);
-	if (res != CUDA_SUCCESS)
-		return res;
-
-	if (!dptr)
-		return CUDA_ERROR_INVALID_VALUE;
-
-	/* wait for all kernels to complete - some may be using the memory. */
-	cuCtxSynchronize();
-
-	handle = ctx->gdev_handle;
-
-	if (gshmdt(handle, (uint64_t)dptr))
+	if (gunmap(handle, buf))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;
 }
 
-CUresult cuShmCtl(int id, int cmd, void *buf /* FIXME */)
+/**
+ * Gdev extension: returns physical bus address associated to user buffer.
+ * Note that the address is contiguous only within the page boundary.
+ *
+ * Parameters:
+ * addr - Physical bus address obtained
+ * p - Pointer to user buffer
+ *
+ * Returns:
+ * CUDA_SUCCESS, CUDA_ERROR_DEINITIALIZED, CUDA_ERROR_NOT_INITIALIZED, 
+ * CUDA_ERROR_INVALID_CONTEXT, CUDA_ERROR_INVALID_VALUE 
+ */
+CUresult cuMemGetPhysAddr(unsigned long long *addr, void *p)
 {
 	CUresult res;
 	struct CUctx_st *ctx;
@@ -118,15 +127,12 @@ CUresult cuShmCtl(int id, int cmd, void *buf /* FIXME */)
 	if (res != CUDA_SUCCESS)
 		return res;
 
-	if (id < 0 || cmd < 0)
+	if (!addr || !p)
 		return CUDA_ERROR_INVALID_VALUE;
-
-	/* wait for all kernels to complete - some may be using the memory. */
-	cuCtxSynchronize();
 
 	handle = ctx->gdev_handle;
 
-	if (gshmctl(handle, id, cmd, buf))
+	if (!(*addr = gphysget(handle, p)))
 		return CUDA_ERROR_UNKNOWN;
 
 	return CUDA_SUCCESS;

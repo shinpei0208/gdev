@@ -1,6 +1,4 @@
-# Makefile
-
-WITHOUT_RUNTIME ?= 0
+include API.mk
 
 CC		= gcc
 TARGET		= libucuda
@@ -11,7 +9,8 @@ LDFLAGS		= -L $(GDEVDIR)/lib64 -lgdev -lrt -Wl,-Bsymbolic
 
 #OBJS 		= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 		= init.o device.o version.o context.o module.o execution.o
-OBJS	       += memory.o stream.o ipc.o event.o gdev_cuda.o dummy.o
+OBJS	       += memory.o stream.o event.o gdev_cuda.o dummy.o
+OBJS	       += extension/memmap.o extension/ipc.o
 
 CUDUMP_OBJS	= cudump.o gdev_cuda.o
 
@@ -79,7 +78,7 @@ HYDRAZINE_OBJS	= $(patsubst %, runtime/hydrazine/%.o, $(HYDRAZINE))
 
 ZOMBIE		= $(wildcard ./*~)
 
-ifeq ($(WITHOUT_RUNTIME),0)
+ifeq ($(CUDA_RUNTIME_API),1)
 	OBJS += $(OCELOT_OBJS) $(HYDRAZINE_OBJS)
 	RUNTIME_LDFLAGS = -lboost_thread -ldl
 endif
@@ -108,8 +107,7 @@ $(HYDRAZINE_OBJS):
 install:
 	@if test ! -d $(DESTDIR)/$(GDEVDIR)/bin ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/bin ; fi ;
 	@if test ! -d $(DESTDIR)/$(GDEVDIR)/lib64 ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/lib64 ; fi ;
-	@if test ! -d $(DESTDIR)/$(GDEVDIR)/include ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/include ; fi ;
-	cp -f ./$(CUDUMP) $(DESTDIR)/$(GDEVDIR)/bin/
+	@if test ! -d $(DESTDIR)/$(GDEVDIR)/include ; then mkdir -p $(DESTDIR)/$(GDEVDIR)/include ; fi ; cp -f ./$(CUDUMP) $(DESTDIR)/$(GDEVDIR)/bin/
 	cp -f ./$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so

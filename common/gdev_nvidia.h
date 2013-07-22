@@ -44,6 +44,7 @@
 #define GDEV_SUBCH_NV_M2MF (GDEV_OP_MEMCPY)/* 2 */
 #define GDEV_SUBCH_NV_PCOPY0 (GDEV_OP_MEMCPY_ASYNC) /* 3 */
 #define GDEV_SUBCH_NV_PCOPY1 (GDEV_SUBCH_NV_PCOPY0 + 1) /* 4 */
+#define GDEV_SUBCH_NV_PCOPY2 (GDEV_SUBCH_NV_PCOPY0 + 2) /* 5 */
 
 #define GDEV_FENCE_BUF_SIZE 0x10000 /* 64KB */
 #define GDEV_FENCE_QUERY_SIZE 0x10 /* aligned with nvc0's query */
@@ -167,6 +168,11 @@ struct gdev_ctx {
 	} notify;
 	uint32_t dummy;
 	void *pdata; /* arch-specific private data object. */
+	struct gdev_desc {
+	    void *bo;
+	    uint32_t *map;
+	    uint32_t addr;
+	} desc; /* compute desc struct. But really, need to structure for each launch grid */
 };
 
 /**
@@ -215,6 +221,7 @@ void gdev_nvidia_mem_list_del(struct gdev_mem *mem);
  * chipset specific functions.
  */
 void nvc0_compute_setup(struct gdev_device *gdev);
+void nve4_compute_setup(struct gdev_device *gdev);
 
 /**
  * OS driver and user-space runtime depen functions.
@@ -243,25 +250,6 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 
 static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 {
-#if 0 /* orig *//* axe */
-	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
-		if (ctx->fifo.pb_pos > ctx->fifo.pb_put) {
-			uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
-			uint32_t len = ctx->fifo.pb_pos - ctx->fifo.pb_put;
-			ctx->fifo.push(ctx, base, len, 0);
-		}
-		else {
-			uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
-			uint32_t len = ctx->fifo.pb_size - ctx->fifo.pb_put;
-			ctx->fifo.push(ctx, base, len, 0);
-			/* why need this? */
-			if (ctx->fifo.pb_pos) {
-				ctx->fifo.push(ctx, ctx->fifo.pb_base, ctx->fifo.pb_pos, 0);
-			}
-		}
-		ctx->fifo.pb_put = ctx->fifo.pb_pos;
-	}
-#else
 	if (ctx->fifo.pb_pos != ctx->fifo.pb_put) {
 		uint64_t base = ctx->fifo.pb_base + ctx->fifo.pb_put;
 		uint32_t len;
@@ -277,7 +265,6 @@ static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 			ctx->fifo.push(ctx, base, len, 0);
 		ctx->fifo.pb_put = ctx->fifo.pb_pos;
 	}
-#endif
 }
 
 static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
@@ -314,5 +301,26 @@ static inline void __gdev_begin_ring_nvc0_const(struct gdev_ctx *ctx, int subc, 
 {
 	__gdev_out_ring(ctx, (0x6<<28) | (len<<16) | (subc<<13) | (mthd>>2));
 }
+
+
+static inline void __gdev_begin_ring_nve4(struct gdev_ctx *ctx, int subc, int mthd, int len)
+{
+	__gdev_out_ring(ctx, (0x2<<28) | (len<<16) | (subc<<13) | (mthd>>2));
+}
+
+static inline void __gdev_begin_ring_nve4_const(struct gdev_ctx *ctx, int subc, int mthd, int len)
+{
+	__gdev_out_ring(ctx, (0x6<<28) | (len<<16) | (subc<<13) | (mthd>>2));
+}
+
+static inline void __gdev_begin_ring_nve4_il(struct gdev_ctx *ctx, int subc, int mthd, int len)
+{
+	__gdev_out_ring(ctx, (0x8<<28) | (len<<16) | (subc<<13) | (mthd>>2));
+}
+static inline void __gdev_begin_ring_nve4_1l(struct gdev_ctx *ctx, int subc, int mthd, int len)
+{
+	__gdev_out_ring(ctx, (0xa<<28) | (len<<16) | (subc<<13) | (mthd>>2));
+}
+
 
 #endif
