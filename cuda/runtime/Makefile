@@ -3,10 +3,10 @@
 CC		= gcc
 CXX		= g++
 TARGET		= ocelot hydrazine
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-ZOMBIE  = $(wildcard ./*~)
+ZOMBIE		= $(wildcard ./*~)
 
 %.build:
 	$(MAKE) -C $(basename $@)
@@ -17,6 +17,7 @@ ZOMBIE  = $(wildcard ./*~)
 %.all:
 	@for subdir in $(TARGET); do \
 		$(MAKE) $$subdir.$(basename $@); \
+		if [ $$? -ne 0 ] ; then exit 1; fi; \
 	done
 
 all: build.all

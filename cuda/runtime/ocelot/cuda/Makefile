@@ -2,13 +2,14 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-OBJS 	= CudaDriver.o CudaDriverFrontend.o
-OBJS   += CudaDriverInterface.o CudaRuntime.o CudaRuntimeInterface.o
-OBJS   += CudaWorkerThread.o FatBinaryContext.o cuda_runtime.o
-ZOMBIE  = $(wildcard ./*~)
+OBJS		= CudaDriver.o CudaDriverFrontend.o
+OBJS	       += CudaDriverInterface.o CudaRuntime.o CudaRuntimeInterface.o
+OBJS	       += CudaWorkerThread.o FatBinaryContext.o cuda_runtime.o
+
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(OBJS)
 

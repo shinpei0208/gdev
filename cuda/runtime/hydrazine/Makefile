@@ -3,12 +3,13 @@
 CC		= gcc
 CXX		= g++
 TARGET		= hydrazine
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ..
-CXXFLAGS        = -std=c++0x
+CFLAGS 		= -O3 -Wall -I $(GDEVDIR)/include -I ..
+CXXFLAGS	= -std=c++0x
 
-OBJS 	= ELFFile.o Exception.o LowLevelTimer.o SystemCompatibility.o
-OBJS   += Thread.o Timer.o Version.o compression.o debug.o string.o
-ZOMBIE  = $(wildcard ./*~)
+OBJS		= ELFFile.o Exception.o LowLevelTimer.o SystemCompatibility.o
+OBJS	       += Thread.o Timer.o Version.o compression.o debug.o string.o
+
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(TARGET)
 

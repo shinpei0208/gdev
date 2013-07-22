@@ -2,15 +2,14 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-OBJS	= Device.o FrameInfo.o ExecutableKernel.o
-OBJS   += NVIDIAExecutableKernel.o NVIDIAGPUDevice.o
-OBJS   += RuntimeException.o
+OBJS		= Device.o FrameInfo.o ExecutableKernel.o
+OBJS	       += NVIDIAExecutableKernel.o NVIDIAGPUDevice.o
+OBJS	       += RuntimeException.o
 
-
-ZOMBIE  = $(wildcard ./*~)
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(OBJS)
 
