@@ -4,17 +4,19 @@ CC		= gcc
 CXX		= g++
 YACC		= bison
 LEX		= flex
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-OBJS 	= PTXLexer.o PTXParser.o ptx.o ptxgrammar.o
-ZOMBIE  = $(wildcard ./*~)
+OBJS		= PTXLexer.o PTXParser.o ptx.o ptxgrammar.o
+
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(OBJS)
 
 implementation/%.cpp:implementation/%.yy
 	(TEMPFILE=`mktemp`; \
 	$(YACC) -o $@ --defines=$$TEMPFILE $^; \
+	if [ $$? -ne 0 ] ; then unlink $$TEMPFILE; exit 1; fi; \
 	cat $$TEMPFILE | sed 's/^#ifdef YYPARSE_PARAM$$/#if 0\n\0/g' | sed 's/^#endif \/\* ! YYPARSE_PARAM \*\/$$/\0\n#endif/g' > ../../$(basename $(notdir $@)).hpp; \
 	unlink $$TEMPFILE)
 

@@ -2,11 +2,12 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-OBJS 	= ocelot.o
-ZOMBIE  = $(wildcard ./*~)
+OBJS		= ocelot.o
+
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(OBJS)
 

@@ -2,17 +2,18 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS          = -O3 -Wall -I $(GDEVDIR)/include -I ../..
-CXXFLAGS        = -std=c++0x
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CXXFLAGS	= -std=c++0x
 
-OBJS 	= AffineAnalysis.o Analysis.o BranchInfo.o ControlTree.o
-OBJS   += ConvergentRegionAnalysis.o DataflowGraph.o DirectionalGraph.o
-OBJS   += DivergenceAnalysis.o DivergenceGraph.o DominatorTree.o
-OBJS   += LoopAnalysis.o PostdominatorTree.o PredicateAnalysis.o
-OBJS   += ProgramStructureGraph.o SSAGraph.o SimpleAliasAnalysis.o
-OBJS   += SparseAnalysis.o StructuralAnalysis.o SuperblockAnalysis.o
-OBJS   += ThreadFrontierAnalysis.o
-ZOMBIE  = $(wildcard ./*~)
+OBJS		= AffineAnalysis.o Analysis.o BranchInfo.o ControlTree.o
+OBJS	       += ConvergentRegionAnalysis.o DataflowGraph.o DirectionalGraph.o
+OBJS	       += DivergenceAnalysis.o DivergenceGraph.o DominatorTree.o
+OBJS	       += LoopAnalysis.o PostdominatorTree.o PredicateAnalysis.o
+OBJS	       += ProgramStructureGraph.o SSAGraph.o SimpleAliasAnalysis.o
+OBJS	       += SparseAnalysis.o StructuralAnalysis.o SuperblockAnalysis.o
+OBJS	       += ThreadFrontierAnalysis.o
+
+ZOMBIE		= $(wildcard ./*~)
 
 all: $(OBJS)
 
