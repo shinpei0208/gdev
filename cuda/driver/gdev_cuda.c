@@ -684,18 +684,54 @@ static int save_ptx(char *ptx_file, const char *image)
 	return 0;
 }
 
+#include <ctype.h>
+#define _TARGET	".target"
+
 static int assemble_ptx(char *cubin_file, const char *ptx_file)
 {
-	char command[256];
+	char buffer[256];
 	int fd;
+	FILE *fp;
+	char *p;
+	char arch[64];
 
 	fd = mkstemp(cubin_file);
 	if (fd < 0)
 		return -ENOENT;
 
-	sprintf(command, "ptxas --gpu-name sm_20 -o %s %s", cubin_file, ptx_file);
+	if ((fp = fopen(ptx_file, "r")) == NULL)
+		return -ENOENT;
 
-	system(command);
+	memset(arch, 0, sizeof(arch));
+
+	while (!feof(fp) && !ferror(fp)) {
+		fgets(buffer, sizeof(buffer), fp);
+		if (strncmp(buffer, _TARGET, sizeof(_TARGET) - 1) == 0) {
+			p = buffer + sizeof(_TARGET) - 1;
+			if (isspace(*p++)) {
+				while(isspace(*p))
+					p++;
+				strncpy(arch, p, sizeof(arch) - 1);
+				p = arch + strlen(arch) - 1;
+				while (isspace(*p)) {
+					*p = '\0';
+					if (p-- == arch)
+						break;
+				}
+				break;
+			}
+		}
+	}
+	
+	fclose(fp);
+
+	if (!arch[0])
+		return -ENOENT;
+
+	snprintf(buffer, sizeof(buffer), "ptxas --gpu-name %s -o %s %s",
+	         arch, cubin_file, ptx_file);
+
+	system(buffer);
 
 	return 0;
 }
