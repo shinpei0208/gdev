@@ -12,6 +12,7 @@
 #include <hydrazine/interface/debug.h>
 #include <hydrazine/interface/Version.h>
 #include <hydrazine/interface/Exception.h>
+#include <hydrazine/interface/ELFFile.h>
 
 #include <fstream>
 #include <cassert>
@@ -86,9 +87,10 @@ ir::Module::Module(const std::string& name,
 const ir::Module& ir::Module::operator=(const Module& m) {
 	unload();
 	
-	_ptxPointer = m._ptxPointer;
+	_ptxPointer   = m._ptxPointer;
 	_cubinPointer = m._cubinPointer;
-	_loaded     = m.loaded();
+	_cubin        = m._cubin;
+	_loaded       = m.loaded();
 
 	if(loaded()) {
 		_modulePath = m.path();
@@ -109,7 +111,6 @@ const ir::Module& ir::Module::operator=(const Module& m) {
 	}
 	else {
 		_ptx = m._ptx;
-		_cubin = m._cubin;
 	}
 	
 	return *this;
@@ -155,13 +156,27 @@ bool ir::Module::load(const std::string& path) {
 	ifstream file(_modulePath.c_str());
 
 	if (file.is_open()) {
-		parser::PTXParser parser;
-		parser.fileName = _modulePath;
 
-		parser.parse( file );
+		file.seekg(0, std::ios::end);
+		int len = file.tellg();
+		file.seekg(0, std::ios::beg);
+		char *image = new char[len];
+		file.read(image, len);
+		hydrazine::ELFFile elf(image);
 
-		_statements = std::move( parser.statements() );
-		extractPTXKernels();
+		if (elf.header().checkMagic()) {
+			_cubin = std::move(image);
+			extractPTXKernelsFromELF();
+		}
+		else {
+			parser::PTXParser parser;
+			parser.fileName = _modulePath;
+
+			parser.parse( file );
+
+			_statements = std::move( parser.statements() );
+			extractPTXKernels();
+		}
 	}
 	else {
 		return false;
@@ -179,13 +194,26 @@ bool ir::Module::load(std::istream& stream, const std::string& path) {
 	
 	unload();
 	
-	parser::PTXParser parser;
-	_modulePath = path;
-	parser.fileName = _modulePath;
-	
-	parser.parse( stream );
-	_statements = std::move( parser.statements() );
-	extractPTXKernels();
+	stream.seekg(0, std::ios::end);
+	int len = stream.tellg();
+	stream.seekg(0, std::ios::beg);
+	char *image = new char[len];
+	stream.read(image, len);
+	hydrazine::ELFFile elf(image);
+
+	if (elf.header().checkMagic()) {
+		_cubin = std::move(image);
+		extractPTXKernelsFromELF();
+	}
+	else {
+		parser::PTXParser parser;
+		_modulePath = path;
+		parser.fileName = _modulePath;
+		
+		parser.parse( stream );
+		_statements = std::move( parser.statements() );
+		extractPTXKernels();
+	}
 
 	_loaded = true;
 
@@ -243,7 +271,11 @@ const char* ir::Module::getCubin() const {
 void ir::Module::loadNow() {
 	if( loaded() ) return;
 	_loaded = true;
-	if( !_ptx.empty() )
+	if(!_cubin.empty())
+	{
+		extractPTXKernelsFromELF();
+	}
+	else if( !_ptx.empty() )
 	{
 		std::stringstream stream( std::move( _ptx ) );
 		_ptx.clear();
@@ -255,6 +287,10 @@ void ir::Module::loadNow() {
 		_statements = std::move( parser.statements() );
 		extractPTXKernels();
 	}
+	else if(_cubinPointer)
+	{
+		extractPTXKernelsFromELF();
+	}
 	else
 	{
 		if (!_ptxPointer) {
@@ -265,7 +301,6 @@ void ir::Module::loadNow() {
 			report("Module::loadNow() - contains PTX string literal:\n\n"
 				<< _ptxPointer << "\n");
 		}
-		
 		
 		assert( _ptxPointer != 0 );
 		std::stringstream stream( _ptxPointer );
@@ -822,5 +857,110 @@ void ir::Module::extractPTXKernels() {
 				break;
 		}
 	}
+}
+
+extern "C" {
+#include "cuda.h"
+#include "gdev_cuda.h"
+}
+
+void ir::Module::extractPTXKernelsFromELF() {
+
+	unsigned int kernelInstance = 1;
+
+	CUresult res;
+	struct CUmod_st mod;
+	struct CUfunc_st *f;
+	struct gdev_cuda_raw_func *func;
+	struct gdev_cuda_param *param_data;
+	const char *fname;
+
+	report("detect ELF");
+
+	res = ::gdev_cuda_load_cubin_image(&mod, getCubin());
+	if (res != CUDA_SUCCESS)
+		return;
+
+	if (!gdev_list_empty(&mod.func_list)) {
+		for (f = (struct CUfunc_st *)gdev_list_container((&mod.func_list)->next);
+		     f != NULL;
+		     f = (struct CUfunc_st *)gdev_list_container(f->list_entry.next)) {
+
+			func = &f->raw_func;
+			fname = func->name;
+			report("function:"<<fname);
+
+#if 0
+			PTXKernel::Prototype prototype;
+
+			prototype.clear();
+			prototype.identifier = fname;
+			prototype.callType = PTXKernel::Prototype::Entry;
+			prototype.returnArguments = prototype.arguments;
+			prototype.arguments.clear();
+
+			for (param_data = func->param_data; param_data;
+			     param_data = param_data->next) {
+				ir::PTXOperand::DataType t;
+				char param_name[256];
+				int array = 1;
+				if (param_data->size == 1)
+					t = ir::PTXOperand::u8;
+				else if (param_data->size == 2)
+					t = ir::PTXOperand::u16;
+				else if (param_data->size == 8)
+					t = ir::PTXOperand::u64;
+				else {
+					t = ir::PTXOperand::u32;
+					array = param_data->size / 4;
+				}
+				snprintf(param_name, sizeof(param_name),
+				         "%s_param_%d", fname, param_data->idx);
+				ir::Parameter argument(param_name,
+				                       t, 4,
+				                       ir::PTXOperand::v1,
+				                       false, false);
+				argument.arrayValues.resize(array);
+				prototype.arguments.push_back(argument);
+			}
+
+			addPrototype(prototype.identifier, prototype);
+#endif
+
+			PTXKernel *kernel = new PTXKernel(fname, false, this,
+			                                  kernelInstance++);
+			_kernels[kernel->name] = (kernel);
+
+			/* FIXME */
+			for (param_data = func->param_data; param_data;
+			     param_data = param_data->next) {
+				ir::PTXOperand::DataType t;
+				char param_name[256];
+				int array = 1;
+				if (param_data->size == 1)
+					t = ir::PTXOperand::u8;
+				else if (param_data->size == 2)
+					t = ir::PTXOperand::u16;
+				else if (param_data->size == 8)
+					t = ir::PTXOperand::u64;
+				else {
+					t = ir::PTXOperand::u32;
+					array = param_data->size / 4;
+				}
+				snprintf(param_name, sizeof(param_name),
+				         "%s_param_%d", fname, param_data->idx);
+				ir::Parameter argument(param_name,
+				                       t, 4,
+				                       ir::PTXOperand::v1,
+				                       false, false);
+				argument.arrayValues.resize(array);
+				kernel->arguments.push_back(argument);
+			}
+		}
+	}
+
+	res = ::gdev_cuda_unload_cubin(&mod);
+
+	return;
 }
 

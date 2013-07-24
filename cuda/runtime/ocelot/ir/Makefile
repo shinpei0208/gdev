@@ -1,8 +1,10 @@
 # Makefile
 
+GDEVDIR	       ?= /usr/local/gdev
+
 CC		= gcc
 CXX		= g++
-CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
+CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../.. -I ../../..
 CXXFLAGS	= -std=c++0x
 
 OBJS		= ControlFlowGraph.o Dim3.o Global.o IRKernel.o Instruction.o

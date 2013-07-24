@@ -235,6 +235,7 @@ namespace ir {
 	private:
 		/*! After a successful parse; constructs all kernels for PTX isa. */
 		void extractPTXKernels();
+		void extractPTXKernelsFromELF();
 
 	private:
 		/*! \brief This is a copy of the original ptx source for lazy loading */
