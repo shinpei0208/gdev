@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Yusuke Fujii
- * Ritsumeikan University, Japan
+ * Copyright (C) Shinpei Kato and Yusuke Fujii
+ * Nagoya University and  Ritsumeikan University
  *
  * All Rights Reserved.
  *
@@ -517,7 +517,6 @@ static void nve4_copy_linear(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t s
 
     uint32_t page_size = 0x1000;
     uint32_t page_count = size / page_size;
-    uint32_t rem_size = size - page_size * page_count;
     
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_PCOPY1, 0x400,4);
     __gdev_out_ring(ctx, src_addr>>32);
