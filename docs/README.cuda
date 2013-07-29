@@ -32,7 +32,7 @@ cd $(TOPDIR)/gdev/cuda
 mkdir build
 cd build
 #if you want to disable Runtime API
-../configure
+../configure --disable-runtime
 #else
 ../configure
 #endif
