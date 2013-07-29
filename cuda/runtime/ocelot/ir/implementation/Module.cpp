@@ -156,7 +156,7 @@ bool ir::Module::load(const std::string& path) {
 	ifstream file(_modulePath.c_str());
 
 	if (file.is_open()) {
-
+#ifdef ENABLE_CUBIN_MODULE
 		file.seekg(0, std::ios::end);
 		int len = file.tellg();
 		file.seekg(0, std::ios::beg);
@@ -169,6 +169,7 @@ bool ir::Module::load(const std::string& path) {
 			extractPTXKernelsFromELF();
 		}
 		else {
+#endif
 			parser::PTXParser parser;
 			parser.fileName = _modulePath;
 
@@ -176,7 +177,9 @@ bool ir::Module::load(const std::string& path) {
 
 			_statements = std::move( parser.statements() );
 			extractPTXKernels();
+#ifdef ENABLE_CUBIN_MODULE
 		}
+#endif
 	}
 	else {
 		return false;
@@ -194,6 +197,7 @@ bool ir::Module::load(std::istream& stream, const std::string& path) {
 	
 	unload();
 	
+#ifdef ENABLE_CUBIN_MODULE
 	stream.seekg(0, std::ios::end);
 	int len = stream.tellg();
 	stream.seekg(0, std::ios::beg);
@@ -206,6 +210,7 @@ bool ir::Module::load(std::istream& stream, const std::string& path) {
 		extractPTXKernelsFromELF();
 	}
 	else {
+#endif
 		parser::PTXParser parser;
 		_modulePath = path;
 		parser.fileName = _modulePath;
@@ -213,7 +218,9 @@ bool ir::Module::load(std::istream& stream, const std::string& path) {
 		parser.parse( stream );
 		_statements = std::move( parser.statements() );
 		extractPTXKernels();
+#ifdef ENABLE_CUBIN_MODULE
 	}
+#endif
 
 	_loaded = true;
 
@@ -271,11 +278,14 @@ const char* ir::Module::getCubin() const {
 void ir::Module::loadNow() {
 	if( loaded() ) return;
 	_loaded = true;
+#ifdef ENABLE_CUBIN_MODULE
 	if(!_cubin.empty())
 	{
 		extractPTXKernelsFromELF();
 	}
-	else if( !_ptx.empty() )
+	else
+#endif
+	if( !_ptx.empty() )
 	{
 		std::stringstream stream( std::move( _ptx ) );
 		_ptx.clear();
@@ -287,10 +297,12 @@ void ir::Module::loadNow() {
 		_statements = std::move( parser.statements() );
 		extractPTXKernels();
 	}
+#ifdef ENABLE_CUBIN_MODULE
 	else if(_cubinPointer)
 	{
 		extractPTXKernelsFromELF();
 	}
+#endif
 	else
 	{
 		if (!_ptxPointer) {
@@ -859,6 +871,7 @@ void ir::Module::extractPTXKernels() {
 	}
 }
 
+#ifdef ENABLE_CUBIN_MODULE
 extern "C" {
 #include "cuda.h"
 #include "gdev_cuda.h"
@@ -903,16 +916,22 @@ void ir::Module::extractPTXKernelsFromELF() {
 			     param_data = param_data->next) {
 				ir::PTXOperand::DataType t;
 				char param_name[256];
-				int array = 1;
-				if (param_data->size == 1)
-					t = ir::PTXOperand::u8;
-				else if (param_data->size == 2)
-					t = ir::PTXOperand::u16;
-				else if (param_data->size == 8)
+				int array;
+				if (!(param_data->size % 8)) {
+					array = param_data->size / 8;
 					t = ir::PTXOperand::u64;
-				else {
-					t = ir::PTXOperand::u32;
+				}
+				else if (!(param_data->size % 4)) {
 					array = param_data->size / 4;
+					t = ir::PTXOperand::u32;
+				}
+				else if (!(param_data->size % 2)) {
+					array = param_data->size / 2;
+					t = ir::PTXOperand::u16;
+				}
+				else {
+					array = param_data->size;
+					t = ir::PTXOperand::u8;
 				}
 				snprintf(param_name, sizeof(param_name),
 				         "%s_param_%d", fname, param_data->idx);
@@ -936,16 +955,22 @@ void ir::Module::extractPTXKernelsFromELF() {
 			     param_data = param_data->next) {
 				ir::PTXOperand::DataType t;
 				char param_name[256];
-				int array = 1;
-				if (param_data->size == 1)
-					t = ir::PTXOperand::u8;
-				else if (param_data->size == 2)
-					t = ir::PTXOperand::u16;
-				else if (param_data->size == 8)
+				int array;
+				if (!(param_data->size % 8)) {
+					array = param_data->size / 8;
 					t = ir::PTXOperand::u64;
-				else {
-					t = ir::PTXOperand::u32;
+				}
+				else if (!(param_data->size % 4)) {
 					array = param_data->size / 4;
+					t = ir::PTXOperand::u32;
+				}
+				else if (!(param_data->size % 2)) {
+					array = param_data->size / 2;
+					t = ir::PTXOperand::u16;
+				}
+				else {
+					array = param_data->size;
+					t = ir::PTXOperand::u8;
 				}
 				snprintf(param_name, sizeof(param_name),
 				         "%s_param_%d", fname, param_data->idx);
@@ -963,4 +988,5 @@ void ir::Module::extractPTXKernelsFromELF() {
 
 	return;
 }
+#endif
 

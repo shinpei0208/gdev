@@ -1,11 +1,17 @@
 # Makefile
 
+#include ../../../API.mk
+
 GDEVDIR	       ?= /usr/local/gdev
 
 CC		= gcc
 CXX		= g++
 CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../.. -I ../../..
 CXXFLAGS	= -std=c++0x
+
+ifeq ($(ENABLE_CUBIN_MODULE),1)
+	CXXFLAGS += -DENABLE_CUBIN_MODULE
+endif
 
 OBJS		= ControlFlowGraph.o Dim3.o Global.o IRKernel.o Instruction.o
 OBJS	       += Kernel.o Local.o Module.o PTXInstruction.o PTXKernel.o

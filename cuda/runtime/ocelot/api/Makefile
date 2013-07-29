@@ -1,9 +1,15 @@
 # Makefile
 
+#include ../../../API.mk
+
 CC		= gcc
 CXX		= g++
 CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
 CXXFLAGS	= -std=c++0x
+
+ifeq ($(ENABLE_CUBIN_MODULE),1)
+	CXXFLAGS += -DENABLE_CUBIN_MODULE
+endif
 
 OBJS		= ocelot.o
 

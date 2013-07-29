@@ -1,11 +1,17 @@
 # Makefile
 
+#include ../../../API.mk
+
 CC		= gcc
 CXX		= g++
 YACC		= bison
 LEX		= flex
 CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include -I ../..
 CXXFLAGS	= -std=c++0x
+
+ifeq ($(ENABLE_CUBIN_MODULE),1)
+	CXXFLAGS += -DENABLE_CUBIN_MODULE
+endif
 
 OBJS		= PTXLexer.o PTXParser.o ptx.o ptxgrammar.o
 

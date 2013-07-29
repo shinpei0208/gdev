@@ -1,5 +1,7 @@
 # Makefile
 
+#include ../../API.mk
+
 CC		= gcc
 CXX		= g++
 TARGET		= analysis api cuda executive ir parser transforms
