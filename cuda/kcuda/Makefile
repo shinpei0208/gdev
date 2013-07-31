@@ -1,7 +1,7 @@
-include API.mk
+include $(PWD)/API.mk
 
 TARGET = kcuda
-$(TARGET)-y := kcuda_drv.o init.o device.o version.o context.o module.o memory.o execution.o stream.o ipc.o event.o gdev_cuda.o dummy.o
+$(TARGET)-y := kcuda_drv.o init.o device.o version.o context.o module.o memory.o execution.o stream.o extension/ipc.o extension/memmap.o event.o gdev_cuda.o dummy.o
 GDEVDIR = /usr/local/gdev
 GDEVINC = $(GDEVDIR)/include
 GDEVETC = $(GDEVDIR)/etc
