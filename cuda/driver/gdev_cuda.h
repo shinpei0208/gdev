@@ -58,7 +58,9 @@ typedef struct timeval	TIME_T;
 #define GETTIME(t)	do_gettimeofday(t)
 #define YIELD()		yield()
 #else
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>

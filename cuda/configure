@@ -5,6 +5,7 @@ target='libucuda'
 
 # use Runtime API or not
 runtime='1'
+enablecubin='1'
 
 # parse the given options.
 for option
@@ -18,7 +19,9 @@ do
   --target=*)
     target="$optarg" ;;
   --disable-runtime)
-    runtime='0'
+    runtime='0' ;;
+  --with-ptx)
+    enablecubin='0' ;;
   esac
 done
 
@@ -46,5 +49,6 @@ cat > API.mk << EOF
 #
 
 CUDA_RUNTIME_API=$runtime
+ENABLE_CUBIN_MODULE=$enablecubin
 EOF
 
