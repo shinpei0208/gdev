@@ -33,6 +33,8 @@ mkdir build
 cd build
 #if you want to disable Runtime API
 ../configure --disable-runtime
+#else if you want to use a PTX parser of GPU Ocelot
+../configure --with-ptx
 #else
 ../configure
 #endif
@@ -42,6 +44,7 @@ sudo make install
 Gdev also supports CUDA in the operating system. You are required to
 install "kcuda" module to use this functionality.
  -> See docs/README.gdev
+Note that kcuda supports CUDA Driver API only.
 
 cd $(TOPDIR)/gdev/cuda
 mkdir kbuild
