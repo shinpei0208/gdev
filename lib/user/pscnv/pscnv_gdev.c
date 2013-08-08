@@ -173,6 +173,7 @@ struct gdev_ctx *gdev_raw_ctx_new
 
 	if (!(ctx = malloc(sizeof(*ctx))))
 		goto fail_ctx;
+	memset(ctx, 0, sizeof(*ctx));
 
 	/* FIFO indirect buffer setup. */
 	ctx->fifo.ib_order = chan->ib_order;

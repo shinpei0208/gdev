@@ -42,27 +42,40 @@ struct gdev_nouveau_ctx_objects {
 	struct nouveau_object *m2mf;
 };
 
+void __nouveau_fifo_space(struct gdev_ctx *ctx, uint32_t len)
+{
+	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
+	nouveau_pushbuf_space(push, len, 0, 0);
+}
+
 void __nouveau_fifo_push(struct gdev_ctx *ctx, uint64_t base, uint32_t len, int flags)
 {
 	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
-
 	int dwords = len / 4;
 	int p = ctx->fifo.pb_put / 4;
 	int max = ctx->fifo.pb_size / 4;
-	nouveau_pushbuf_space(push, dwords, 1, 0);
+
+	nouveau_pushbuf_space(push, dwords, 0, 0);
 	for (;dwords > 0; dwords--) {
 		*push->cur++ = ctx->fifo.pb_map[p++];
 		if (p >= max) p = 0;
 	}
 	ctx->fifo.pb_put += len;
 	ctx->fifo.pb_put &= ctx->fifo.pb_mask;
+	//nouveau_pushbuf_kick(push, push->channel);
+}
+
+void __nouveau_fifo_kick(struct gdev_ctx *ctx)
+{
+	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
 	nouveau_pushbuf_kick(push, push->channel);
 }
 
 void __nouveau_fifo_update_get(struct gdev_ctx *ctx)
 {
-	printf("FIXME: need to update FIFO GET in a safe manner.");
-	ctx->fifo.pb_get = 0; /* FIXME */
+	//printf("FIXME: need to update FIFO GET in a safe manner.");
+	//ctx->fifo.pb_get = 0; /* FIXME */
+	ctx->fifo.pb_get = ctx->fifo.pb_put;
 }
 
 /* query a piece of the device-specific information. */
@@ -297,7 +310,9 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	ctx->fifo.pb_mask = (1 << ctx->fifo.pb_order) - 1;
 	ctx->fifo.pb_size = (1 << ctx->fifo.pb_order);
 	ctx->fifo.pb_pos = ctx->fifo.pb_put = ctx->fifo.pb_get = 0;
+	ctx->fifo.space = __nouveau_fifo_space;
 	ctx->fifo.push = __nouveau_fifo_push;
+	ctx->fifo.kick = __nouveau_fifo_kick;
 	ctx->fifo.update_get = __nouveau_fifo_update_get;
 
 	/* FIFO index buffer setup. */
