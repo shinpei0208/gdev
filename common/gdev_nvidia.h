@@ -153,7 +153,9 @@ struct gdev_ctx {
 		uint32_t pb_pos;
 		uint32_t pb_put;
 		uint32_t pb_get;
+		void (*space)(struct gdev_ctx *, uint32_t);
 		void (*push)(struct gdev_ctx *, uint64_t, uint32_t, int);
+		void (*kick)(struct gdev_ctx *);
 		void (*update_get)(struct gdev_ctx *);
 	} fifo; /* command FIFO queue struct. */
 	struct gdev_fence { /* fence objects (for compute and dma). */
@@ -265,6 +267,8 @@ static inline void __gdev_fire_ring(struct gdev_ctx *ctx)
 		if (len > 0)
 			ctx->fifo.push(ctx, base, len, 0);
 		ctx->fifo.pb_put = ctx->fifo.pb_pos;
+		if (ctx->fifo.kick)
+			ctx->fifo.kick(ctx);
 	}
 }
 
@@ -272,7 +276,7 @@ static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
 {
 	while (((ctx->fifo.pb_pos + 4) & ctx->fifo.pb_mask) == ctx->fifo.pb_get) {
 		uint32_t old = ctx->fifo.pb_get;
-		__gdev_fire_ring(ctx);
+		//__gdev_fire_ring(ctx);
 		ctx->fifo.update_get(ctx);
 		if (old == ctx->fifo.pb_get) {
 			SCHED_YIELD();
@@ -281,6 +285,12 @@ static inline void __gdev_out_ring(struct gdev_ctx *ctx, uint32_t word)
 	ctx->fifo.pb_map[ctx->fifo.pb_pos/4] = word;
 	ctx->fifo.pb_pos += 4;
 	ctx->fifo.pb_pos &= ctx->fifo.pb_mask;
+}
+
+static inline void __gdev_ring_space(struct gdev_ctx *ctx, uint32_t word)
+{
+	if (ctx->fifo.space)
+		ctx->fifo.space(ctx, word);
 }
 
 static inline void __gdev_begin_ring_nv50(struct gdev_ctx *ctx, int subc, int mthd, int len)
