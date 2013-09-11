@@ -276,6 +276,9 @@ struct nvrm_create_venc {
 };
 #define NVRM_CLASS_VENC_GK104		0x90b7
 
+/* no create param */
+#define NVRM_CLASS_VCOMP_MCP89		0x86b6
+
 /* evil stuff */
 
 /* no create param */
@@ -396,7 +399,6 @@ struct nvrm_create_disp_fifo_dma {
 #define NVRM_CLASS_UNK884D		0x884d
 #define NVRM_CLASS_UNK83CC		0x83cc
 #define NVRM_CLASS_UNK844C		0x844c
-#define NVRM_CLASS_UNK86B6		0x86b6
 #define NVRM_CLASS_UNK9067		0x9067 /* wrt device */
 #define NVRM_CLASS_UNK90DD		0x90dd /* wrt subdevice */
 #define NVRM_CLASS_UNK90E0		0x90e0 /* wrt subdevice */
