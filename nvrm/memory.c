@@ -71,7 +71,7 @@ struct nvrm_bo *nvrm_bo_create(struct nvrm_vspace *vas, uint64_t size, int sysra
 	bo->size = size;
 	bo->handle = nvrm_handle_alloc(bo->ctx);
 	uint32_t flags1 = sysram ? 0xd001 : 0x1d101;
-	uint32_t flags2 = sysram ? 0x5a000000 : 0x18000000;
+	uint32_t flags2 = sysram ? 0x3a000000 : 0x18000000;
 	if (nvrm_ioctl_memory(bo->ctx, bo->dev->odev, bo->vas->ovas, bo->handle, flags1, flags2, 0, size))
 		goto out_bo;
 	if (nvrm_ioctl_vspace_map(bo->ctx, bo->dev->odev, bo->vas->odma, bo->handle, 0, size, &bo->gpu_addr))
