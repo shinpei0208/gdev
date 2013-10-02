@@ -92,7 +92,7 @@ struct gdev_sched_entity *gdev_sched_entity_create(struct gdev_device *gdev, gde
 {
 	struct gdev_sched_entity *se;
 
-	if (!(se= MALLOC(sizeof(*se))))
+	if (!(se= gdev_sched_entity_alloc(sizeof(*se))))
 		return NULL;
 
 	/* set up the scheduling entity. */
@@ -210,7 +210,7 @@ resched:
 
 	/* local compute scheduler. */
 	gdev_lock(&gdev->sched_com_lock);
-	if ((gdev->current_com && gdev->current_com != se) || se->launch_instances >= GDEV_INSTANCES_LIMIT) {
+	if ((gdev_current_com_get(gdev) && gdev_current_com_get(gdev) != se) || se->launch_instances >= GDEV_INSTANCES_LIMIT) {
 		/* enqueue the scheduling entity to the compute queue. */
 		__gdev_enqueue_compute(gdev, se);
 		gdev_unlock(&gdev->sched_com_lock);
@@ -228,7 +228,7 @@ resched:
 			gdev_time_stamp(&se->last_tick_com);
 		}
 		se->launch_instances++;
-		gdev->current_com = (void*)se;
+		gdev_current_com_set(gdev, (void*)se);
 		gdev_unlock(&gdev->sched_com_lock);
 	}
 
@@ -251,7 +251,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 	gdev_access_end(gdev);
 
 	gdev_lock(&gdev->sched_com_lock);
-	se = (struct gdev_sched_entity *)gdev->current_com;
+	se = (struct gdev_sched_entity *)gdev_current_com_get(gdev);
 	if (!se) {
 		gdev_unlock(&gdev->sched_com_lock);
 		GDEV_PRINT("Invalid scheduling entity on Gdev#%d\n", gdev->id);
@@ -276,7 +276,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 		/* setting the next entity here prevents lower-priority contexts 
 		   arriving in gdev_schedule_compute() from being dispatched onto
 		   the device. note that se = NULL could happen. */
-		gdev->current_com = (void*)se; 
+		gdev_current_com_set( gdev, (void*)se);
 		gdev_unlock(&gdev->sched_com_lock);
 
 		/* select the next device to be scheduled. */
@@ -288,7 +288,7 @@ void gdev_select_next_compute(struct gdev_device *gdev)
 		/* if the virtual device needs to be switched, change the next
 		   scheduling entity to be scheduled also needs to be changed. */
 		if (next != gdev) {
-			gdev->current_com = NULL;
+		    	gdev_current_com_set( gdev, NULL);
 			se = gdev_list_container(gdev_list_head(&next->sched_com_list));
 		}
 

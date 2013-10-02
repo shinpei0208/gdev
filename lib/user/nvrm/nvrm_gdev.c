@@ -34,11 +34,16 @@
 
 #define GDEV_DEVICE_MAX_COUNT 32
 
+struct gdev_device *lgdev; /* local gdev_device structure for user-space scheduling */
 static struct nvrm_context *nvrm_ctx = 0;
 
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
+#ifndef GDEV_SCHED_DISABLED/* fix this */
+	struct nvrm_device *dev = lgdev->priv;
+#else
 	struct nvrm_device *dev = gdev->priv;
+#endif
 	uint32_t chip_major, chip_minor;
 	uint16_t vendor_id, device_id;
 	uint64_t fb_size;
@@ -95,21 +100,38 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	}
 
 	if (!gdevs) {
+#ifndef GDEV_SCHED_DISABLED
+		gdevs = (struct gdev_device *)gdev_attach_shms_dev(GDEV_DEVICE_MAX_COUNT); /* must fix constant number   */
+		if (!gdevs)
+			return NULL;
+#else
 		gdevs = MALLOC(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 		if (!gdevs)
 			return NULL;
 		memset(gdevs, 0, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
+#endif
 	}
 
 	gdev = &gdevs[minor];
-
 	if (gdev->users == 0) {
 		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, minor);
 		if (!dev)
 			return NULL;
+#ifdef GDEV_SCHED_DISABLED
 		gdev_init_device(gdev, minor, dev);
-	}		
-
+#else //ifndef GDEV_SCHED_DISABLED
+		lgdev = MALLOC(sizeof(*lgdev)); /* local gdev for compute ops */
+		gdev_init_device(lgdev, minor, dev);
+		gdev_init_device(gdevs, minor, dev);
+		gdev++;
+		gdev_init_virtual_device(gdev, minor, 100/*VGPU WEIGHT*/, (void *)ADDR_SUB(gdev,gdevs));
+	}else{
+		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, minor);
+		if (!dev)
+	    		return NULL;
+		gdev_init_device(lgdev, minor, dev);
+#endif
+	}
 	gdev->users++;
 
 	return gdev;
@@ -118,7 +140,11 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 /* close the specified Gdev object. */
 void gdev_raw_dev_close(struct gdev_device *gdev)
 {
+#ifndef GDEV_SCHED_DISABLED/* fix this */
+	struct nvrm_device *dev = lgdev->priv;
+#else
 	struct nvrm_device *dev = gdev->priv;
+#endif
 	int i;
 
 	gdev->users--;
@@ -140,11 +166,19 @@ void gdev_raw_dev_close(struct gdev_device *gdev)
 /* allocate a new virual address space object.  */
 struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 {
+#ifndef GDEV_SCHED_DISABLED/* fix this */
+	struct nvrm_device *dev = lgdev->priv;
+#else
 	struct nvrm_device *dev = gdev->priv;
+#endif
 	struct nvrm_vspace *nvas;
 	struct gdev_vas *vas;
 
-	if (!(vas = malloc(sizeof(*vas))))
+#ifndef GDEV_SCHED_DISABLED
+	if (!(vas = gdev_attach_shms_vas(0)))
+#else
+	if (!(vas = MALLOC(sizeof(*vas))))
+#endif
 		goto fail_vas;
 	if (!(nvas = nvrm_vspace_create(dev)))
 		goto fail_nvas;
@@ -311,9 +345,12 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 	struct nvrm_vspace *nvas = vas->pvas;
 	struct nvrm_bo *bo;
 
-	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
-		goto fail_mem;
-
+#ifndef GDEV_SCHED_DISABLED
+	if (!(mem = (struct gdev_mem *)gdev_attach_shms_mem(0)))
+#else
+	if (!(mem = (struct gdev_mem *) MALLOC(sizeof(*mem))))
+#endif
+	    	goto fail_mem;
 	if (!(bo = nvrm_bo_create(nvas, size, sysram)))
 		goto fail_bo;
 

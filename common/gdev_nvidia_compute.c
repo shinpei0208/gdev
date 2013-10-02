@@ -60,8 +60,8 @@ uint32_t gdev_launch(struct gdev_ctx *ctx, struct gdev_kernel *kern)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct gdev_mem *dev_swap = gdev->swap;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_mem *dev_swap = gdev_swap_get(gdev);
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 	uint32_t seq;
 
 	/* evict data saved in device swap memory space to host memory. */
@@ -97,7 +97,7 @@ uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr,
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 	uint32_t seq;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
@@ -127,7 +127,7 @@ uint32_t gdev_memcpy_async(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 	uint32_t seq;
 
 	if (++ctx->fence.seq == GDEV_FENCE_COUNT)
@@ -182,7 +182,7 @@ int gdev_poll(struct gdev_ctx *ctx, uint32_t seq, struct gdev_time *timeout)
 	struct gdev_time time_start, time_now, time_elapse, time_relax;
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 
 	gdev_time_stamp(&time_start);
 	gdev_time_ms(&time_relax, 100); /* relax polling when 100 ms elapsed. */
@@ -209,7 +209,7 @@ int gdev_barrier(struct gdev_ctx *ctx)
 {
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 	uint32_t seq = 0; /* 0 is a special sequence for barrier. */
 
 	compute->membar(ctx);

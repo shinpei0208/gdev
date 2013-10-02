@@ -355,6 +355,39 @@ void gdev_mutex_unlock(struct gdev_mutex *p)
 	mutex_unlock(&p->mutex);
 }
 
+void* gdev_current_com_get(struct gdev_device *gdev)
+{
+   	return !gdev->current_com? NULL:(void*)gdev->current_com;
+}
+void gdev_current_com_set(struct gdev_device *gdev,void *com)
+{
+    	gdev->current_com = com;
+}
+
+void* gdev_compute_get(struct gdev_device *gdev)
+{
+ 	return gdev->compute;
+}
+
+void* gdev_priv_get(struct gdev_device *gdev)
+{
+        return gdev->priv;
+}
+
+struct gdev_device *gdev_phys_get(struct gdev_device *gdev)
+{
+    	return gdev->parent;
+}
+
+struct gdev_mem *gdev_swap_get(struct gdev_device *gdev)
+{
+    	return gdev->swap;
+}
+
+struct gdev_sched_entity *gdev_sched_entity_alloc(int size){
+	return (struct gdev_sched_entity *)MALLOC( sizeof(struct gdev_sched_entity));
+}
+
 /**
  * called for each minor physical device.
  */

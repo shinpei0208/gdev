@@ -30,7 +30,7 @@
 
 static int __gdev_is_alone(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	struct gdev_device *p;
 	int alone = 1;
 
@@ -64,7 +64,7 @@ static void __gdev_vsched_band_yield_chance(void)
 static void gdev_vsched_band_schedule_compute(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (!phys)
 		return;
@@ -74,15 +74,15 @@ resched:
 	if (gdev_time_lez(&gdev->credit_com) && (gdev->com_bw_used > gdev->com_bw)
 		&& !__gdev_is_alone(gdev)) {
 		gdev_lock(&phys->sched_com_lock);
-		if (phys->current_com == gdev) {
-			phys->current_com = NULL;
+		if (gdev_current_com_get(gdev)== gdev) {
+			gdev_current_com_set(phys,NULL);
 			gdev_unlock(&phys->sched_com_lock);
 
 			__gdev_vsched_band_yield_chance();
 
 			gdev_lock(&phys->sched_com_lock);
-			if (phys->current_com == NULL)
-				phys->current_com = gdev;
+			if (gdev_current_com_get(gdev)== NULL)
+				gdev_current_com_set(phys,gdev);
 			gdev_unlock(&phys->sched_com_lock);
 		}
 		else
@@ -91,7 +91,7 @@ resched:
 
 	gdev_lock(&phys->sched_com_lock);
 
-	if (phys->current_com && (phys->current_com != gdev)) {
+	if (gdev_current_com_get(gdev)&& (gdev_current_com_get(gdev)!= gdev)) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
 		__gdev_enqueue_compute(gdev, se);
@@ -107,7 +107,7 @@ resched:
 		goto resched;
 	}
 	else {
-		phys->current_com = (void *)gdev;
+		gdev_current_com_set(phys,(void *)gdev);
 		gdev_unlock(&phys->sched_com_lock);
 
 		//printk("Gdev#%d Ctx#%d Run\n", gdev->id, se->ctx->cid);
@@ -116,7 +116,7 @@ resched:
 
 static struct gdev_device *gdev_vsched_band_select_next_compute(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	struct gdev_device *next;
 	int chances = GDEV_VSCHED_BAND_SELECT_CHANCES;
 
@@ -145,15 +145,15 @@ retry:
 	//printk("Nothing Selected\n");
 	next = NULL;
 device_switched:
-	phys->current_com = (void*)next; /* could be null */
+	gdev_current_com_set(phys, (void*)next); /* could be null */
 		
 	if (next && (next != gdev) && (next->com_bw_used > next->com_bw)) {
-		phys->current_com = NULL;
+		gdev_current_com_set(phys,NULL);
 		gdev_unlock(&phys->sched_com_lock);
 		__gdev_vsched_band_yield_chance();
 		gdev_lock(&phys->sched_com_lock);
-		if (phys->current_com == NULL) {
-			phys->current_com = (void*)next;
+		if (gdev_current_com_get(gdev) == NULL) {
+			gdev_current_com_set(phys,(void*)next);
 			chances--;
 			if (chances) {
 				gdev_unlock(&phys->sched_com_lock);
@@ -191,7 +191,7 @@ static void gdev_vsched_band_replenish_compute(struct gdev_device *gdev)
 static void gdev_vsched_band_schedule_memory(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (!phys)
 		return;
@@ -237,7 +237,7 @@ resched:
 
 static struct gdev_device *gdev_vsched_band_select_next_memory(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	struct gdev_device *next;
 	int chances = GDEV_VSCHED_BAND_SELECT_CHANCES;
 

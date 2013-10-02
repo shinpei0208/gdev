@@ -5,6 +5,7 @@ common='common'
 
 target='kernel'
 debug=0
+sched=0
 
 ## cflags for each driver
 nvrm_CFLAGS=''
@@ -34,6 +35,8 @@ do
     target="$optarg" ;;
   --debug)
     debug=1 ;;
+  --enable-sched)
+    sched=1 ;;
   esac
 done
 
@@ -41,12 +44,12 @@ done
 
 if [ $target = 'kernel' ] ; then
 	# all files are driver-independent 
-	cp -f ../kernel/* .
 	cp -f $topdir/$common/*.h .
+	cp -f ../kernel/* .
 elif [ $target = 'user' ] ; then
 	# copy driver-independent files
-	cp -f ../user/gdev/* .
 	cp -f $topdir/$common/* .
+	cp -f ../user/gdev/* .
 	# detect which driver to be used
 	sh ./autogen.sh
 	# get $DRIVER_NAME
@@ -57,6 +60,9 @@ elif [ $target = 'user' ] ; then
 	eval EXTRA_CFLAGS="EXTRA_CFLAGS?="'$'$DRIVER_NAME"_CFLAGS"
 	eval EXTRA_OBJS="EXTRA_OBJS="'$'$DRIVER_NAME"_OBJS"
 	eval EXTRA_LIBS="EXTRA_LIBS="'$'$DRIVER_NAME"_LIBS"
+	if [ $sched = 1 ] ; then
+	    cp -f ../user/sched/* .
+	fi
 else
 	echo "Error: invalid target '$target'"
 fi

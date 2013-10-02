@@ -99,7 +99,7 @@ void gdev_vas_free(struct gdev_vas *vas)
 struct gdev_ctx *gdev_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
-	struct gdev_compute *compute = gdev->compute;
+	struct gdev_compute *compute = gdev_compute_get(gdev);
 
 	if (!(ctx = gdev_raw_ctx_new(gdev, vas))) {
 		return NULL;
@@ -129,7 +129,7 @@ int gdev_ctx_get_cid(struct gdev_ctx *ctx)
 /* set the flag to block any access to the device. */
 void gdev_block_start(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	/* we have to spin while some context is accessing the GPU. */
 retry:
@@ -158,7 +158,7 @@ retry:
 /* clear the flag to unlock any access to the device. */
 void gdev_block_end(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (phys) {
 		gdev_lock(&phys->global_lock);
@@ -175,7 +175,7 @@ void gdev_block_end(struct gdev_device *gdev)
 /* increment the counter for # of contexts accessing the device. */
 void gdev_access_start(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	
 retry:
 	if (phys) {
@@ -203,7 +203,7 @@ retry:
 /* decrement the counter for # of contexts accessing the device. */
 void gdev_access_end(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (phys) {
 		gdev_lock(&phys->global_lock);

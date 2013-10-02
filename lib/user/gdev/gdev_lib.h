@@ -32,6 +32,30 @@
 #include <stdlib.h> /* malloc/free, etc. */
 #include <string.h> /* memcpy, etc. */
 #include <sys/sem.h> /* struct sembuf */
+#include <sys/msg.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
+#include <sys/unistd.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+
+#ifndef true
+#define true 1
+#endif
+#ifndef false
+#define false 0
+#endif
+
+#define GDEV_SHM_KEY 0xdeadbabe
+#define GDEV_SHM_KEYS(x) (0xdead0000|x)
+#define GDEV_SHM_SE_KEY GDEV_SHM_KEYS(0x100)
+#define GDEV_SEM_KEY 0x600dbeef
+#define GDEV_SEM_KEYS(x) (0x600d0000|x)
+#define GDEV_MSG_KEY 0xdeadcafe
+
+#define GDEV_NR_TASKS 64
+#define GDEV_SZ_MSG sizeof(struct gdev_msg_struct)
+#define GDEV_SZ_OPS sizeof(struct gdev_msgops_struct)
 
 struct gdev_lock {
 	int semid;
@@ -42,5 +66,13 @@ struct gdev_mutex {
 	int semid;
 	struct sembuf sembuf;
 };
+
+struct gdev_msg_struct {
+    long mtype;
+    char mtext;
+};
+
+extern int gdev_shm_initialized;
+extern struct gdev_time now,last,elapse,interval;
 
 #endif

@@ -62,6 +62,25 @@ void gdev_unlock_nested(gdev_lock_t *p);
 void gdev_mutex_init(gdev_mutex_t *p);
 void gdev_mutex_lock(gdev_mutex_t *p);
 void gdev_mutex_unlock(gdev_mutex_t *p);
+void *gdev_current_com_get(struct gdev_device *gdev);
+void gdev_current_com_set(struct gdev_device *gdev, void* com);
+void *gdev_priv_get(struct gdev_device *gdev);
+struct gdev_device *gdev_phys_get(struct gdev_device *gdev);
+struct gdev_mem *gdev_swap_get(struct gdev_device *gdev);
+void *gdev_compute_get(struct gdev_device *gdev);
+struct gdev_sched_entity *gdev_sched_entity_alloc(int size);
+
+
+#ifndef __KERNEL__ /* User-Space scheduling function.fix this  */
+#ifndef GDEV_SCHED_DISABLED /* specified constant value offset */
+void *gdev_attach_shms_dev(int size); 
+void *gdev_attach_shms_vas(int size); 
+void *gdev_attach_shms_se(int size);
+void *gdev_attach_shms_mem(int size);
+void gdev_next_compute(struct gdev_device *gdev);
+#endif
+#endif
+
 
 #ifdef __KERNEL__ /* OS functions */
 #define GDEV_PRINT(fmt, arg...) printk("[gdev] " fmt, ##arg)

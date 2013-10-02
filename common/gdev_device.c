@@ -124,14 +124,14 @@ int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t weight, 
 	__gdev_init_device(gdev, id);
 	gdev->period = GDEV_PERIOD_DEFAULT;
 	gdev->parent = phys;
-	gdev->priv = phys->priv;
-	gdev->compute = phys->compute;
-	gdev->mem_size = phys->mem_size * weight / 100;
-	gdev->dma_mem_size = phys->dma_mem_size * weight / 100;
+	gdev->priv = gdev_priv_get(gdev);
+	gdev->compute = gdev_phys_get(gdev)->compute;
+	gdev->mem_size = gdev_phys_get(gdev)->mem_size * weight / 100;
+	gdev->dma_mem_size = gdev_phys_get(gdev)->dma_mem_size * weight / 100;
 	gdev->com_bw = weight;
 	gdev->mem_bw = weight;
 	gdev->mem_sh = weight;
-	gdev->chipset = phys->chipset;
+	gdev->chipset = gdev_phys_get(gdev)->chipset;
 
 	/* create the swap memory object, if configured, for the virtual device. */
 	if (GDEV_SWAP_MEM_SIZE > 0) {

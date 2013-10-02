@@ -13,11 +13,14 @@ HEADERS	= gdev_api.h gdev_autogen.h gdev_nvidia_def.h gdev_list.h gdev_time.h
 OBJS =	gdev_lib.o \
 	gdev_api.o gdev_device.o gdev_sched.o \
 	gdev_nvidia.o gdev_nvidia_fifo.o gdev_nvidia_compute.o gdev_nvidia_mem.o gdev_nvidia_shm.o gdev_nvidia_nvc0.o gdev_nvidia_nve4.o $(EXTRA_OBJS)
+OBJSMON = gdev_usched_monitor.o
+
 
 ZOMBIE  = $(wildcard ./*~)
 
-all: $(OBJS)
+all: $(OBJS) $(OBJSMON)
 	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
+	$(CC) $(LDFLAGS) $(OBJSMON) -o gdev_usched_monitor $(CFLAGS)
 
 %.o:%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS) $(EXTRA_LIBS)
@@ -30,6 +33,7 @@ install:
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
 	cp -f $(HEADERS) $(DESTDIR)/$(GDEVDIR)/include
+	cp -f gdev_usched_monitor $(DESTDIR)/$(GDEVDIR)/bin
 	@make echo
 
 uninstall:
