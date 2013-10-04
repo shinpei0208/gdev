@@ -37,6 +37,16 @@
 struct gdev_device *lgdev; /* local gdev_device structure for user-space scheduling */
 static struct nvrm_context *nvrm_ctx = 0;
 
+/* this ensures that SSE is not applied to memcpy. */
+void* __nvrm_io_memcpy(void* s1, const void* s2, size_t n)
+{
+    volatile char* out = (volatile char*)s1;
+    const volatile char* in = (const volatile char*)s2;
+    size_t i;
+    for (i = 0; i < n; ++i) out[i] = in[i];
+    return s1;
+}
+
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
 #ifndef GDEV_SCHED_DISABLED/* fix this */

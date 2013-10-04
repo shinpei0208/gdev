@@ -42,6 +42,7 @@ struct gdev_nouveau_ctx_objects {
 	struct nouveau_object *m2mf;
 };
 
+/* this ensures that SSE is not applied to memcpy. */
 void* __nouveau_io_memcpy(void* s1, const void* s2, size_t n)
 {
     volatile char* out = (volatile char*)s1;
@@ -613,7 +614,7 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 		return 0;
 	}
 	else {
-		/* libnvi doesn't support direct device read. */
+		/* nouveau doesn't support direct device read. */
 		return -EINVAL;
 	}
 }
@@ -628,7 +629,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 		return 0;
 	}
 	else {
-		/* libnvi doesn't support direct device read. */
+		/* nouveau doesn't support direct device read. */
 		return -EINVAL;
 	}
 }
@@ -637,7 +638,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 void *gdev_raw_mem_map(struct gdev_mem *mem)
 {
 	struct nouveau_bo *bo = mem->bo;
-	/* with libnvi, we suppose all memory objects to be mapped on the host. */
+	/* with nouveau we suppose all memory objects to be mapped on the host. */
 	return bo->map;
 }
 
