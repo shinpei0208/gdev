@@ -488,7 +488,7 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	}
 
 	uint64_t offset = addr - mem->addr;
-	memcpy(buf, ptr + offset, size);
+	__nvrm_io_memcpy(buf, ptr + offset, size);
 
 	if (!mem->map) {
 		nvrm_bo_host_unmap(bo);
@@ -507,7 +507,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	}
 
 	uint64_t offset = addr - mem->addr;
-	memcpy(ptr + offset, buf, size);
+	__nvrm_io_memcpy(ptr + offset, buf, size);
 
 	if (!mem->map) {
 		nvrm_bo_host_unmap(bo);
