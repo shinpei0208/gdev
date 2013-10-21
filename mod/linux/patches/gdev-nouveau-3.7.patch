@@ -161,6 +161,7 @@ diff -crN a/drivers/gpu/drm/nouveau/gdev_interface.c b/drivers/gpu/drm/nouveau/g
 + 
 + 	switch (nvdev->chipset & 0xf0) {
 + 	case 0xc0:
++ 	case 0xe0:
 + 		/* FIFO command queue registers. */
 + 		regs = fifo->user;
 + 		break;

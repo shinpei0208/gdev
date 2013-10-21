@@ -267,15 +267,10 @@ static struct gdev_nve4_compute_desc* nve4_launch_desc_setup(struct gdev_ctx *ct
 
 static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 {
-
-
     struct gdev_nve4_compute_desc *desc;
-
     struct gdev_vas *vas = ctx->vas;
     struct gdev_device *gdev = vas->gdev;
-
     uint64_t mp_limit;
-
 
     /* compute desc setup */
     desc = nve4_launch_desc_setup(ctx, k);
@@ -287,6 +282,8 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 
     /* hardware limit. get */
     gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_limit);
+    if (!mp_limit)
+	mp_limit = 0xe; /* fix this */
 
     /* local (temp) memory setup */
    __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x790, 2);
@@ -416,11 +413,13 @@ static void nve4_fence_reset(struct gdev_ctx *ctx, uint32_t sequence)
     ((struct gdev_nve4_query*)(ctx->fence.map))[sequence].sequence = ~0;
 }
 
-unsigned min2(unsigned a,unsigned b){
+unsigned min2(unsigned a,unsigned b)
+{
     return a>b? b:a;
 }
 
-static void nve4_memcpy_p2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size){
+static void nve4_memcpy_p2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+{
 #if 1
     GDEV_PRINT("not implemented\n");
 #else
@@ -457,7 +456,7 @@ static void nve4_memcpy_p2mf(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t s
 
 }
 
-
+#if 0 /* not used  */
 static void nve4_memcpy_m2mf_transfer_rect(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size){
 
 #if 1
@@ -512,12 +511,10 @@ static void nve4_memcpy_m2mf_transfer_rect(struct gdev_ctx *ctx, uint64_t dst_ad
 
     return;
 }
+#endif
 
-static void nve4_copy_linear(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size){
-
-    uint32_t page_size = 0x1000;
-    uint32_t page_count = size / page_size;
-    
+static void nve4_copy_linear(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr, uint32_t size)
+{
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_PCOPY1, 0x400,4);
     __gdev_out_ring(ctx, src_addr>>32);
     __gdev_out_ring(ctx, src_addr);

@@ -29,6 +29,7 @@
 #include "gdev_list.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
+#include "gdev_nvidia_nve4.h"
 #include "gdev_sched.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
@@ -114,9 +115,10 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	struct gdev_ctx *ctx;
 	struct gdev_drv_chan chan;
 	struct gdev_drv_vspace vspace;
-	struct gdev_drv_bo fbo, nbo;
+	struct gdev_drv_bo fbo, nbo, dbo;
 	struct drm_device *drm = (struct drm_device *) gdev->priv;
 	uint32_t flags;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	struct gdev_drv_nvidia_pdata *pdata;
 	void *m2mf;
@@ -131,7 +133,8 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (!(ctx = kzalloc(sizeof(*ctx), GFP_KERNEL)))
 		goto fail_ctx;
 
-	vspace.priv = vas->pvas; 
+	vspace.priv = vas->pvas;
+
 	if (gdev_drv_chan_alloc(drm, &vspace, &chan))
 		goto fail_chan;
 
@@ -175,6 +178,23 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		goto fail_notify_alloc;
 	ctx->notify.bo = nbo.priv;
 	ctx->notify.addr = nbo.addr;
+	
+	/* compute desc buffer.
+	 * In fact, it must be created for each kernel launch.
+	 * need fix.
+	 */
+	if ((gdev->chipset & 0xf0) >= 0xe0){
+	    flags = GDEV_DRV_BO_SYSRAM | GDEV_DRV_BO_VSPACE | GDEV_DRV_BO_MAPPABLE;
+	    if (gdev_drv_bo_alloc(drm, sizeof(struct gdev_nve4_compute_desc), flags, &vspace, &dbo)){
+		goto fail_desc_alloc;
+	    }
+	    ctx->desc.bo = dbo.priv;
+	    ctx->desc.addr = dbo.addr;
+	    ctx->desc.map = dbo.map;
+	    memset(dbo.map, 0,sizeof(struct gdev_nve4_compute_desc));
+	}else{
+	    ctx->desc.bo = NULL;
+	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	if (!(pdata = kzalloc(sizeof(*pdata), GFP_KERNEL)))
@@ -218,6 +238,8 @@ fail_m2mf:
 fail_ctx_objects:
 	gdev_drv_bo_free(&vspace, &nbo);
 #endif
+fail_desc_alloc:
+	gdev_drv_bo_free(&vspace, &dbo);
 fail_notify_alloc:
 	gdev_drv_bo_free(&vspace, &fbo);
 fail_fence_alloc:
@@ -233,7 +255,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 {
 	struct gdev_drv_vspace vspace;
 	struct gdev_drv_chan chan;
-	struct gdev_drv_bo fbo, nbo;
+	struct gdev_drv_bo fbo, nbo, dbo;
 	struct gdev_vas *vas = ctx->vas; 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	struct gdev_drv_nvidia_pdata *pdata = (struct gdev_drv_nvidia_pdata *)ctx->pdata;
@@ -249,6 +271,10 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	fbo.addr = ctx->fence.addr;
 	fbo.map = ctx->fence.map;
 	gdev_drv_bo_free(&vspace, &fbo);
+
+	dbo.priv = ctx->desc.bo;
+	dbo.addr = ctx->desc.addr;
+	gdev_drv_bo_free(&vspace, &dbo);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 #if 0 /* un-necessary */
