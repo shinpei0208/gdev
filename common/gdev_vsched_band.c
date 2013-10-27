@@ -74,7 +74,7 @@ resched:
 	if (gdev_time_lez(&gdev->credit_com) && (gdev->com_bw_used > gdev->com_bw)
 		&& !__gdev_is_alone(gdev)) {
 		gdev_lock(&phys->sched_com_lock);
-		if (gdev_current_com_get(gdev)== gdev) {
+		if (gdev_current_com_get(phys)== gdev) {
 			gdev_current_com_set(phys,NULL);
 			gdev_unlock(&phys->sched_com_lock);
 
@@ -152,7 +152,7 @@ device_switched:
 		gdev_unlock(&phys->sched_com_lock);
 		__gdev_vsched_band_yield_chance();
 		gdev_lock(&phys->sched_com_lock);
-		if (gdev_current_com_get(gdev) == NULL) {
+		if (gdev_current_com_get(phys) == NULL) {
 			gdev_current_com_set(phys,(void*)next);
 			chances--;
 			if (chances) {

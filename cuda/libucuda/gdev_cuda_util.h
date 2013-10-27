@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/shm.h>
+
 #include <elf.h>
 #include <limits.h>
 #if (ULONG_MAX == UINT_MAX)
@@ -61,6 +63,8 @@ static inline int __gdev_get_device_count(void)
 	char buf[16];
 	int minor = 0;
 	FILE *fp;
+	int shmid;
+	int *shm;
 
 	if (!(fp = fopen(fname, "r"))) {
 		/* this is the case for non-gdev device drivers. */
@@ -80,6 +84,12 @@ static inline int __gdev_get_device_count(void)
 			if (stat(fname, &st))
 				break;
 			minor++;
+		}
+		/* check for Gdev user-scheduling */
+		shmid = shmget( 0x600dde11, sizeof(int), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP );
+		if(!shmid){
+		    shm = (int *)shmat(shmid, NULL, 0);
+		    minor = *shm;
 		}
 		return minor;
 	}

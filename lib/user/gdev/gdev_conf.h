@@ -53,7 +53,7 @@
 #define GDEV6_VIRTUAL_DEVICE_COUNT 0 /* # of virtual devices */
 #define GDEV7_VIRTUAL_DEVICE_COUNT 0 /* # of virtual devices */
 
-#define GDEV_SCHED_DISABLED
+//#define GDEV_SCHED_DISABLED
 
 // #define GDEV_DEBUG_PRINT
 

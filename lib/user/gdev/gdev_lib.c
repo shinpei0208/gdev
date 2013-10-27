@@ -26,7 +26,7 @@
 #include "gdev_lib.h"
 #include "gdev_sched.h"
 
-#ifdef GDEV_SCHED_DISABLED
+#ifndef GDEV_SCHED_DISABLED
 
 int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
@@ -180,7 +180,7 @@ void *gdev_attach_shms_vas(int size)
         base = (struct gdev_vas *)__attach_shms(size/sizeof(struct gdev_device), 
 		device_count * sizeof(struct gdev_device));
         for (i = 0; i < 128; i++){
-	    if (!base->vid)
+	    if (!base->gdev)
 		break;
 	    base++;
 	}
@@ -202,6 +202,7 @@ void *gdev_attach_shms_se(int size)
         }
         return base;
 }
+
 void *gdev_attach_shms_mem(int size)
 {
         struct gdev_mem *base;
@@ -220,9 +221,11 @@ void *gdev_attach_shms_mem(int size)
 
 }
 
-struct gdev_sched_entity *gdev_sched_entity_alloc(int size){
+struct gdev_sched_entity *gdev_sched_entity_alloc(int size)
+{
         return gdev_attach_shms_se(size);
 }
+
 static int __init_sem_lock(void)
 {
         return true;
@@ -232,7 +235,7 @@ static int __init_msg_sched(void)
 {
         __msgid = msgget(GDEV_MSG_KEY, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
         if (__msgid == -1)
-	return false;
+		return false;
 
         return true;
 }
@@ -241,11 +244,11 @@ static int __init_msg_sched(void)
 int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
         /* init the message queue for a scheduler. */
-        if (!__init_msg_sched()) {
-	printf("Failed to initialize GDEV semaphore\n");
-	exit(1);
-	return false;
-        }
+    	if (!__init_msg_sched()) {
+		printf("Failed to initialize GDEV semaphore\n");
+		exit(1);
+		return false;
+    	}
         gdev_shm_initialized=1;
 
         return true;
@@ -288,21 +291,22 @@ int gdev_sched_wakeup(void *task)
 {
         int pid=getpid();
 
-        if ((long long)task == pid){
-	printf("Warning: task tried to wake up itself\n");
+	if ((long long)task == pid){
+	    printf("Warning: task tried to wake up itself\n");
         }
         else {
-	struct gdev_msg_struct *msg;
-	msg = (struct gdev_msg_struct *)malloc(sizeof(*msg));
-	msg->mtype = (long long)task;
-	msg->mtext = (long long)task;
-	msgsnd(__msgid, msg, GDEV_SZ_MSG, 0);
-        }
+	    struct gdev_msg_struct *msg;
+	    msg = (struct gdev_msg_struct *)malloc(sizeof(*msg));
+	    msg->mtype = (long long)task;
+	    msg->mtext = (long long)task;
+	    msgsnd(__msgid, msg, GDEV_SZ_MSG, 0);
+	}
         return true;
 }
 
 void gdev_next_compute(struct gdev_device *gdev)
 {
+#if 0
         gdev_replenish_credit_compute(gdev);
 
         gdev_time_stamp(&now);
@@ -314,6 +318,7 @@ void gdev_next_compute(struct gdev_device *gdev)
 	gdev->com_time=0;
 	gdev_time_stamp(&last);
         }
+#endif
         gdev_select_next_compute(gdev);
 }
 
@@ -386,7 +391,7 @@ struct gdev_device *gdev_phys_get(struct gdev_device *gdev)
 
 struct gdev_mem *gdev_swap_get(struct gdev_device *gdev)
 {
-    return lgdev->swap;
+ 	return lgdev->swap;
 }
 
 void *gdev_current_com_get(struct gdev_device *gdev)

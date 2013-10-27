@@ -62,6 +62,8 @@ elif [ $target = 'user' ] ; then
 	eval EXTRA_LIBS="EXTRA_LIBS="'$'$DRIVER_NAME"_LIBS"
 	if [ $sched = 1 ] ; then
 	    cp -f ../user/sched/* .
+	else
+	    eval EXTRA_CFLAGS2="EXTRA_CFLAGS+=""-DGDEV_SCHED_DISABLED"
 	fi
 else
 	echo "Error: invalid target '$target'"
@@ -77,6 +79,7 @@ cat > Extra.mk << EOF
 #
 
 $EXTRA_CFLAGS
+$EXTRA_CFLAGS2
 $EXTRA_OBJS
 $EXTRA_LIBS
 EOF

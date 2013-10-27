@@ -18,9 +18,14 @@ OBJSMON = gdev_usched_monitor.o
 
 ZOMBIE  = $(wildcard ./*~)
 
-all: $(OBJS) $(OBJSMON)
+all: $(OBJS)
 	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
+
+sched: $(OBJSMON)
 	$(CC) $(LDFLAGS) $(OBJSMON) -o gdev_usched_monitor $(CFLAGS)
+
+sched_install :
+	cp -f gdev_usched_monitor $(DESTDIR)/$(GDEVDIR)/bin
 
 %.o:%.c
 	$(CC) -fPIC -c $^ -o $@ $(CFLAGS) $(EXTRA_LIBS)
@@ -33,7 +38,6 @@ install:
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1.0.0 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so.1
 	ln -sf $(GDEVDIR)/lib64/$(TARGET).so.1 $(DESTDIR)/$(GDEVDIR)/lib64/$(TARGET).so
 	cp -f $(HEADERS) $(DESTDIR)/$(GDEVDIR)/include
-	cp -f gdev_usched_monitor $(DESTDIR)/$(GDEVDIR)/bin
 	@make echo
 
 uninstall:

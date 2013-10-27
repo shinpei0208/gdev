@@ -103,6 +103,8 @@ fail:
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev;
+	int major, max;
+
 	if (!nvrm_ctx) {
 		nvrm_ctx = nvrm_open();
 		if (!nvrm_ctx)
@@ -122,9 +124,14 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 #endif
 	}
 
+
 	gdev = &gdevs[minor];
+	major = 0;
+	while( minor > max + VCOUNT_LIST[major] )
+	    max += VCOUNT_LIST[major++];
+
 	if (gdev->users == 0) {
-		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, minor);
+		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, major);
 		if (!dev)
 			return NULL;
 #ifdef GDEV_SCHED_DISABLED
@@ -136,7 +143,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdev++;
 		gdev_init_virtual_device(gdev, minor, 100/*VGPU WEIGHT*/, (void *)ADDR_SUB(gdev,gdevs));
 	}else{
-		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, minor);
+		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, major);
 		if (!dev)
 	    		return NULL;
 		gdev_init_device(lgdev, minor, dev);
@@ -199,7 +206,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 	return vas;
 
 fail_nvas:
-	free(vas);
+	FREE(vas);
 fail_vas:
 	return NULL;
 }
@@ -210,7 +217,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 	struct nvrm_vspace *nvas = vas->pvas;
 
 	nvrm_vspace_destroy(nvas);
-	free(vas);
+	FREE(vas);
 }
 
 /* create a new GPU context object. 
@@ -332,7 +339,7 @@ fail_chan:
 fail_pb:
 	nvrm_bo_destroy(ctx->fifo.ib_bo);
 fail_ib:
-	free(ctx);
+	FREE(ctx);
 fail_ctx:
 	return NULL;
 }
@@ -345,7 +352,7 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	nvrm_channel_destroy(ctx->pctx);
 	nvrm_bo_destroy(ctx->fifo.pb_bo);
 	nvrm_bo_destroy(ctx->fifo.ib_bo);
-	free(ctx);
+	FREE(ctx);
 }
 
 /* allocate a new memory object. */
@@ -378,7 +385,7 @@ static inline struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64
 
 fail_bo:
 	GDEV_PRINT("Failed to allocate NVRM buffer object.\n");
-	free(mem);
+	FREE(mem);
 fail_mem:
 	return NULL;
 }
@@ -406,7 +413,7 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	struct nvrm_bo *bo = mem->bo;
 
 	nvrm_bo_destroy(bo);
-	free(mem);
+	FREE(mem);
 }
 
 /* allocate a reserved swap memory object. size may be aligned. */
