@@ -125,7 +125,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	}
 
 
-	gdev = &gdevs[minor];
+	gdev = &gdevs[++minor];
 	major = 0;
 	while( minor > max + VCOUNT_LIST[major] )
 	    max += VCOUNT_LIST[major++];
@@ -138,15 +138,17 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdev_init_device(gdev, minor, dev);
 #else //ifndef GDEV_SCHED_DISABLED
 		lgdev = MALLOC(sizeof(*lgdev)); /* local gdev for compute ops */
-		gdev_init_device(lgdev, minor, dev);
-		gdev_init_device(gdevs, minor, dev);
-		gdev++;
+		memset(lgdev, 0, sizeof(*lgdev));
+		gdev_init_device(lgdev, major, dev);
+		gdev_init_device(gdevs, major, dev);
 		gdev_init_virtual_device(gdev, minor, 100/*VGPU WEIGHT*/, (void *)ADDR_SUB(gdev,gdevs));
 	}else{
 		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, major);
 		if (!dev)
 	    		return NULL;
-		gdev_init_device(lgdev, minor, dev);
+		lgdev = MALLOC(sizeof(*lgdev)); /* local gdev for compute ops */
+		memset(lgdev, 0, sizeof(*lgdev));
+		gdev_init_device(lgdev, major, dev);
 #endif
 	}
 	gdev->users++;

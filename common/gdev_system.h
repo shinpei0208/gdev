@@ -109,7 +109,11 @@ void gdev_next_compute(struct gdev_device *gdev);
 #define GDEV_DPRINT(fmt, arg...)
 #endif
 #define MALLOC(x) malloc(x)
+#ifdef GDEV_SCHED_DISABLED
 #define FREE(x) free(x)
+#else
+#define FREE(x) memset(x, 0, sizeof(*x))
+#endif
 #define SCHED_YIELD() sched_yield()
 #if (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)
 #define MB() __sync_synchronize()
