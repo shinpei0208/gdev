@@ -26,7 +26,7 @@
 #include "gdev_lib.h"
 #include "gdev_sched.h"
 
-#ifndef GDEV_SCHED_DISABLED
+#ifdef GDEV_SCHED_DISABLED
 
 int gdev_sched_create_scheduler(struct gdev_device *gdev)
 {
