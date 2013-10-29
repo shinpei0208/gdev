@@ -29,7 +29,7 @@
 static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (!phys)
 		return;
@@ -37,7 +37,7 @@ static void gdev_vsched_credit_schedule_compute(struct gdev_sched_entity *se)
 resched:
 	gdev_lock(&phys->sched_com_lock);
 
-	if (phys->current_com && phys->current_com != gdev) {
+	if (gdev_current_com_get(phys) && gdev_current_com_get(phys) != gdev) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
 		__gdev_enqueue_compute(gdev, se);
@@ -51,14 +51,14 @@ resched:
 		goto resched;
 	}
 	else {
-		phys->current_com = (void *)gdev;
+		gdev_current_com_set(phys, (void*)gdev);
 		gdev_unlock(&phys->sched_com_lock);
 	}
 }
 
 static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	struct gdev_device *next;
 
 	if (!phys)
@@ -82,7 +82,7 @@ static struct gdev_device *gdev_vsched_credit_select_next_compute(struct gdev_de
 	}
 	next = NULL;
 device_switched:
-	phys->current_com = (void*)next; /* could be null */
+	gdev_current_com_set(phys, (void*)next); /* could be null */
 	gdev_unlock(&phys->sched_com_lock);
 
 	return next;
@@ -107,7 +107,7 @@ static void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
 static void gdev_vsched_credit_schedule_memory(struct gdev_sched_entity *se)
 {
 	struct gdev_device *gdev = se->gdev;
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 
 	if (!phys)
 		return;
@@ -135,7 +135,7 @@ resched:
 
 static struct gdev_device *gdev_vsched_credit_select_next_memory(struct gdev_device *gdev)
 {
-	struct gdev_device *phys = gdev->parent;
+	struct gdev_device *phys = gdev_phys_get(gdev);
 	struct gdev_device *next;
 
 	if (!phys)

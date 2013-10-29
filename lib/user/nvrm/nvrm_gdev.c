@@ -103,7 +103,7 @@ fail:
 struct gdev_device *gdev_raw_dev_open(int minor)
 {
 	struct gdev_device *gdev;
-	int major, max;
+	int major, max = 0;
 
 	if (!nvrm_ctx) {
 		nvrm_ctx = nvrm_open();
@@ -116,6 +116,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdevs = (struct gdev_device *)gdev_attach_shms_dev(GDEV_DEVICE_MAX_COUNT); /* must fix constant number   */
 		if (!gdevs)
 			return NULL;
+		minor++;
 #else
 		gdevs = MALLOC(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 		if (!gdevs)
@@ -125,7 +126,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	}
 
 
-	gdev = &gdevs[++minor];
+	gdev = &gdevs[minor];
 	major = 0;
 	while( minor > max + VCOUNT_LIST[major] )
 	    max += VCOUNT_LIST[major++];
@@ -141,7 +142,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		memset(lgdev, 0, sizeof(*lgdev));
 		gdev_init_device(lgdev, major, dev);
 		gdev_init_device(gdevs, major, dev);
-		gdev_init_virtual_device(gdev, minor, 100/*VGPU WEIGHT*/, (void *)ADDR_SUB(gdev,gdevs));
+		gdev_init_virtual_device(gdev, minor, 50/*VGPU WEIGHT*/, (void *)ADDR_SUB(gdev,gdevs));
 	}else{
 		struct nvrm_device *dev = nvrm_device_open(nvrm_ctx, major);
 		if (!dev)

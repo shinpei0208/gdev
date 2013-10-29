@@ -604,9 +604,7 @@ struct gdev_handle *gopen(int minor)
 		GDEV_PRINT("Failed to allocate device handle\n");
 		return NULL;
 	}
-#if 1 /* add *//* axe */
 	memset(h, 0, sizeof(*h));
-#endif
 
 	h->pipeline_count = GDEV_PIPELINE_DEFAULT_COUNT;
 	h->chunk_size = GDEV_CHUNK_DEFAULT_SIZE;

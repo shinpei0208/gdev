@@ -481,9 +481,7 @@ static void nv50_init(struct gdev_ctx *ctx)
 	uint64_t mp_limit;
 	struct gdev_vas *vas = ctx->vas;
 	struct gdev_device *gdev = vas->gdev;
-#if 1 /* add *//* axe */
 	struct gdev_subchannel *subch = (struct gdev_subchannel *)ctx->pdata;
-#endif
 
 	/* initialize the fence values. */
 	for (i = 0; i < GDEV_FENCE_COUNT; i++)
@@ -493,13 +491,8 @@ static void nv50_init(struct gdev_ctx *ctx)
 	   remaining at least in the second setup. */
 	for (i = 0; i < 2; i++) {
 		int id = 0;
-#if 0 /* orig *//* axe */
-		pscnv_obj_eng_new(dev, ib_chan->cid, id+1, 0x50c0, 0);
-		pscnv_obj_eng_new(dev, ib_chan->cid, id+2, 0x5039, 0);
-#else
 		pscnv_obj_eng_new(dev, ib_chan->cid, id+1, subch->comp.oclass, 0);
 		pscnv_obj_eng_new(dev, ib_chan->cid, id+2, subch->m2mf.oclass, 0);
-#endif
 
 		/* DMA global */
 		__gdev_begin_ring_nv50(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);

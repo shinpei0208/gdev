@@ -212,11 +212,11 @@ void *gdev_attach_shms_mem(int size)
 		device_count * sizeof(struct gdev_device) + 
 		GDEV_CONTEXT_MAX_COUNT * sizeof(struct gdev_vas) + 
 		GDEV_CONTEXT_MAX_COUNT * sizeof(struct gdev_sched_entity));
-        for ( i=0; i<256; i++){
-	if (!base->vas)
-	        break;
-	base++;
-        }
+	for ( i=0; i<256; i++){
+	    if (!base->vas)
+		break;
+	    base++;
+	}
         return base;
 
 }
@@ -306,20 +306,8 @@ int gdev_sched_wakeup(void *task)
 
 void gdev_next_compute(struct gdev_device *gdev)
 {
-#if 0
-        gdev_replenish_credit_compute(gdev);
-
-        gdev_time_stamp(&now);
-        gdev_time_sub(&elapse, &now, &last);
-        gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
-        if (gdev->com_bw_used > 100)
-	gdev->com_bw_used = 100;
-        if (gdev_time_ge(&elapse, &interval)) {
-	gdev->com_time=0;
-	gdev_time_stamp(&last);
-        }
-#endif
-        gdev_select_next_compute(gdev);
+	if (gdev->users)
+		gdev_select_next_compute(gdev);
 }
 
 
@@ -396,12 +384,16 @@ struct gdev_mem *gdev_swap_get(struct gdev_device *gdev)
 
 void *gdev_current_com_get(struct gdev_device *gdev)
 {
-        return !gdev->current_com? NULL:(void*)ADDR_SUB(gdev, gdev->current_com);
+ 	return (gdev->current_com==NULL)? NULL:(void*)ADDR_SUB(gdev, gdev->current_com);
 }
 
 void gdev_current_com_set(struct gdev_device *gdev,void *com)
 {
-        gdev->current_com = (void *)ADDR_SUB(gdev,com);
+	if(com!=NULL){
+		gdev->current_com = (void *)ADDR_SUB(gdev,com);
+    	}else{
+		gdev->current_com = NULL;
+    	}
 }
 
 void *gdev_compute_get(struct gdev_device *gdev)

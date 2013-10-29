@@ -37,6 +37,7 @@
 
 #define GDEV_DEVICE_MAX_COUNT 32
 
+struct gdev_device *lgdev; /* local gdev_device structure for user-space scheduling */
 struct gdev_nouveau_ctx_objects {
 	struct nouveau_object *comp;
 	struct nouveau_object *m2mf;
@@ -147,15 +148,26 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	struct nouveau_device *dev;
 	struct nouveau_client *priv;
 	struct gdev_device *gdev;
+	int major, max;
 
 	if (!gdevs) {
-		gdevs = malloc(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
+#ifndef GDEV_SCHED_DISABLED
+		gdevs = (struct gdev_device *)gdev_attach_shms_dev(GDEV_DEVICE_MAX_COUNT); /* FIXME: constant number   */
+		if (!gdevs)
+			return NULL;
+		minor++;
+#else
+	    	gdevs = malloc(sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
 		if (!gdevs)
 			return NULL;
 		memset(gdevs, 0, sizeof(*gdevs) * GDEV_DEVICE_MAX_COUNT);
+#endif
 	}
 
 	gdev = &gdevs[minor];
+	major = 0;
+	while( minor > max + VCOUNT_LIST[major] )
+	    max += VCOUNT_LIST[major++];
 
 	if (gdev->users == 0) {
 		if (nouveau_device_open(0, &dev))
@@ -163,10 +175,25 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 
 		if (nouveau_client_new(dev, &priv))
 			goto fail_client;
-
+#ifdef GDEV_SCHED_DISABLED
 		gdev_init_device(gdev, minor, (void *)priv);
-	}		
+#else
+		lgdev = MALLOC(sizeof(*lgdev));
+		memset(lgdev, 0, sizeof(*lgdev));
+		gdev_init_device(lgdev, major, (void *)priv);
+		gdev_init_device(gdevs, major, (void *)priv);
+		gdev_init_virtual_device(gdev, minor, 100, (void *)ADDR_SUB(gdev,gdevs));
+	}else{
+		if (nouveau_device_open(0, &dev))
+			goto fail_device;
 
+		if (nouveau_client_new(dev, &priv))
+			goto fail_client;
+		lgdev = MALLOC(sizeof(*lgdev));
+		memset(lgdev, 0, sizeof(*lgdev));
+		gdev_init_device(lgdev, major, (void *)priv);
+#endif
+	}
 	gdev->users++;
 
 	return gdev;
@@ -180,7 +207,11 @@ fail_device:
 /* close the specified Gdev object. */
 void gdev_raw_dev_close(struct gdev_device *gdev)
 {
+#ifndef GDEV_SCHED_DISABLED
+	struct nouveau_client *client = (struct nouveau_client *)lgdev->priv;
+#else
 	struct nouveau_client *client = (struct nouveau_client *)gdev->priv;
+#endif
 	struct nouveau_device *dev = (struct nouveau_device *)client->device;
 	int i;
 
@@ -195,7 +226,7 @@ void gdev_raw_dev_close(struct gdev_device *gdev)
 			if (gdevs[i].users > 0)
 				return;
 		}
-		free(gdevs);
+		FREE(gdevs);
 		gdevs = NULL;
 	}
 }
@@ -208,7 +239,11 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 	void *data;
 	struct gdev_vas *vas;
 	struct nouveau_object *chan;
+#ifndef GDEV_SCHED_DISABLED
+	struct nouveau_client *client = (struct nouveau_client *)lgdev->priv;
+#else
 	struct nouveau_client *client = (struct nouveau_client *)gdev->priv;
+#endif
 	struct nouveau_device *dev = (struct nouveau_device *)client->device;
 	struct nouveau_object *nv = &dev->object;
 	/* NvDmaFB = 0xbeef0201, NvDma = 0xbeef0202 */
@@ -216,9 +251,14 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 	struct nvc0_fifo nvc0_data = { };
 	uint32_t chipset = gdev->chipset;
 
+#ifndef GDEV_SCHED_DISABLED
+	if (!(vas = gdev_attach_shms_vas(0)))
+	    	goto fail_vas;
+#else
 	if (!(vas = malloc(sizeof(*vas))))
-		goto fail_vas;
+	    	goto fail_vas;
 	memset(vas, 0, sizeof(*vas));
+#endif
 
 	if (chipset < 0xc0) {
 		data = &nv04_data;
@@ -240,7 +280,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 	return vas;
 
 fail_chan:
-	free(vas);
+	FREE(vas);
 fail_vas:
 	return NULL;
 }
@@ -251,7 +291,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 	struct nouveau_object *chan = (struct nouveau_object *)vas->pvas;
 
 	nouveau_object_del(&chan);
-    free(vas);
+    	FREE(vas);
 }
 
 /* create a new GPU context object. 
@@ -485,10 +525,14 @@ static struct gdev_mem *__gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size
 	struct nouveau_device *dev = client->device;
 	struct nouveau_bo *bo;
 	
+#ifndef GDEV_SCHED_DISABLED
+	if (!(mem = (struct gdev_mem *)gdev_attach_shms_mem(0)))
+		goto fail_mem;
+#else
 	if (!(mem = (struct gdev_mem *) malloc(sizeof(*mem))))
 		goto fail_mem;
 	memset(mem, 0, sizeof(*mem));
-
+#endif
 	if (nouveau_bo_new(dev, flags, 0, size, NULL, &bo))
 		goto fail_bo;
 

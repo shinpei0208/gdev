@@ -57,50 +57,79 @@ void __gdev_unlock(gdev_lock_t *p)
 
 void gdev_vsched_band_replenish_compute(struct gdev_device *gdev)
 {
-	struct gdev_time credit, threshold;
-
-	gdev_time_us(&credit, gdev->period * gdev->com_bw / 100);
-	gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
-	/* when the credit exceeds the threshold, all credits taken away. */
-	gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
-	if (gdev_time_gt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
-	/* when the credit exceeds the threshold in negative, even it. */
-	threshold.neg = 1;
-	if (gdev_time_lt(&gdev->credit_com, &threshold))
-		gdev_time_us(&gdev->credit_com, 0);
+    struct gdev_time credit, threshold;
+    gdev_time_us(&credit, gdev->period * gdev->com_bw / 100);
+    gdev_time_add(&gdev->credit_com, &gdev->credit_com, &credit);
+    /* when the credit exceeds the threshold, all credits taken away. */
+    gdev_time_us(&threshold, GDEV_CREDIT_INACTIVE_THRESHOLD);
+    if (gdev_time_gt(&gdev->credit_com, &threshold))
+	gdev_time_us(&gdev->credit_com, 0);
+    /* when the credit exceeds the threshold in negative, even it. */
+    threshold.neg = 1;
+    if (gdev_time_lt(&gdev->credit_com, &threshold))
+	gdev_time_us(&gdev->credit_com, 0);
 }
+
+
+void gdev_vsched_credit_replenish_compute(struct gdev_device *gdev)
+{
+    GDEV_PRINT("not implemented....\n");
+    return;
+}
+
+void gdev_vsched_fifo_replenish_compute(struct gdev_device *gdev)
+{
+    GDEV_PRINT("not implemented....\n");
+    return;
+}
+
+void gdev_vsched_null_replenish_compute(struct gdev_device *gdev)
+{
+    return;
+}
+
+#define GDEV_VSCHED_POLICY_BAND
+//#define GDEV_VSCHED_POLICY_CREDIT
+//#define GDEV_VSCHED_POLICY_FIFO
+//#define GDEV_VSCHED_POLICY_NULL
+
+#if defined(GDEV_VSCHED_POLICY_BAND)
+void (*gdev_replenish_compute)(struct gdev_device *gdev) = &gdev_vsched_band_replenish_compute;
+#elif defined(GDEV_VSCHED_POLICY_CREDIT)
+void (*gdev_replenish_compute)(struct gdev_device *gdev) = &gdev_vsched_credit_replenish_compute;
+#elif defined(GDEV_VSCHED_POLICY_FIFO)
+void (*gdev_replenish_compute)(struct gdev_device *gdev) = &gdev_vsched_fifo_replenish_compute;
+#elif defined(GDEV_VSCHED_POLICY_NULL)
+void (*gdev_replenish_compute)(struct gdev_device *gdev) = &gdev_vsched_null_replenish_compute;
+#endif
 
 static void *__gdev_credit_com_thread(void *__offset)
 {
-	struct gdev_device *gdev = (struct gdev_device*)((unsigned long long)shmat(shmid, NULL, 0) + (unsigned long long)__offset);
-	struct gdev_time now, last, elapse, interval;
-	int i=0;
-    
-	
+    struct gdev_device *gdev = (struct gdev_device*)((unsigned long long)shmat(shmid, NULL, 0) + (unsigned long long)__offset);
+    struct gdev_time now, last, elapse, interval;
 
-	GDEV_PRINT("Gdev#%d compute reserve running\n", gdev->id);
-	
-	gdev_time_us(&interval, GDEV_UPDATE_INTERVAL);
-	gdev_time_stamp(&last);
-	
-	while(1){
-	    gdev_vsched_band_replenish_compute(gdev);
-	    pthread_testcancel();
-	    usleep(GDEV_PERIOD_DEFAULT * 1000);    
-	    __gdev_lock(&gdev->sched_com_lock);
-	    gdev_time_stamp(&now);
-	    gdev_time_sub(&elapse, &now, &last);
-	    gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
-	    if (gdev->com_bw_used > 100)
-		gdev->com_bw_used = 100;
-	    if (gdev_time_ge(&elapse, &interval)) {
-		gdev->com_time = 0;
-		gdev_time_stamp(&last);
-	    }
-	    __gdev_unlock(&gdev->sched_com_lock);
+    GDEV_PRINT("Gdev#%d compute reserve running\n", gdev->id);
+
+    gdev_time_us(&interval, GDEV_UPDATE_INTERVAL);
+    gdev_time_stamp(&last);
+
+    while(1){
+	gdev_replenish_compute(gdev);
+	pthread_testcancel();
+	usleep(GDEV_PERIOD_DEFAULT * 1000);    
+	__gdev_lock(&gdev->sched_com_lock);
+	gdev_time_stamp(&now);
+	gdev_time_sub(&elapse, &now, &last);
+	gdev->com_bw_used = gdev->com_time * 100 / gdev_time_to_us(&elapse);
+	if (gdev->com_bw_used > 100)
+	    gdev->com_bw_used = 100;
+	if (gdev_time_ge(&elapse, &interval)) {
+	    gdev->com_time = 0;
+	    gdev_time_stamp(&last);
 	}
-	return NULL;
+	__gdev_unlock(&gdev->sched_com_lock);
+    }
+    return NULL;
 }
 
 
@@ -182,7 +211,7 @@ int main(int argc, char *argv[])
     sa_kill.sa_handler = __kill_handler;
     sa_kill.sa_flags = 0;
     sigaction(SIGINT, &sa_kill, NULL);
-    
+
     __shmid_vcount = shmget(0x600dde11, sizeof(int), IPC_CREAT | S_IRUSR| S_IWUSR| S_IRGRP| S_IWGRP);
     _gdev_vcount = (int *)shmat(__shmid_vcount, NULL, 0);
 
@@ -199,9 +228,9 @@ int main(int argc, char *argv[])
 	GDEV_PRINT("usage: gdev_usched_monitor \n");
 	exit(1);
     }
-    
+
     if (!init_gdev_monitor()){
-    	GDEV_PRINT("Initialize Error\n");
+	GDEV_PRINT("Initialize Error\n");
 	return 0;
     }
 
@@ -212,7 +241,7 @@ int main(int argc, char *argv[])
 	    perror("pthread_create()\n");
 	}
     }
-   
+
     /* clean up zombie descriptors periodically  */
     while(1){
 	//      __cleanup_zombie_descriptors();

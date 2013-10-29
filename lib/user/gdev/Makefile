@@ -22,7 +22,7 @@ all: $(OBJS)
 	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(TARGET).so.1 -o ./$(TARGET).so.1.0.0 $(OBJS) $(EXTRA_LIBS)
 
 sched: $(OBJSMON)
-	$(CC) $(LDFLAGS) $(OBJSMON) -o gdev_usched_monitor $(CFLAGS)
+	$(CC) $(LDFLAGS) -lpthread $(OBJSMON) -o gdev_usched_monitor $(CFLAGS)
 
 sched_install :
 	cp -f gdev_usched_monitor $(DESTDIR)/$(GDEVDIR)/bin

@@ -91,7 +91,7 @@ resched:
 
 	gdev_lock(&phys->sched_com_lock);
 
-	if (gdev_current_com_get(gdev)&& (gdev_current_com_get(gdev)!= gdev)) {
+	if (gdev_current_com_get(phys)&& (gdev_current_com_get(phys)!= gdev)) {
 		/* insert the scheduling entity to its local priority-ordered list. */
 		gdev_lock_nested(&gdev->sched_com_lock);
 		__gdev_enqueue_compute(gdev, se);
