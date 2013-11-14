@@ -9,33 +9,49 @@ include(UseDoxygen OPTIONAL)
 
 
 ## Each source files
-SET(gdev_src ${common_src})
-file(GLOB common_src "../common/*.c~*nv50*")
+set(common_src
+    ${PROJECT_SOURCE_DIR}/common/gdev_api.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_device.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_compute.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_fifo.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_mem.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_nvc0.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_nve4.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_shm.c
+    ${PROJECT_SOURCE_DIR}/common/gdev_sched.c
+)
 file(GLOB nvrm_src "user/nvrm/*.c")
 file(GLOB user_src "user/gdev/*.c")
 file(GLOB nouveau_src "user/nouveau/*.c")
 file(GLOB kernel_src "kernel/*.c")
 
+
 ## include dir
 SET(gdev_inc /usr/local/gdev/include)
-
 
 ## select source 
 IF(user)
     MESSAGE(Selected\ User-space!)
-    SET(gdev_src ${gdev_src} ${user_src})
-    SET(gdev_inc ${gdev_inc} /usr/include/libdrm ../common user/gdev)
+    SET(gdev_src ${gdev_src} ${user_src} ${common_src})
+    SET(gdev_inc ${gdev_inc} 
+	/usr/include/libdrm 
+	${PROJECT_SOURCE_DIR}/common/ 
+	${PROJECT_SOURCE_DIR}/lib/user/gdev/
+	)
+
     IF(driver STREQUAL nouveau)
 	SET(gdev_src ${gdev_src} ${nouveau_src})
-	SET(gdev_inc ${gdev_inc} user/gdev/nouveau)
+	SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nouveau)
+	SET(lib_lib drm drm_nouveau)
     ELSE(driver STREQUAL nouveau)
 	IF(driver STREQUAL nvrm)
-	    SET(gdev_src ${gdev_src} ${nvrm_src})
-	    SET(gdev_inc ${gdev_inc} user/gdev/nvrm)
+	    SET(gdev_src ${gdev_src} ${nvrm_src} )
+	    SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nvrm)
 	ELSE(driver STREQUAL nvrm)
 	    IF(driver STREQUAL pscnv)
 		SET(gdev_src ${gdev_src} ${pscnv_src})
-		SET(gdev_inc ${gdev_inc} user/gdev/nvrm)
+		SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/pscnv)
 	    ELSE(driver STREQUAL  pscnv)
 		MESSAGE( FATAL_ERROR "Not selected GPU Driver.")
 		MESSAGE( FATAL_ERROR "ex: driver=nouveau.")
@@ -50,7 +66,7 @@ IF(user)
 ELSE(user)
     MESSAGE(Selected\ Kernel-space!)
     SET(gdev_src ${gdev_src} ${kernel_src})
-    SET(gdev_inc ${gdev_inc} kernel ../common)
+    SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/kernel ${PROJECT_SOURCE_DIR}/common)
     SET(gdev_install_headers 
 	${PROJECT_SOURCE_DIR}/common/gdev_api.h 
 	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h 
@@ -58,11 +74,10 @@ ELSE(user)
 	${PROJECT_SOURCE_DIR}/common/gdev_time.h)
 ENDIF(user)
 
-
 INCLUDE_DIRECTORIES(gdev ${gdev_inc})
 ADD_LIBRARY(gdev SHARED ${gdev_src})
 SET_TARGET_PROPERTIES(gdev PROPERTIES VERSION ${serial} SOVERSION ${soserial})
-
+TARGET_LINK_LIBRARIES(gdev ${link_lib})
 INSTALL(TARGETS gdev LIBRARY DESTINATION gdev/lib64)
 INSTALL(FILES ${gdev_install_headers} DESTINATION gdev/include)
 
