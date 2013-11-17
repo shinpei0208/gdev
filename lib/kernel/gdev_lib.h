@@ -32,6 +32,8 @@
 #include <stdlib.h> /* malloc/free, etc. */
 #include <string.h> /* memcpy, etc. */
 
+#include "gdev_io_memcpy.h"
+
 #define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
 #define GDEV_DPRINT(fmt, arg...)					\
 	if (GDEV_DEBUG_PRINT)							\
@@ -42,7 +44,7 @@
 #define FREE(x) free(x)
 #define SCHED_YIELD() sched_yield()
 #define MB() //mb()
-#define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size)
-#define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
+#define COPY_FROM_USER(dst, src, size) gdev_io_memcpy(dst, src, size)
+#define COPY_TO_USER(dst, src, size) gdev_io_memcpy(dst, src, size)
 
 #endif

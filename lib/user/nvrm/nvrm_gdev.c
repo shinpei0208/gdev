@@ -24,6 +24,7 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_io_memcpy.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
 #include "nvrm.h"
@@ -36,16 +37,6 @@
 
 struct gdev_device *lgdev; /* local gdev_device structure for user-space scheduling */
 static struct nvrm_context *nvrm_ctx = 0;
-
-/* this ensures that SSE is not applied to memcpy. */
-void* __nvrm_io_memcpy(void* s1, const void* s2, size_t n)
-{
-    volatile char* out = (volatile char*)s1;
-    const volatile char* in = (const volatile char*)s2;
-    size_t i;
-    for (i = 0; i < n; ++i) out[i] = in[i];
-    return s1;
-}
 
 int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 {
@@ -498,7 +489,7 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	}
 
 	uint64_t offset = addr - mem->addr;
-	__nvrm_io_memcpy(buf, ptr + offset, size);
+	gdev_io_memcpy(buf, ptr + offset, size);
 
 	if (!mem->map) {
 		nvrm_bo_host_unmap(bo);
@@ -517,7 +508,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	}
 
 	uint64_t offset = addr - mem->addr;
-	__nvrm_io_memcpy(ptr + offset, buf, size);
+	gdev_io_memcpy(ptr + offset, buf, size);
 
 	if (!mem->map) {
 		nvrm_bo_host_unmap(bo);

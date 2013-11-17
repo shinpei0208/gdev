@@ -28,6 +28,7 @@
 #include "gdev_api.h"
 #include "gdev_autogen.h"
 #include "gdev_cuda.h"
+#include "gdev_io_memcpy.h"
 
 CUresult cuFuncGetAttribute
 (int *pi, CUfunction_attribute attrib, CUfunction hfunc) 
@@ -498,8 +499,8 @@ CUresult cuParamSetv
 
 	k = &func->kernel;
 	f = &func->raw_func;
-	memcpy(&k->param_buf[(f->param_base + offset) / 4], ptr, numbytes);
-	
+	gdev_io_memcpy(&k->param_buf[(f->param_base + offset) / 4], ptr, numbytes);
+
 	return CUDA_SUCCESS;
 }
 

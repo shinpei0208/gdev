@@ -5,6 +5,7 @@
 #include "drm.h"
 #include "libpscnv.h"
 #include "pscnv_drm.h"
+#include "gdev_io_memcpy.h"
 
 int drmIoctl(int fd, unsigned long request, void *arg)
 {
@@ -92,7 +93,7 @@ int pscnv_gem_new(int fd, uint32_t cookie, uint32_t flags, uint32_t tile_flags, 
 	req.tile_flags = tile_flags;
 	req.size = size;
 	if (user)
-		memcpy(req.user, user, sizeof(req.user));
+		gdev_io_memcpy(req.user, user, sizeof(req.user));
 	ret = drmCommandWriteRead(fd, DRM_PSCNV_GEM_NEW, &req, sizeof(req));
 	if (ret)
 		return ret;
@@ -121,7 +122,7 @@ int pscnv_gem_info(int fd, uint32_t handle, uint32_t *cookie, uint32_t *flags, u
 	if (map_handle)
 		*map_handle = req.map_handle;
 	if (user)
-		memcpy(user, req.user, sizeof(req.user));
+		gdev_io_memcpy(user, req.user, sizeof(req.user));
 	return 0;
 }
 

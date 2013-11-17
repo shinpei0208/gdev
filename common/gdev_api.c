@@ -28,6 +28,7 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_io_memcpy.h"
 #include "gdev_sched.h"
 
 #define __max(x, y) (x) > (y) ? (x) : (y)
@@ -84,7 +85,7 @@ static void __free_dma(gdev_mem_t **dma_mem, int p_count)
  */
 static int __f_memcpy(void *dst, const void *src, uint32_t size)
 {
-	memcpy(dst, src, size);
+	gdev_io_memcpy(dst, src, size);
 	return 0;
 }
 

@@ -8,6 +8,8 @@ PROJECT(Gdev)
 SET(serial "1.0.0")
 SET(soserial "1")
 
+INCLUDE_DIRECTORIES(util)
+
 FIND_PACKAGE(Doxygen)
 include(UseDoxygen OPTIONAL)
 
