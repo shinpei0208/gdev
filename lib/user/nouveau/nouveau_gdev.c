@@ -24,6 +24,7 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_io_memcpy.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
 #include "gdev_nvidia_nve4.h"
@@ -42,16 +43,6 @@ struct gdev_nouveau_ctx_objects {
 	struct nouveau_object *comp;
 	struct nouveau_object *m2mf;
 };
-
-/* this ensures that SSE is not applied to memcpy. */
-void* __nouveau_io_memcpy(void* s1, const void* s2, size_t n)
-{
-    volatile char* out = (volatile char*)s1;
-    const volatile char* in = (const volatile char*)s2;
-    size_t i;
-    for (i = 0; i < n; ++i) out[i] = in[i];
-    return s1;
-}
 
 void __nouveau_fifo_space(struct gdev_ctx *ctx, uint32_t len)
 {
@@ -654,7 +645,7 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	uint64_t offset = addr - bo->offset;
 
 	if (bo->map) {
-		__nouveau_io_memcpy(buf, bo->map + offset, size);
+		gdev_io_memcpy(buf, bo->map + offset, size);
 		return 0;
 	}
 	else {
@@ -669,7 +660,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	uint64_t offset = addr - bo->offset;
 
 	if (bo->map) {
-		__nouveau_io_memcpy(bo->map + offset, buf, size);
+		gdev_io_memcpy(bo->map + offset, buf, size);
 		return 0;
 	}
 	else {

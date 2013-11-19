@@ -24,6 +24,7 @@
 
 #include "gdev_api.h"
 #include "gdev_device.h"
+#include "gdev_io_memcpy.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
 #include "libpscnv.h"
@@ -374,7 +375,7 @@ int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 	uint64_t offset = addr - bo->vm_base;
 
 	if (bo->map) {
-		memcpy(buf, bo->map + offset, size);
+		gdev_io_memcpy(buf, bo->map + offset, size);
 		return 0;
 	}
 	else
@@ -390,7 +391,7 @@ int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_
 	uint64_t offset = addr - bo->vm_base;
 
 	if (bo->map) {
-		memcpy(bo->map + offset, buf, size);
+		gdev_io_memcpy(bo->map + offset, buf, size);
 		return 0;
 	}
 	else
