@@ -21,6 +21,7 @@ set(common_src
     ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_shm.c
     ${PROJECT_SOURCE_DIR}/common/gdev_sched.c
 )
+file(GLOB util_src "${PROJECT_SOURCE_DIR}/util/*.c")
 file(GLOB nvrm_src "user/nvrm/*.c")
 file(GLOB user_src "user/gdev/*.c")
 file(GLOB nouveau_src "user/nouveau/*.c")
@@ -33,7 +34,7 @@ SET(gdev_inc /usr/local/gdev/include)
 ## select source 
 IF(user)
     MESSAGE(Selected\ User-space!)
-    SET(gdev_src ${gdev_src} ${user_src} ${common_src})
+    SET(gdev_src ${gdev_src} ${user_src} ${common_src} ${util_src})
     SET(gdev_inc ${gdev_inc} 
 	/usr/include/libdrm 
 	${PROJECT_SOURCE_DIR}/common/ 

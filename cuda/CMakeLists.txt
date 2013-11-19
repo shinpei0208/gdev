@@ -26,6 +26,7 @@ FIND_PACKAGE(BISON)
 FILE(GLOB cudump_src "cudump/*.c")
 SET(cudump_src ${cudump_src} driver/gdev_cuda.c )
 ## Driver API
+FILE(GLOB util_src "${PROJECT_SOURCE_DIR}/util/*.c")
 FILE(GLOB common_src "driver/*.c")
 FILE(GLOB common_ext_src "driver/extension/*.c")
 
@@ -61,9 +62,9 @@ SET(ocelot_src
 ### Hydrazine sources
 FILE(GLOB hydrazine_src "runtime/hydrazine/implementation/*.cpp")
 
-# select source 
+# select source
 SET(ucuda_src
-    ${ucuda_src} ${common_src} ${common_ext_src}
+    ${ucuda_src} ${util_src} ${common_src} ${common_ext_src}
     )
 
 IF(runtime)
