@@ -34,6 +34,7 @@
 #else
 #include "gdev_lib.h"
 #endif
+#include "gdev_platform.h"
 
 struct gdev_device; /* prototype declaration */
 
@@ -79,53 +80,6 @@ void *gdev_attach_shms_se(int size);
 void *gdev_attach_shms_mem(int size);
 void gdev_next_compute(struct gdev_device *gdev);
 #endif
-#endif
-
-
-#ifdef __KERNEL__ /* OS functions */
-#define GDEV_PRINT(fmt, arg...) printk("[gdev] " fmt, ##arg)
-#ifdef GDEV_DEBUG_PRINT
-#define GDEV_DPRINT(fmt, arg...) printk("[gdev:debug] " fmt, ##arg)
-#else
-#define GDEV_DPRINT(fmt, arg...)
-#endif
-#define MALLOC(x) vmalloc(x)
-#define FREE(x) vfree(x)
-#define SCHED_YIELD() yield()
-#define MB() mb()
-#define COPY_FROM_USER(dst, src, size) \
-	copy_from_user(dst, (void __user *) src, size)
-#define COPY_TO_USER(dst, src, size) \
-	copy_to_user((void __user *) dst, src, size)
-#define IOREAD32(addr) ioread32((void /*__force __iomem*/ *)addr)
-#define IOWRITE32(val, addr) iowrite32(val, (void /*__force __iomem*/ *)addr)
-#else /* user-space functions */
-#define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
-#ifdef GDEV_DEBUG_PRINT
-#define GDEV_DPRINT(fmt, arg...)					\
-	if (GDEV_DEBUG_PRINT)							\
-		fprintf(stderr, "[gdev:debug] " fmt, ##arg)
-#else
-#define GDEV_DPRINT(fmt, arg...)
-#endif
-#define MALLOC(x) malloc(x)
-#ifdef GDEV_SCHED_DISABLED
-#define FREE(x) free(x)
-#else
-#define FREE(x) memset(x, 0, sizeof(*x))
-#endif
-#define SCHED_YIELD() sched_yield()
-#if (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)
-#define MB() __sync_synchronize()
-#else
-#define MB()
-#endif
-/* should never used */
-#define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size) 
-/* should never used */
-#define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
-#define IOREAD32(addr) *(uint32_t *)(addr)
-#define IOWRITE32(val, addr) *(uint32_t *)(addr) = val
 #endif
 
 #endif

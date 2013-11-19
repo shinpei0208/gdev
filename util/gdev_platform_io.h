@@ -1,7 +1,8 @@
 /*
- * Copyright (C) 2011 Shinpei Kato
+ * Copyright (C) Yusuke Suzuki
  *
- * Systems Research Lab, University of California at Santa Cruz
+ * Keio University
+ *
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,34 +25,33 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __GDEV_CUDA_UTIL_H__
-#define __GDEV_CUDA_UTIL_H__
+#ifndef __GDEV_PLATFORM_IO_H__
+#define __GDEV_PLATFORM_IO_H__
 
-#include "gdev_platform.h"
-#include "gdev_platform_io.h"
-
-#include <linux/elf.h>
-#ifdef CONFIG_64BIT
-#define Elf_Ehdr Elf64_Ehdr
-#define Elf_Shdr Elf64_Shdr
-#define Elf_Phdr Elf64_Phdr
-#define Elf_Sym	 Elf64_Sym
-#else
-#define Elf_Ehdr Elf32_Ehdr
-#define Elf_Shdr Elf32_Shdr
-#define Elf_Phdr Elf32_Phdr
-#define Elf_Sym	 Elf32_Sym
+#ifdef __KERNEL__ /* OS functions */
+#include <linux/fs.h>
+#else /* user-space functions */
+#include <stdio.h>
 #endif
 
-/**
- * Gdev getinfo functions (exported to kernel modules).
- * the same information can be found in /proc/gdev/ for user-space.
- */
-extern int gdev_getinfo_device_count(void);
-
-static inline int __gdev_get_device_count(void)
+#ifdef __KERNEL__ /* OS functions related to File IO */
+typedef struct file file_t;
+static inline file_t *FOPEN(const char *fname)
 {
-	return gdev_getinfo_device_count();
+	file_t *fp = filp_open(fname, O_RDONLY, 0);
+	return IS_ERR(fp) ? NULL: fp;
 }
-
+#define FSEEK(fp, offset, whence) generic_file_llseek(fp, 0, whence)
+#define FTELL(fp) (fp)->f_pos
+#define FREAD(ptr, size, fp) kernel_read(fp, 0, ptr, size)
+#define FCLOSE(fp) filp_close(fp, NULL)
+#else /* user-space functions */
+typedef FILE file_t;
+#define FOPEN(fname) fopen(fname, "rb")
+#define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
+#define FTELL(fp) ftell(fp)
+#define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
+#define FCLOSE(fp) fclose(fp)
 #endif
+
+#endif  /* __GDEV_PLATFORM_IO_H__ */

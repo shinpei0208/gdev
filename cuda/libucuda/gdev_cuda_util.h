@@ -27,6 +27,9 @@
 #ifndef __GDEV_CUDA_UTIL_H__
 #define __GDEV_CUDA_UTIL_H__
 
+#include "gdev_platform.h"
+#include "gdev_platform_io.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,15 +49,7 @@
 #define Elf_Phdr Elf64_Phdr
 #define Elf_Sym	 Elf64_Sym
 #endif
-typedef FILE file_t;
-#define FOPEN(fname) fopen(fname, "rb")
-#define FSEEK(fp, offset, whence) fseek(fp, 0, whence)
-#define FTELL(fp) ftell(fp)
-#define FREAD(ptr, size, fp) fread(ptr, size, 1, fp)
-#define FCLOSE(fp) fclose(fp)
-#define MALLOC(x) malloc(x)
-#define FREE(x) free(x)
-#define GDEV_PRINT(fmt, arg...) fprintf(stderr, "[gdev] " fmt, ##arg)
+
 
 /* a bit wild coding... */
 static inline int __gdev_get_device_count(void)

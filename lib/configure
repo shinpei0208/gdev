@@ -45,10 +45,12 @@ done
 if [ $target = 'kernel' ] ; then
 	# all files are driver-independent 
 	cp -f $topdir/$common/*.h .
+	cp -f $topdir/util/* .
 	cp -f ../kernel/* .
 elif [ $target = 'user' ] ; then
 	# copy driver-independent files
 	cp -f $topdir/$common/* .
+	cp -f $topdir/util/* .
 	cp -f ../user/gdev/* .
 	# detect which driver to be used
 	sh ./autogen.sh

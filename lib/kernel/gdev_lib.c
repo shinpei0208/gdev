@@ -34,8 +34,8 @@
 
 #include "gdev_api.h"
 #include "gdev_ioctl_def.h"
-#include "gdev_lib.h"
 #include "gdev_list.h"
+#include "gdev_platform.h"
 
 struct gdev_map_bo {
 	uint64_t addr;

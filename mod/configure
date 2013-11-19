@@ -23,6 +23,7 @@ done
 # copy driver-independent files
 cp -fr ../$gdev/* ./
 cp -fr ../../$common/* ./
+cp -fr ../../util/* ./
 
 # detect which driver to be used
 sh ./autogen.sh
