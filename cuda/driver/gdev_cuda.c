@@ -433,7 +433,7 @@ static struct CUfunc_st* malloc_func_if_necessary(struct CUmod_st *mod, const ch
 	}
 	init_kernel(&func->kernel);
 	init_raw_func(&func->raw_func);
-	func->raw_func.name = strdup(name);
+	func->raw_func.name = STRDUP(name);
 
 	/* insert this function to the module's function list. */
 	gdev_list_init(&func->list_entry, func);

@@ -90,8 +90,22 @@
 #define IOWRITE32(val, addr) *(uint32_t *)(addr) = val
 #endif
 
-#ifdef __KERNEL__ /* OS functions related to File IO */
+#ifdef __KERNEL__ /* OS functions */
+static inline char* STRDUP(const char *str) {
+	size_t len;
+	char *buf;
+	if (!str) {
+		return NULL;
+	}
+	len = strlen(str) + 1;
+	buf = MALLOC(len);
+	if (buf) {
+		memcpy(buf, str, len);
+	}
+	return buf;
+}
 #else /* user-space functions */
+#define STRDUP strdup
 #endif
 
 #endif  /* __GDEV_PLATFORM_H__ */
