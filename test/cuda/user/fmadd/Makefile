@@ -7,7 +7,7 @@ CFLAGS	= -L /usr/local/gdev/lib64 -I /usr/local/gdev/include
 
 all:
 	$(NVCC) -o fmadd_gpu.cubin fmadd_gpu.cu
-	gcc -o $(TARGET) $(CFLAGS) $(LIBS) main.c fmadd.c
+	gcc -o $(TARGET) $(CFLAGS) main.c fmadd.c $(LIBS)
 
 clean:
 	rm -f $(TARGET) *.cubin ./*~
