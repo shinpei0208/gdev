@@ -394,6 +394,7 @@ static void destroy_all_functions(struct CUmod_st *mod)
 			raw_func->param_data = raw_func->param_data->next;
 			FREE(param_data);
 		}
+		FREE(raw_func->name);
 		FREE(func);
 	}
 }
@@ -409,16 +410,38 @@ static void destroy_all_symbols(struct CUmod_st *mod)
 	}
 }
 
-static void malloc_func_if_necessary(struct CUfunc_st **pfunc, char *name)
-{
-	if (!(*pfunc && (strcmp((*pfunc)->raw_func.name, name) == 0))) {
-		*pfunc = MALLOC(sizeof(**pfunc));
-		if (*pfunc) {
-			init_kernel(&(*pfunc)->kernel);
-			init_raw_func(&(*pfunc)->raw_func);
-			(*pfunc)->raw_func.name = name;
+static struct CUfunc_st* lookup_func_by_name(struct CUmod_st *mod, const char *name) {
+	struct CUfunc_st *func;
+	gdev_list_for_each(func, &mod->func_list, list_entry) {
+		if (strcmp(func->raw_func.name, name) == 0) {
+			return func;
 		}
 	}
+	return NULL;
+}
+
+static struct CUfunc_st* malloc_func_if_necessary(struct CUmod_st *mod, const char *name)
+{
+	struct CUfunc_st *func = NULL;
+	if ((func = lookup_func_by_name(mod, name))) {
+		return func;
+	}
+
+	/* We allocate and initialize func and link it to mod's linked list. */
+	func = MALLOC(sizeof(*func));
+	if (!func) {
+		return NULL;
+	}
+	init_kernel(&func->kernel);
+	init_raw_func(&func->raw_func);
+	func->raw_func.name = strdup(name);
+
+	/* insert this function to the module's function list. */
+	gdev_list_init(&func->list_entry, func);
+	gdev_list_add(&func->list_entry, &mod->func_list);
+	mod->func_count++;
+	func->mod = mod;
+	return func;
 }
 
 static int load_cubin(struct CUmod_st *mod, char *bin)
@@ -439,8 +462,6 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 	char *sh_name;
 	char *pos;
 	int i, ret = 0;
-	struct CUfunc_st *func = NULL;
-	struct gdev_cuda_raw_func *raw_func = NULL;
 
 	if (memcmp(bin, "\177ELF", 4))
 		return -ENOENT;
@@ -486,8 +507,10 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 			/* we never know what sections (.text.XXX, .info.XXX, etc.)
 			   appears first for each function XXX... */
 			if (!strncmp(sh_name, SH_TEXT, strlen(SH_TEXT))) {
+				struct CUfunc_st *func = NULL;
+				struct gdev_cuda_raw_func *raw_func = NULL;
 				/* this function does nothing if func is already allocated. */
-				malloc_func_if_necessary(&func, sh_name + strlen(SH_TEXT));
+				func = malloc_func_if_necessary(mod, sh_name + strlen(SH_TEXT));
 				if (!func)
 					goto fail_malloc_func;
 
@@ -500,21 +523,31 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 				raw_func->bar_count = (sheads[i].sh_flags >> 20) & 0xf;
 			}
 			else if (!strncmp(sh_name, SH_CONST, strlen(SH_CONST))) {
-				char func[256] = {0};
+				char fname[256] = {0};
 				int x; /* cX[] */
-				sscanf(sh_name, SH_CONST"%d.%s", &x, func);
+				sscanf(sh_name, SH_CONST "%d.%s", &x, fname);
 				/* global constant spaces. */
-				if (strlen(func) == 0) {
+				if (strlen(fname) == 0) {
 					mod->cmem[x].buf = bin + sheads[i].sh_offset;
 					mod->cmem[x].raw_size = sheads[i].sh_size;
 				}
 				else if (x >= 0 && x < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT) {
-					raw_func->cmem[x].buf = bin + sheads[i].sh_offset;
-					raw_func->cmem[x].size = sheads[i].sh_size;
+					struct CUfunc_st *func = NULL;
+					/* this function does nothing if func is already allocated. */
+					func = malloc_func_if_necessary(mod, fname);
+					if (!func)
+						goto fail_malloc_func;
+					func->raw_func.cmem[x].buf = bin + sheads[i].sh_offset;
+					func->raw_func.cmem[x].size = sheads[i].sh_size;
 				}
 			}
 			else if (!strncmp(sh_name, SH_SHARED, strlen(SH_SHARED))) {
-				raw_func->shared_size = sheads[i].sh_size;
+				struct CUfunc_st *func = NULL;
+				/* this function does nothing if func is already allocated. */
+				func =  malloc_func_if_necessary(mod, sh_name + strlen(SH_SHARED));
+				if (!func)
+					goto fail_malloc_func;
+				func->raw_func.shared_size = sheads[i].sh_size;
 				/*
 				 * int x;
 				 * for (x = 0; x < raw_func->shared_size/4; x++) {
@@ -524,8 +557,13 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 				 */
 			}
 			else if (!strncmp(sh_name, SH_LOCAL, strlen(SH_LOCAL))) {
-				raw_func->local_size = sheads[i].sh_size;
-				raw_func->local_size_neg = 0x7c0; /* FIXME */
+				struct CUfunc_st *func = NULL;
+				/* this function does nothing if func is already allocated. */
+				func = malloc_func_if_necessary(mod, sh_name + strlen(SH_LOCAL));
+				if (!func)
+					goto fail_malloc_func;
+				func->raw_func.local_size = sheads[i].sh_size;
+				func->raw_func.local_size_neg = 0x7c0; /* FIXME */
 			}
 			/* NOTE: there are two types of "info" sections: 
 			   1. ".nv.info.funcname"
@@ -536,9 +574,11 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 			   NV50 doesn't support ".nv.info" section. 
 			   we also assume that ".nv.info.funcname" is an end mark. */
 			else if (!strncmp(sh_name, SH_INFO_FUNC, strlen(SH_INFO_FUNC))) {
+				struct CUfunc_st *func = NULL;
+				struct gdev_cuda_raw_func *raw_func = NULL;
 				/* this function does nothing if func is already allocated. */
-				malloc_func_if_necessary(&func, sh_name + strlen(SH_INFO_FUNC));
-				if (!func) 
+				func = malloc_func_if_necessary(mod, sh_name + strlen(SH_INFO_FUNC));
+				if (!func)
 					goto fail_malloc_func;
 
 				raw_func = &func->raw_func;
@@ -551,12 +591,6 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 					if (ret)
 						goto fail_cubin_func_type;
 				}
-
-				/* insert this function to the module's function list. */
-				gdev_list_init(&func->list_entry, func);
-				gdev_list_add(&func->list_entry, &mod->func_list);
-				mod->func_count++;
-				func->mod = mod;
 			}
 			else if (!strcmp(sh_name, SH_INFO)) {
 				nvinfo_idx = i;
@@ -593,7 +627,7 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 	for (sym = &symbols[0]; 
 		 (void *)sym < (void *)symbols + sheads[symbols_idx].sh_size; sym++) {
 		 char *sym_name = strings + sym->st_name;
-         char *sh_name = shstrings + sheads[sym->st_shndx].sh_name;
+		 char *sh_name = shstrings + sheads[sym->st_shndx].sh_name;
 		 switch (sym->st_info) {
 		 case 0x0: /* ??? */
 			 break;
@@ -658,8 +692,6 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 
 fail_symbol:
 fail_cubin_func_type:
-	if (func)
-		FREE(func);
 fail_malloc_func:
 	destroy_all_functions(mod);
 
