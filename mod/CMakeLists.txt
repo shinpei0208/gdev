@@ -4,14 +4,13 @@ SET(soserial "1")
 include(UseDoxygen OPTIONAL)
 
 file(GLOB common_src "../common/*")
-file(GLOB util_src "../util/*")
 file(GLOB gmod_src "./gdev/*")
 
 set(target gdev_module)
 
-set(mod_src ${common_src} ${util_src} ${gmod_src})
+set(mod_src ${common_src} ${gmod_src})
 
-include_directories(../common/ ../util/ /usr/local/gdev/include ./gdev)
+include_directories(../common/ /usr/local/gdev/include ./gdev)
 
 SET( MODULE_NAME
     gdev

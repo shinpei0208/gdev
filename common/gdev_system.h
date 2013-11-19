@@ -34,7 +34,6 @@
 #else
 #include "gdev_lib.h"
 #endif
-#include "gdev_io_memcpy.h"
 
 struct gdev_device; /* prototype declaration */
 
@@ -122,9 +121,9 @@ void gdev_next_compute(struct gdev_device *gdev);
 #define MB()
 #endif
 /* should never used */
-#define COPY_FROM_USER(dst, src, size) gdev_io_memcpy(dst, src, size)
+#define COPY_FROM_USER(dst, src, size) memcpy(dst, src, size) 
 /* should never used */
-#define COPY_TO_USER(dst, src, size) gdev_io_memcpy(dst, src, size)
+#define COPY_TO_USER(dst, src, size) memcpy(dst, src, size)
 #define IOREAD32(addr) *(uint32_t *)(addr)
 #define IOWRITE32(val, addr) *(uint32_t *)(addr) = val
 #endif

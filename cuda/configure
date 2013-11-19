@@ -30,11 +30,9 @@ if [ $target = 'libucuda' ] ; then
 	cp -rf ../driver/* .
 	cp -rf ../runtime/ .
 	cp -f ../cudump/* .
-    cp -f ../../util/* .
 elif [ $target = 'kcuda' ] ; then
 	cp -f ../kcuda/* .
 	cp -rf ../driver/* .
-    cp -f ../../util/* .
 	# we don't support Runtime API in kernel
 	runtime='0'
 else
