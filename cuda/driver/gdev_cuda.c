@@ -656,6 +656,8 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 			 break;
 		 case 0x12: /* function symbols */
 			 break;
+		 case 0x22: /* quick hack: FIXME! */
+			 break;
 		 default: /* ??? */
 			 GDEV_PRINT("/* unknown symbols: 0x%x\n */", sym->st_info);
 			 goto fail_symbol;
