@@ -9,6 +9,7 @@ SET(serial "1.0.0")
 SET(soserial "1")
 
 INCLUDE_DIRECTORIES(util)
+INCLUDE_DIRECTORIES(common)
 
 FIND_PACKAGE(Doxygen)
 include(UseDoxygen OPTIONAL)
@@ -16,7 +17,7 @@ include(UseDoxygen OPTIONAL)
 ADD_SUBDIRECTORY(cuda)
 ADD_SUBDIRECTORY(lib)
 
-## Option 
+## Option
 OPTION(driver "select GPU driver. must set driver name in the user-space mode" nouveau)
 OPTION(user "user mode(default off)" OFF)
 OPTION(runtime "enable CUDA runtime API(default on)" ON)
