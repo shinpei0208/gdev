@@ -1076,7 +1076,16 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 	/* @id could be zero if users have called memcpy_async in a wrong way. */
 	if (id == 0)
 		return 0;
-	return gdev_poll(h->ctx, id, timeout);
+#ifndef __KERNEL__
+#ifndef GDEV_SCHED_DISABLED
+        int ret = gdev_poll(h->ctx, id, timeout);
+        gdev_next_compute(h->gdev);
+        return ret;
+#endif
+#else
+
+        return gdev_poll(h->ctx, id, timeout);
+#endif
 }
 
 /**
