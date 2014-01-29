@@ -283,7 +283,7 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
     /* hardware limit. get */
     gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_limit);
     if (!mp_limit)
-	mp_limit = 0xe; /* fix this */
+	mp_limit = 0x8; /* fix this */
 
     /* local (temp) memory setup */
    __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x790, 2);
