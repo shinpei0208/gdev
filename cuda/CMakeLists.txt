@@ -10,6 +10,7 @@ if (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7)
 else()
     set(CMAKE_CXX_FLAGS "-std=c++0x")
 endif()
+ADD_DEFINITIONS("-Wno-unused-but-set-variable")
 
 SET(serial "1.0.0")
 SET(soserial "1")
