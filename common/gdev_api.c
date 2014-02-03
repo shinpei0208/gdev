@@ -1077,11 +1077,11 @@ int gsync(struct gdev_handle *h, uint32_t id, struct gdev_time *timeout)
 	if (id == 0)
 		return 0;
 #ifndef __KERNEL__
-#ifndef GDEV_SCHED_DISABLED
         int ret = gdev_poll(h->ctx, id, timeout);
+#ifndef GDEV_SCHED_DISABLED
         gdev_next_compute(h->gdev);
-        return ret;
 #endif
+        return ret;
 #else
 
         return gdev_poll(h->ctx, id, timeout);
