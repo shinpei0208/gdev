@@ -157,6 +157,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 
 	gdev = &gdevs[minor];
 	major = 0;
+	max = 0;
 	while( minor > max + VCOUNT_LIST[major] )
 	    max += VCOUNT_LIST[major++];
 
