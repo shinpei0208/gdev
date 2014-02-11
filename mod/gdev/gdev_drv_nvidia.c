@@ -272,9 +272,14 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	fbo.map = ctx->fence.map;
 	gdev_drv_bo_free(&vspace, &fbo);
 
-	dbo.priv = ctx->desc.bo;
-	dbo.addr = ctx->desc.addr;
-	gdev_drv_bo_free(&vspace, &dbo);
+	/* compute desc buffer is allocated only when a target chipset
+	 * is NVE4 or later. Some chipset like NVC0 doesn't have it.
+	 */
+	if (ctx->desc.bo) {
+		dbo.priv = ctx->desc.bo;
+		dbo.addr = ctx->desc.addr;
+		gdev_drv_bo_free(&vspace, &dbo);
+	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 #if 0 /* un-necessary */
