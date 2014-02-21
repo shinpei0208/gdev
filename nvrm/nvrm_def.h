@@ -45,7 +45,8 @@
 #define NVRM_FIFO_ENG_VCOMP	12
 #define NVRM_FIFO_ENG_VENC	13
 /* XXX 15? */
-/* XXX 14 and 16? */
+/* XXX 14? apparently considered to be valid by blob logic */
+#define NVRM_FIFO_ENG_UNK16	16
 
 #define NVRM_COMPUTE_MODE_DEFAULT		0
 #define NVRM_COMPUTE_MODE_EXCLUSIVE_THREAD	1

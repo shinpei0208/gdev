@@ -211,10 +211,10 @@ struct nvrm_create_graph {
 #define NVRM_CLASS_GR_3D_GK110		0xa197
 #define NVRM_CLASS_GR_COMPUTE_GK110	0xa1c0
 
-#define NVRM_CLASS_GR_3D_UNKA2		0xa297
+#define NVRM_CLASS_GR_3D_GK208		0xa297
 
-#define NVRM_CLASS_GR_3D_UNKB0		0xb097
-#define NVRM_CLASS_GR_COMPUTE_UNKB0	0xb0c0
+#define NVRM_CLASS_GR_3D_GM107		0xb097
+#define NVRM_CLASS_GR_COMPUTE_GM107	0xb0c0
 
 #define NVRM_CLASS_GR_3D_UNKB1		0xb197
 
@@ -228,6 +228,7 @@ struct nvrm_create_copy {
 #define NVRM_CLASS_COPY_GF100_0		0x90b5
 #define NVRM_CLASS_COPY_GF100_1		0x90b8 /* XXX: wtf? */
 #define NVRM_CLASS_COPY_GK104		0xa0b5
+#define NVRM_CLASS_COPY_GM107		0xb0b5
 
 /* vdec etc. */
 
@@ -261,6 +262,7 @@ struct nvrm_create_bsp {
 #define NVRM_CLASS_BSP_MCP89		0x86b1
 #define NVRM_CLASS_BSP_GF100		0x90b1
 #define NVRM_CLASS_BSP_GF119		0x95b1
+#define NVRM_CLASS_BSP_GM107		0xa0b0 /* hm. */
 
 struct nvrm_create_ppp {
 	uint32_t unk00;
@@ -275,9 +277,14 @@ struct nvrm_create_venc {
 	uint32_t unk04;
 };
 #define NVRM_CLASS_VENC_GK104		0x90b7
+#define NVRM_CLASS_VENC_GM107		0xc0b7
 
 /* no create param */
 #define NVRM_CLASS_VCOMP_MCP89		0x86b6
+
+/* engine 16 - no create param */
+
+#define NVRM_CLASS_UNK95A1		0x95a1
 
 /* evil stuff */
 
@@ -322,7 +329,7 @@ struct nvrm_create_sw_unk9072 {
 #define NVRM_CLASS_DISP_ROOT_GF119	0x9070
 #define NVRM_CLASS_DISP_ROOT_GK104	0x9170
 #define NVRM_CLASS_DISP_ROOT_GK110	0x9270
-#define NVRM_CLASS_DISP_ROOT_UNK94	0x9470
+#define NVRM_CLASS_DISP_ROOT_GM107	0x9470
 
 struct nvrm_create_disp_fifo {
 	uint32_t unk00;
@@ -374,7 +381,7 @@ struct nvrm_create_disp_fifo_dma {
 #define NVRM_CLASS_DISP_MASTER_GF119	0x907d
 #define NVRM_CLASS_DISP_MASTER_GK104	0x917d
 #define NVRM_CLASS_DISP_MASTER_GK110	0x927d
-#define NVRM_CLASS_DISP_MASTER_UNK94	0x947d
+#define NVRM_CLASS_DISP_MASTER_GM107	0x947d
 
 #define NVRM_CLASS_DISP_OVERLAY_G80	0x507e
 #define NVRM_CLASS_DISP_OVERLAY_G82	0x827e
@@ -412,7 +419,6 @@ struct nvrm_create_disp_fifo_dma {
 #define NVRM_CLASS_UNK9171		0x9171
 #define NVRM_CLASS_UNK9271		0x9271
 #define NVRM_CLASS_UNK9471		0x9471
-#define NVRM_CLASS_UNK95A1		0x95a1
 #define NVRM_CLASS_UNKA080		0xa080
 #define NVRM_CLASS_UNKA0B6		0xa0b6
 #define NVRM_CLASS_UNKA0E0		0xa0e0
@@ -547,22 +553,10 @@ struct nvrm_create_unka06c {
 };
 #define NVRM_CLASS_UNKA06C		0xa06c
 
-struct nvrm_create_unka0b0 {
-	uint32_t unk00;
-	uint32_t unk04;
-};
-#define NVRM_CLASS_UNKA0B0		0xa0b0
-
 struct nvrm_create_unka0b7 {
 	uint32_t unk00;
 	uint32_t unk04;
 };
 #define NVRM_CLASS_UNKA0B7		0xa0b7
-
-struct nvrm_create_unkc0b7 {
-	uint32_t unk00;
-	uint32_t unk04;
-};
-#define NVRM_CLASS_UNKC0B7		0xc0b7
 
 #endif
