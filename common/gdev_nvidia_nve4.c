@@ -270,7 +270,7 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
     struct gdev_nve4_compute_desc *desc;
     struct gdev_vas *vas = ctx->vas;
     struct gdev_device *gdev = vas->gdev;
-    uint64_t mp_limit;
+    uint64_t mp_count;
 
     /* compute desc setup */
     desc = nve4_launch_desc_setup(ctx, k);
@@ -281,9 +281,10 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 #endif
 
     /* hardware limit. get */
-    gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_limit);
-    if (!mp_limit)
-	mp_limit = 0x8; /* fix this */
+    //gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
+    //if (!mp_count)
+//	mp_count = 0x8; /* fix this */
+    mp_count = k->lmem_size_total / 48 / k->warp_lmem_size;
 
     /* local (temp) memory setup */
    __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x790, 2);
@@ -291,12 +292,12 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
    __gdev_out_ring(ctx, k->lmem_addr); /* TEMP_ADDRESS_LOW */
 
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x2e4, 2);
-    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_limit)>>32); /* MP_TEMP_SIZE_HIGH */
-    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_limit)); /* MP_TEMP_SIZE_LOW*/
+    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_count)>>32); /* MP_TEMP_SIZE_HIGH */
+    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_count)); /* MP_TEMP_SIZE_LOW*/
 
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x2f0, 2);
-    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_limit)>>32); /* MP_TEMP_SIZE_HIGH */
-    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_limit)); /* MP_TEMP_SIZE_LOW*/
+    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_count)>>32); /* MP_TEMP_SIZE_HIGH */
+    __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_count)); /* MP_TEMP_SIZE_LOW*/
 
     /* local memory base */
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x77c, 1);
@@ -560,7 +561,7 @@ static void nve4_notify_intr(struct gdev_ctx *ctx)
 static void nve4_init(struct gdev_ctx *ctx)
 {
     int i;
-    uint64_t mp_limit;
+    uint64_t mp_count;
     struct gdev_vas *vas = ctx->vas;
     struct gdev_device *gdev = vas->gdev;
 
@@ -604,7 +605,7 @@ static void nve4_init(struct gdev_ctx *ctx)
     __gdev_out_ring(ctx, 0); /* GRAPH_NOP */
 
     /* hardware limit. get */
-    gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_limit);
+//    gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
 
     __gdev_fire_ring(ctx);
 
