@@ -92,7 +92,8 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		 *if (nouveau_getparam(nv, NOUVEAU_GETPARAM_MP_COUNT, result))
 		 *	goto fail;
 		 */
-		*result = 14; /* FIXME */
+		goto fail;
+	    	//*result = 8; /* FIXME */
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, result))
@@ -400,24 +401,26 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 		goto fail_ctx_objects;
 	memset(ctx_objects, 0, sizeof(*ctx_objects));
 
-	/* allocating PGRAPH context for M2MF */
-	if ((gdev->chipset & 0xf0) < 0xc0)
+	if ((gdev->chipset & 0xf0) < 0xc0){
 		m2mf_class = 0x5039;
-	else if ((gdev->chipset & 0xf0) < 0xe0)
+		comp_class = 0x50c0;
+	}else if ((gdev->chipset & 0xf0) < 0xe0){
 		m2mf_class = 0x9039;
-	else
-		m2mf_class = 0xa040;
+		comp_class = 0x90c0;
+	}else if ((gdev->chipset & 0xf0) < 0xf0){
+	    	m2mf_class = 0xa040; /* NVE0 P2MF  */
+		comp_class = 0xa0c0; /* NVE0 COMPUTE */
+	}else{
+	    	m2mf_class = 0xa140; /* NVF0 P2MF  */
+		comp_class = 0xa1c0; /* NVF0 COMPUTE */
+	}/* XXX: case of 'NV108'  */
+	
+	/* allocating PGRAPH context for M2MF */
 	if (nouveau_object_new(chan, 0xbeef323f, m2mf_class, NULL, 0, &m2mf))
 		goto fail_m2mf;
 	ctx_objects->m2mf = m2mf;
 
 	/* allocating PGRAPH context for COMPUTE */
-	if ((gdev->chipset & 0xf0) < 0xc0)
-		comp_class = 0x50c0;
-	else if ((gdev->chipset & 0xf0) < 0xe0)
-		comp_class = 0x90c0;
-	else
-		comp_class = 0xa0c0;
 	if (nouveau_object_new(chan, 0xbeef90c0, comp_class, NULL, 0, &comp))
 		goto fail_comp;
 	ctx_objects->comp = comp;
