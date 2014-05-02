@@ -10,7 +10,7 @@ generate C header files with GPU command definitions.
 
 
 cd $(TOPDIR)
-git clone git://0x04.net/envytools.git
+git clone git://github.com/envytools/envytools.git
 mkdir build
 cd build
 cmake .. # may require some packages on your distro
