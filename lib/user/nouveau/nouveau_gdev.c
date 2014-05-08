@@ -505,7 +505,15 @@ void gdev_raw_ctx_free(struct gdev_ctx *ctx)
 	nouveau_bo_ref(NULL, &push_bo);
 	nouveau_bufctx_del(&bufctx);
 	nouveau_pushbuf_del(&push);
-	nouveau_object_del(&ctx_objects->comp);
+	/*
+	 * Since it calls FIFO's context_detach, it kills the channel in this
+	 * routine. And later the channel's destructor creates a fence to
+	 * synchronize its execution. Then a page fault occurs.
+	 * In the meantime, we comment out this compute engine's destruction.
+	 * Maybe we should change comp's parent from FIFO to something.
+	 * We need to investigate it later.
+	 */
+	/* nouveau_object_del(&ctx_objects->comp); */
 	nouveau_object_del(&ctx_objects->m2mf);
 	free(ctx_objects);
 	free(ctx);
