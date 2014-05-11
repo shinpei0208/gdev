@@ -138,7 +138,7 @@ struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas
 	if (gdev_drv_chan_alloc(drm, &vspace, &chan))
 		goto fail_chan;
 
-	ctx->cid = chan.cid;
+	ctx->cid = chan.cid & 0xffff;
 	ctx->pctx = chan.priv; /* driver private data. */
 	ctx->vas = vas;
 
