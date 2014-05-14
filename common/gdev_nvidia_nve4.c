@@ -54,7 +54,8 @@ static inline int align(int value, int alignment)
 static void __nve4_launch_debug_print(struct gdev_kernel *kernel)
 {
     int i;
- 
+    const uint32_t *data=(const uint32_t *)desc;
+    
     GDEV_PRINT("-----kernel-print------\n");
     GDEV_PRINT("code_addr = 0x%llx\n", (u64) kernel->code_addr);
     GDEV_PRINT("code_size = 0x%llx\n", (u64) kernel->code_size);
@@ -85,14 +86,7 @@ static void __nve4_launch_debug_print(struct gdev_kernel *kernel)
     GDEV_PRINT("block_x = 0x%x\n", kernel->block_x);
     GDEV_PRINT("block_y = 0x%x\n", kernel->block_y);
     GDEV_PRINT("block_z = 0x%x\n", kernel->block_z);
-}
-#endif
-
-#ifdef GDEV_DEBUG
-static void __nve4_launch_debug_print_desc(struct gdev_nve4_compute_desc *desc)
-{
-    const uint32_t *data=(const uint32_t *)desc;
-    int i;
+    
     GDEV_PRINT("-----cp_desc-print-----\n");
     for(i=0;i<8;i++){
 	GDEV_PRINT(" unk[%d] = 0x%x\n", i, (u64)desc->unk0[i]);
@@ -142,15 +136,13 @@ static void __nve4_launch_debug_print_desc(struct gdev_nve4_compute_desc *desc)
 	GDEV_PRINT(" unk48[%02d] = 0x%x\n",i,  (u64) desc->unk47_20);
     }
     GDEV_PRINT("------------------------------\n");
-    GDEV_PRINT("-----DESC_PRINT such as MESA\n");
-
-    for (i = 0; i < sizeof(*desc); i += 4) {
-	if (data[i / 4]) {
-	    GDEV_PRINT("[%x]: 0x%08x\n", i, data[i / 4]);
-	}
-
-    }
 }
+}
+#endif
+
+#ifdef GDEV_DEBUG
+static void __nve4_launch_debug_print_desc(struct gdev_nve4_compute_desc *desc)
+{
 #endif
 
 static struct gdev_nve4_compute_desc* nve4_launch_desc_setup(struct gdev_ctx *ctx, struct gdev_kernel *k){
@@ -268,22 +260,16 @@ static struct gdev_nve4_compute_desc* nve4_launch_desc_setup(struct gdev_ctx *ct
 static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 {
     struct gdev_nve4_compute_desc *desc;
-    struct gdev_vas *vas = ctx->vas;
-    struct gdev_device *gdev = vas->gdev;
     uint64_t mp_count;
 
     /* compute desc setup */
     desc = nve4_launch_desc_setup(ctx, k);
 
 #ifdef GDEV_DEBUG
-    __nve4_launch_debug_print_desc(desc);
     __nve4_launch_debug_print(k);
 #endif
 
     /* hardware limit. get */
-    //gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
-    //if (!mp_count)
-//	mp_count = 0x8; /* fix this */
     mp_count = k->lmem_size_total / 48 / k->warp_lmem_size;
 
     /* local (temp) memory setup */
@@ -561,10 +547,24 @@ static void nve4_notify_intr(struct gdev_ctx *ctx)
 static void nve4_init(struct gdev_ctx *ctx)
 {
     int i;
-    uint64_t mp_count;
     struct gdev_vas *vas = ctx->vas;
     struct gdev_device *gdev = vas->gdev;
 
+    unsigned int p2mf_class, compute_class, pcopy1_class;
+
+    if (gdev->chipset < 0xf0){
+    	p2mf_class = 0xa040;
+	compute_class = 0xa0c0;
+	pcopy1_class = 0xa0b5;
+    }
+    else if (gdev->chipset < 0x100){
+    	p2mf_class = 0xa140;
+	compute_class = 0xa1c0;
+	pcopy1_class = 0xa0b5;
+    }else{
+	GDEV_PRINT("NV%x not supported.\n",gdev->chipset);
+	return;
+    }
     /* initialize the fence values. */
     for (i = 0; i < GDEV_FENCE_COUNT; i++)
 	nve4_fence_reset(ctx, i);
@@ -576,11 +576,11 @@ static void nve4_init(struct gdev_ctx *ctx)
 
     /* setup subchannels. */
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_P2MF, 0, 1);
-    __gdev_out_ring(ctx, 0xa040); /* P2MF of GK110 */
+    __gdev_out_ring(ctx, p2mf_class); /* P2MF of GK110 */
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0, 1);
-    __gdev_out_ring(ctx, 0xa0c0); /* COMPUTE */
+    __gdev_out_ring(ctx, compute_class); /* COMPUTE */
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_PCOPY1, 0, 1);
-    __gdev_out_ring(ctx, 0xa0b5); /* PCOPY1 */
+    __gdev_out_ring(ctx, pcopy1_class); /* PCOPY1 */
 
     /* enable PCOPY only when we are in the kernel atm... 
      * 
