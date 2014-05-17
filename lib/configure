@@ -20,7 +20,7 @@ nouveau_OBJS="nouveau_gdev.o libnouveau.o libnouveau_ib.o"
 ## library for each driver
 nvrm_LIBS=''
 pscnv_LIBS=''
-nouveau_LIBS="-ldrm_nouveau"
+nouveau_LIBS="-ldrm_nouveau -lpciaccess"
 
 # parse the given options.
 for option
