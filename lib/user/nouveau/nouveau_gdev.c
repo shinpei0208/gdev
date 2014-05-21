@@ -89,8 +89,12 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 
 	switch (type) {
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
-		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_GRAPH_UNITS, result))
-		 	goto fail;
+		/*
+		 *if (nouveau_getparam(nv, NOUVEAU_GETPARAM_MP_COUNT, result))
+		 *	goto fail;
+		 */
+		goto fail;
+	    	//*result = 8; /* FIXME */
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, result))
