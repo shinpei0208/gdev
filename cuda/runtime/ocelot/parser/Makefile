@@ -23,7 +23,7 @@ implementation/%.cpp:implementation/%.yy
 	(TEMPFILE=`mktemp`; \
 	$(YACC) -o $@ --defines=$$TEMPFILE $^; \
 	if [ $$? -ne 0 ] ; then unlink $$TEMPFILE; exit 1; fi; \
-	cat $$TEMPFILE | sed 's/^#ifdef YYPARSE_PARAM$$/#if 0\n\0/g' | sed 's/^#endif \/\* ! YYPARSE_PARAM \*\/$$/\0\n#endif/g' > ../../$(basename $(notdir $@)).hpp; \
+	cat $$TEMPFILE | sed 's/^int yyparse (.*);$$/\/\/\0/g' > ../../$(basename $(notdir $@)).hpp; \
 	unlink $$TEMPFILE)
 
 implementation/%.cpp:implementation/%.ll
