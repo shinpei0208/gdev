@@ -4,5 +4,5 @@ To build sass2cubin:
 
 2. Type `make' to compile the sass2cubin.
 
-3. Type `sudo make install' to install the sass2cubin to /usr/local/bin.
+3. Type `sudo make install' to install the sass2cubin to /usr/local/gdev/bin.
 
