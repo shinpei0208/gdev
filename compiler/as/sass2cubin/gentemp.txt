@@ -1,0 +1,74 @@
+VPATH=	helper\
+	RulesModifier\
+	RulesOperand\
+	RulesInstruction
+
+main =	asfermi\
+	Cubin\
+	DataTypes\
+	GlobalVariables\
+	RulesDirective\
+	SpecificParsers\
+	SubString
+
+helper= helperCubin\
+	helperException\
+	helperMixed\
+	helperParse
+
+instructions = \
+	RulesInstructionConversion\
+	RulesInstructionDataMovement\
+	RulesInstructionExecution\
+	RulesInstructionFloat\
+	RulesInstructionInteger\
+	RulesInstructionLogic\
+	RulesInstructionMiscellaneous\
+	RulesInstructionSurface\
+	RulesInstructionTexture
+
+operands = \
+	RulesOperandComposite\
+	RulesOperandConstant\
+	RulesOperandMemory\
+	RulesOperandOthers\
+	RulesOperandRegister
+
+modifiers = \
+	RulesModifierCommon\
+	RulesModifierConversion\
+	RulesModifierDataMovement\
+	RulesModifierExecution\
+	RulesModifierFloat\
+	RulesModifierInteger\
+	RulesModifierLogic\
+	RulesModifierOthers
+
+allnames = $(main) $(helper) $(instructions) $(operands) $(modifiers)
+allobjects = $(allnames:%=%.o)
+
+ifdef ProgramFiles
+	RM = del
+	CP = copy
+else
+	RM = rm
+	CP = cp
+endif
+
+CXX = g++
+CXXFLAGS = -w
+TARGET = sass2cubin
+PREFIX ?= /usr/local/gdev
+
+all: $(allobjects)
+	g++ $(allobjects) -o $(TARGET)
+
+install: $(TARGET)
+	install -c -m 555 -o root -g root $(TARGET) $(PREFIX)/bin
+
+clean:
+	$(RM) *.o
+	$(RM) $(TARGET)
+
+distclean: clean
+	$(RM) Makefile

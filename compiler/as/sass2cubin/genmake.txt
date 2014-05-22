@@ -1,0 +1,86 @@
+VPATH=	helper\
+	RulesModifier\
+	RulesOperand\
+	RulesInstruction
+
+main =	asfermi\
+	Cubin\
+	DataTypes\
+	GlobalVariables\
+	RulesDirective\
+	SpecificParsers\
+	SubString
+
+helper= helperCubin\
+	helperException\
+	helperMixed\
+	helperParse
+
+instructions = \
+	RulesInstructionConversion\
+	RulesInstructionDataMovement\
+	RulesInstructionExecution\
+	RulesInstructionFloat\
+	RulesInstructionInteger\
+	RulesInstructionLogic\
+	RulesInstructionMiscellaneous\
+	RulesInstructionSurface\
+	RulesInstructionTexture
+
+operands = \
+	RulesOperandComposite\
+	RulesOperandConstant\
+	RulesOperandMemory\
+	RulesOperandOthers\
+	RulesOperandRegister
+
+modifiers = \
+	RulesModifierCommon\
+	RulesModifierConversion\
+	RulesModifierDataMovement\
+	RulesModifierExecution\
+	RulesModifierFloat\
+	RulesModifierInteger\
+	RulesModifierLogic\
+	RulesModifierOthers
+
+ifdef ProgramFiles
+	RM = del
+	CP = copy
+else
+	RM = rm -f
+	CP = cp
+endif
+
+
+.PHONY: all clean copyfile
+
+SRC=gentemp.txt
+TARGET=Makefile
+
+
+all: copyfile $(main)  $(helper) $(instructions) $(operands) $(modifiers)
+	@echo ===================
+	@echo Generation completed.
+
+copyfile:
+	$(RM) $(TARGET)
+	$(CP) $(SRC) $(TARGET)
+
+clean:
+	$(RM) $(TARGET)
+
+helper%:
+	g++ -MM helper/$@.cpp >> $(TARGET)
+
+RulesInstruction%:
+	g++ -MM RulesInstruction/$@.cpp >> $(TARGET)
+
+RulesOperand%:
+	g++ -MM RulesOperand/$@.cpp >> $(TARGET)
+
+RulesModifier%:
+	g++ -MM RulesModifier/$@.cpp >> $(TARGET)
+
+%:
+	g++ -MM $@.cpp >> $(TARGET)
