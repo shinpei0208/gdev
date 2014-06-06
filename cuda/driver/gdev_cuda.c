@@ -658,10 +658,10 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 		 case 0x12: /* function symbols */
 			 break;
 		 case 0x22: /* quick hack: FIXME! */
-			 printf("sym_name: %s\n", sym_name);
-			 printf("sh_name: %s\n", sh_name);
-			 printf("st_value: 0x%x\n", sym->st_value);
-			 printf("st_size: 0x%x\n", sym->st_size);
+			 GDEV_PRINT("sym_name: %s\n", sym_name);
+			 GDEV_PRINT("sh_name: %s\n", sh_name);
+			 GDEV_PRINT("st_value: 0x%llx\n", sym->st_value);
+			 GDEV_PRINT("st_size: 0x%llx\n", sym->st_size);
 			 break;
 		 default: /* ??? */
 			 GDEV_PRINT("/* unknown symbols: 0x%x\n */", sym->st_info);

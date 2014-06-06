@@ -6,6 +6,7 @@ CUDUMP		= cudump
 GDEVDIR		= /usr/local/gdev
 CFLAGS		= -O3 -Wall -I $(GDEVDIR)/include
 LDFLAGS		= -L $(GDEVDIR)/lib64 -lgdev -lrt -Wl,-Bsymbolic
+LDFLAGS	       += -Wl,--no-as-needed
 
 #OBJS 		= $(patsubst %.c,%.o,$(wildcard ./*.c))
 OBJS 		= init.o device.o version.o context.o module.o execution.o
