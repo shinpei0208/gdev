@@ -73,6 +73,10 @@ typedef struct stack_entry {
 	uint32_t unk32;
 } stack_entry_t;
 
+typedef struct crs_stack_size_entry {
+	uint32_t size;
+} crs_stack_size_entry_t;
+
 typedef struct symbol_entry {
 	uint64_t offset; /* offset in relocation (c14) */
 	uint32_t unk32;
@@ -253,6 +257,20 @@ static int cubin_func_1903
 	return 0;
 }
 
+static int cubin_func_1e04
+(char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
+{
+	crs_stack_size_entry_t *crse;
+
+	*pos += sizeof(section_entry_t);
+	crse = (stack_entry_t*) *pos;
+	raw_func->stack_depth = crse->size;
+
+	*pos += e->size;
+
+	return 0;
+}
+
 static int cubin_func_type
 (char **pos, section_entry_t *e, struct gdev_cuda_raw_func *raw_func)
 {
@@ -278,6 +296,8 @@ static int cubin_func_type
 		return cubin_func_1903(pos, e, raw_func);
 	case 0x1704: /* each parameter information */
 		return cubin_func_1704(pos, e, raw_func);
+	case 0x1e04: /* crs stack size information */
+		return cubin_func_1e04(pos, e, raw_func);
 	case 0x0001: /* ??? */
 		cubin_func_skip(pos, e);
 		break;
@@ -635,6 +655,7 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 			 break;
 		 case 0x3: /* ??? */
 			 break;
+		 case 0x1:
 		 case 0x11: /* __device__/__constant__ symbols */
 			 if (sym->st_shndx == nvglobal_idx) { /* __device__ */
 			 }
@@ -971,7 +992,10 @@ CUresult gdev_cuda_construct_kernels
 		k->cmem_count = GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT;
 		/* c0[] is a parameter list. */
 		memcpy(k->param_buf, f->cmem[0].buf, f->param_base);
-		k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size + cmem_size_align);
+		if (f->param_size > 0)
+			k->cmem[0].size = gdev_cuda_align_cmem_size(f->param_size + cmem_size_align);
+		else
+			k->cmem[0].size = gdev_cuda_align_cmem_size(f->cmem[0].size);
 		k->cmem[0].offset = 0;
 		for (i = 1; i < GDEV_NVIDIA_CONST_SEGMENT_MAX_COUNT; i++) {
 			k->cmem[i].size = gdev_cuda_align_cmem_size(f->cmem[i].size);
