@@ -407,7 +407,9 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	struct nvrm_bo *bo = mem->bo;
 
 	nvrm_bo_destroy(bo);
+#ifdef GDEV_SCHED_DISABLED/* fix this */
 	FREE(mem);
+#endif
 }
 
 /* allocate a reserved swap memory object. size may be aligned. */
