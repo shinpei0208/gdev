@@ -614,7 +614,9 @@ void gdev_raw_mem_free(struct gdev_mem *mem)
 	struct nouveau_bo *bo = (struct nouveau_bo *)mem->bo;
 
 	nouveau_bo_ref(NULL, (struct nouveau_bo **)&bo);
+#ifdef GDEV_SCHED_DISABLED
 	free(mem);
+#endif
 }
 
 /* allocate a reserved swap memory object. size may be aligned. */
