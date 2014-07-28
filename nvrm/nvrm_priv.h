@@ -52,6 +52,8 @@ struct nvrm_context {
 	uint32_t cid;
 	struct nvrm_device devs[NVRM_MAX_DEV];
 	struct nvrm_handle *hchain;
+	int ver_major;
+	int ver_minor;
 };
 
 struct nvrm_vspace {

@@ -258,6 +258,26 @@ struct nvrm_ioctl_card_info {
 		uint64_t fb_size;
 	} card[32];
 };
+struct nvrm_ioctl_card_info2 {
+	struct {
+		uint32_t flags;
+		uint32_t domain;
+		uint16_t bus;
+		uint16_t slot;
+		uint16_t vendor_id;
+		uint16_t device_id;
+		uint32_t _pad;
+		uint32_t gpu_id;
+		uint32_t interrupt;
+		uint32_t _pad2;
+		uint64_t reg_address;
+		uint64_t reg_size;
+		uint64_t fb_address;
+		uint64_t fb_size;
+		uint32_t index;
+		uint32_t _pad3;
+	} card[32];
+};
 #define NVRM_IOCTL_CARD_INFO _IOWR(NVRM_IOCTL_MAGIC, NVRM_IOCTL_ESC_BASE+0, struct nvrm_ioctl_card_info)
 
 struct nvrm_ioctl_env_info {

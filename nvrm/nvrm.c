@@ -43,6 +43,7 @@ int nvrm_open_file(const char *fname) {
 }
 
 struct nvrm_context *nvrm_open() {
+	int fd;
 	struct nvrm_context *res = calloc(sizeof *res, 1);
 	if (!res)
 		return res;
@@ -68,6 +69,20 @@ struct nvrm_context *nvrm_open() {
 		return 0;
 	}
 #endif
+	if ((fd = open("/sys/module/nvidia/version", O_RDONLY)) >= 0) {
+		int ret;
+		char buf[256];
+		if ((ret = read(fd, buf, sizeof(buf) - 1)) >= 0) {
+			buf[ret] = '\0';
+			if (ret == 7) {
+				sscanf(buf, "%d.%d\n", &res->ver_major, &res->ver_minor);
+			} else {
+				char temp1[256], temp2[256];
+				sscanf(buf, "NVRM version: NVIDIA UNIX %s Kernel Module  %d.%d  %s", temp1, &res->ver_major, &res->ver_minor, temp2);
+			}
+		}
+		close(fd);
+	}
 	if (nvrm_create_cid(res)) {
 		close(res->fd_ctl);
 		free(res);
