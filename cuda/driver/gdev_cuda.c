@@ -252,7 +252,7 @@ static int cubin_func_1903
 		}
 	}
 
-	*pos = pos2 + e->size; /* need to check if this is correct! */
+	*pos = pos2; /* need to check if this is correct! */
 
 	return 0;
 }
@@ -264,7 +264,7 @@ static int cubin_func_1e04
 
 	*pos += sizeof(section_entry_t);
 	crse = (stack_entry_t*) *pos;
-	raw_func->stack_depth = crse->size;
+	raw_func->stack_size = crse->size << 4;
 
 	*pos += e->size;
 
@@ -389,6 +389,7 @@ static void init_raw_func(struct gdev_cuda_raw_func *f)
 	f->reg_count = 0;
 	f->bar_count = 0;
 	f->stack_depth = 0;
+	f->stack_size = 0;
 	f->shared_size = 0;
 	f->param_base = 0;
 	f->param_size = 0;
@@ -1024,8 +1025,12 @@ CUresult gdev_cuda_construct_kernels
 		k->smem_size = k->smem_size_func;
 	
 		/* warp stack and local memory sizes. */
-		stack_size = f->stack_depth > 16 ? f->stack_depth : 16;
-		stack_size = (stack_size / 48) * 16;
+		if (f->stack_size) {
+			stack_size = f->stack_size;
+		} else {
+			stack_size = f->stack_depth > 16 ? f->stack_depth : 16;
+			stack_size = (stack_size / 48) * 16;
+		}
 		k->warp_stack_size = gdev_cuda_align_stack_size(stack_size);
 		k->warp_lmem_size = 
 			warp_size * (k->lmem_size + k->lmem_size_neg + k->warp_stack_size); 

@@ -101,6 +101,7 @@ struct gdev_cuda_raw_func {
 	uint32_t reg_count;
 	uint32_t bar_count;
 	uint32_t stack_depth;
+	uint32_t stack_size;
 	uint32_t shared_size;
 	uint32_t param_base;
 	uint32_t param_size;
