@@ -52,7 +52,7 @@
 #endif
 #define MALLOC(x) vmalloc(x)
 #define FREE(x) vfree(x)
-#define SCHED_YIELD() yield()
+#define SCHED_YIELD() schedule()
 #define MB() mb()
 #define COPY_FROM_USER(dst, src, size) \
 		copy_from_user(dst, (void __user *) src, size)
@@ -76,7 +76,11 @@
 #else
 #define FREE(x) memset(x, 0, sizeof(*x))
 #endif
+#ifdef SCHED_DEADLINE
+#define SCHED_YIELD() if (sched_getscheduler(getpid()) != SCHED_DEADLINE) sched_yield();
+#else
 #define SCHED_YIELD() sched_yield()
+#endif
 #if (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)
 #define MB() __sync_synchronize()
 #else
