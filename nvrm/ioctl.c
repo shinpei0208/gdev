@@ -137,8 +137,13 @@ int nvrm_ioctl_card_info(struct nvrm_context *ctx) {
 		{ 0xffffffff },
 	} };
 	struct nvrm_ioctl_card_info *arg = (struct nvrm_ioctl_card_info *)&arg2;
-	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
-		return -1;
+	if (ctx->ver_major < 331) {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
+			return -1;
+	} else {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO2, arg) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -147,12 +152,15 @@ int nvrm_ioctl_get_fb_size(struct nvrm_context *ctx, int idx, uint64_t *size) {
 		{ 0xffffffff },
 	} };
 	struct nvrm_ioctl_card_info *arg = (struct nvrm_ioctl_card_info *)&arg2;
-	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
-		return -1;
-	if (ctx->ver_major < 331)
+	if (ctx->ver_major < 331) {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
+			return -1;
 		*size = arg->card[idx].fb_size;
-	else
+	} else {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO2, arg) < 0)
+			return -1;
 		*size = arg2.card[idx].fb_size;
+	}
 	return 0;
 }
 
@@ -161,12 +169,15 @@ int nvrm_ioctl_get_vendor_id(struct nvrm_context *ctx, int idx, uint16_t *id) {
 		{ 0xffffffff },
 	} };
 	struct nvrm_ioctl_card_info *arg = (struct nvrm_ioctl_card_info *)&arg2;
-	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
-		return -1;
-	if (ctx->ver_major < 331)
+	if (ctx->ver_major < 331) {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
+			return -1;
 		*id = arg->card[idx].vendor_id;
-	else
+	} else {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO2, arg) < 0)
+			return -1;
 		*id = arg2.card[idx].vendor_id;
+	}
 	return 0;
 }
 
@@ -175,12 +186,15 @@ int nvrm_ioctl_get_device_id(struct nvrm_context *ctx, int idx, uint16_t *id) {
 		{ 0xffffffff },
 	} };
 	struct nvrm_ioctl_card_info *arg = (struct nvrm_ioctl_card_info *)&arg2;
-	if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
-		return -1;
-	if (ctx->ver_major < 331)
+	if (ctx->ver_major < 331) {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO, arg) < 0)
+			return -1;
 		*id = arg->card[idx].device_id;
-	else
+	} else {
+		if (ioctl(ctx->fd_ctl, NVRM_IOCTL_CARD_INFO2, arg) < 0)
+			return -1;
 		*id = arg2.card[idx].device_id;
+	}
 	return 0;
 }
 
