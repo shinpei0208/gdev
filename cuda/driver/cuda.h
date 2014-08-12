@@ -33,6 +33,10 @@
 #include <stddef.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 typedef struct CUarray_st * CUarray;
 typedef unsigned long long CUdeviceptr;
 typedef int CUdevice;
@@ -1102,4 +1106,7 @@ CUresult cuShmAt(CUdeviceptr *dptr, int id, int flags);
 CUresult cuShmDt(CUdeviceptr dptr);
 CUresult cuShmCtl(int id, int cmd, void *buf /* FIXME */);
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus  */
 #endif
