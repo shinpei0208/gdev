@@ -93,8 +93,17 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 		 *if (nouveau_getparam(nv, NOUVEAU_GETPARAM_MP_COUNT, result))
 		 *	goto fail;
 		 */
-		goto fail;
-	    	//*result = 8; /* FIXME */
+		/*
+		 * FIXME: Work around. In <= nvc0 GPU, we set this value 14.
+		 * In the other (>= nve4) devices,
+		 * don't query GDEV_NVIDIA_QUERY_MP_COUNT.
+		 */
+		if ((gdev->chipset & 0xf0) < 0xe0) {
+			*result = 14;
+		} else {
+			goto fail;
+			//*result = 8; /* FIXME */
+		}
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, result))
