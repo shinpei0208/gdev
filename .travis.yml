@@ -1,0 +1,28 @@
+language: cpp
+
+env:
+    - BUILD_TYPE=Debug
+    - BUILD_TYPE=Release
+
+before_install:
+    - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    - sudo apt-get update -qq
+
+install:
+    - sudo apt-get install -qq g++-4.8
+    - export CC="gcc-4.8"
+    - export CXX="g++-4.8"
+    - sudo apt-get install -y libpciaccess-dev libdrm-dev
+
+before_script:
+    - "cmake -H. -Bout -Druntime=OFF -Duser=ON -Ddriver=nouveau -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
+
+script:
+    - make -C out
+
+notifications:
+    recipients:
+        - gdev-developers@googlegroups.com
+    email:
+        on_success: never
+        on_failure: always
