@@ -263,7 +263,7 @@ static int cubin_func_1e04
 	crs_stack_size_entry_t *crse;
 
 	*pos += sizeof(section_entry_t);
-	crse = (stack_entry_t*) *pos;
+	crse = (crs_stack_size_entry_t*) *pos;
 	raw_func->stack_size = crse->size << 4;
 
 	*pos += e->size;
@@ -682,8 +682,8 @@ static int load_cubin(struct CUmod_st *mod, char *bin)
 		 case 0x22: /* quick hack: FIXME! */
 			 GDEV_PRINT("sym_name: %s\n", sym_name);
 			 GDEV_PRINT("sh_name: %s\n", sh_name);
-			 GDEV_PRINT("st_value: 0x%llx\n", sym->st_value);
-			 GDEV_PRINT("st_size: 0x%llx\n", sym->st_size);
+			 GDEV_PRINT("st_value: 0x%llx\n", (unsigned long long)sym->st_value);
+			 GDEV_PRINT("st_size: 0x%llx\n", (unsigned long long)sym->st_size);
 			 break;
 		 default: /* ??? */
 			 GDEV_PRINT("/* unknown symbols: 0x%x\n */", sym->st_info);

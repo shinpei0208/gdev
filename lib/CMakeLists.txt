@@ -8,6 +8,7 @@ SET(soserial "1")
 include(UseDoxygen OPTIONAL)
 
 ADD_DEFINITIONS("-Wno-unused-but-set-variable")
+ADD_DEFINITIONS("-Wno-unused-result")
 
 ## Each source files
 set(common_src

@@ -11,6 +11,7 @@ else()
     set(CMAKE_CXX_FLAGS "-std=c++0x")
 endif()
 ADD_DEFINITIONS("-Wno-unused-but-set-variable")
+ADD_DEFINITIONS("-Wno-unused-result")
 
 SET(serial "1.0.0")
 SET(soserial "1")
