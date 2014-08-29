@@ -52,6 +52,7 @@ elif [ $target = 'user' ] ; then
 	cp -f $topdir/$common/* .
 	cp -f $topdir/util/* .
 	cp -f ../user/gdev/* .
+	cp -f ../user/usched/* .
 	# detect which driver to be used
 	sh ./autogen.sh
 	# get $DRIVER_NAME
