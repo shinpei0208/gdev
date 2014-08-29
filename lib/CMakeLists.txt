@@ -64,7 +64,8 @@ IF(user)
 	${PROJECT_SOURCE_DIR}/common/gdev_api.h 
 	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h 
 	${PROJECT_SOURCE_DIR}/common/gdev_list.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_time.h)
+	${PROJECT_SOURCE_DIR}/common/gdev_time.h
+	${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ELSE(user)
     MESSAGE(Selected\ Kernel-space!)
     SET(gdev_src ${gdev_src} ${kernel_src})
@@ -73,7 +74,8 @@ ELSE(user)
 	${PROJECT_SOURCE_DIR}/common/gdev_api.h 
 	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h 
 	${PROJECT_SOURCE_DIR}/common/gdev_list.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_time.h)
+	${PROJECT_SOURCE_DIR}/common/gdev_time.h
+	${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ENDIF(user)
 
 INCLUDE_DIRECTORIES(gdev ${gdev_inc})
