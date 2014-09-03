@@ -260,6 +260,8 @@ static struct gdev_nve4_compute_desc* nve4_launch_desc_setup(struct gdev_ctx *ct
 static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 {
     struct gdev_nve4_compute_desc *desc;
+    struct gdev_vas *vas = ctx->vas;
+    struct gdev_device *gdev = vas->gdev;
     uint64_t mp_count;
 
     /* compute desc setup */
@@ -270,12 +272,14 @@ static int nve4_launch(struct gdev_ctx *ctx, struct gdev_kernel *k)
 #endif
 
     /* hardware limit. get */
-    mp_count = k->lmem_size_total / 48 / k->warp_lmem_size;
+    gdev_query(gdev, GDEV_NVIDIA_QUERY_MP_COUNT, &mp_count);
+    if (!mp_count)
+    	mp_count = k->lmem_size_total / 48 / k->warp_lmem_size; 
 
     /* local (temp) memory setup */
-   __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x790, 2);
-   __gdev_out_ring(ctx, k->lmem_addr >> 32); /* TEMP_ADDRESS_HIGH*/
-   __gdev_out_ring(ctx, k->lmem_addr); /* TEMP_ADDRESS_LOW */
+    __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x790, 2);
+    __gdev_out_ring(ctx, k->lmem_addr >> 32); /* TEMP_ADDRESS_HIGH*/
+    __gdev_out_ring(ctx, k->lmem_addr); /* TEMP_ADDRESS_LOW */
 
     __gdev_begin_ring_nve4(ctx, GDEV_SUBCH_NV_COMPUTE, 0x2e4, 2);
     __gdev_out_ring(ctx, ( k->lmem_size_total/ mp_count)>>32); /* MP_TEMP_SIZE_HIGH */
