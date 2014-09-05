@@ -13,10 +13,20 @@ OPTION(driver "select GPU driver. must set driver name in the user-space mode" n
 OPTION(user "user mode(default off)" OFF)
 OPTION(runtime "enable CUDA runtime API(default on)" ON)
 
+MACRO(INCLUDE_DIRECTORY_IF_EXISTS DIR)
+    IF(EXISTS "${DIR}/")
+        INCLUDE_DIRECTORIES(${DIR})
+    ENDIF()
+ENDMACRO()
+
 ## Generate gdev_autogen.h
 STRING(TOUPPER "${driver}" DRIVER_NAME)
-configure_file (${CMAKE_CURRENT_SOURCE_DIR}/common/gdev_autogen.h.in ${CMAKE_CURRENT_BINARY_DIR}/gdev_autogen.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/common/gdev_autogen.h.in ${CMAKE_CURRENT_BINARY_DIR}/gdev_autogen.h)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+
+IF(user)
+    INCLUDE_DIRECTORY_IF_EXISTS(/usr/local/include/libdrm)
+ENDIF()
 
 INCLUDE_DIRECTORIES(util)
 INCLUDE_DIRECTORIES(common)
