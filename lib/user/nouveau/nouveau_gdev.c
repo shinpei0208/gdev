@@ -91,11 +91,20 @@ int gdev_raw_query(struct gdev_device *gdev, uint32_t type, uint64_t *result)
 	case GDEV_NVIDIA_QUERY_MP_COUNT:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_GRAPH_UNITS, result))
 			goto fail;
-		  /** 
-		   * GRAPH_UNITS query returns the following:
-		   * (u32)priv->gpc_nr | (u32)priv->tpc_total << 8 | (u64)priv->rop_nr << 32;
-		   */
+		/**
+		 * GRAPH_UNITS query returns the following:
+		 * (u32)priv->gpc_nr | (u32)priv->tpc_total << 8 | (u64)priv->rop_nr << 32;
+		 */
 		*result = (*result &0xffffff00) >> 8;
+		/**
+		 * In the older nouveau drivers (< 3.10), NOUVEAU_GETPARAM_GRAPH_UNITS meaning is different.
+		 * In that case, (*result) becomes 0x0, so fallback to the predefined value 14.
+		 */
+		if (!*result) {
+			if ((gdev->chipset & 0xf0) < 0xe0) {
+				*result = 14;
+			}
+		}
 		break;
 	case GDEV_QUERY_DEVICE_MEM_SIZE:
 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, result))
