@@ -25,6 +25,7 @@
 #include "gdev_device.h"
 #include "gdev_lib.h"
 #include "gdev_sched.h"
+#include "gdev_util.h"
 
 #ifdef GDEV_SCHED_DISABLED
 

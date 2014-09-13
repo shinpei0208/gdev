@@ -25,6 +25,7 @@
 #include "gdev_api.h"
 #include "gdev_device.h"
 #include "gdev_io_memcpy.h"
+#include "gdev_util.h"
 #include "gdev_nvidia.h"
 #include "gdev_nvidia_fifo.h"
 #include "nvrm.h"

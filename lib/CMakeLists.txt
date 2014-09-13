@@ -1,7 +1,9 @@
 SET(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
 SET(CMAKE_C_FLAGS_DEBUG "-g")
 SET(CMAKE_BUILD_TYPE Release)
-SET(CMAKE_C_FLAGS "-DGDEV_SCHED_DISABLED")
+IF(NOT(user AND usched))
+    SET(CMAKE_C_FLAGS "-DGDEV_SCHED_DISABLED")
+ENDIF(NOT(user AND usched))
 
 SET(serial "1.0.0")
 SET(soserial "1")
@@ -28,18 +30,19 @@ file(GLOB nvrm_src "user/nvrm/*.c")
 file(GLOB user_src "user/gdev/*.c")
 file(GLOB nouveau_src "user/nouveau/*.c")
 file(GLOB kernel_src "kernel/*.c")
+file(GLOB usched_src "user/usched/*.c")
 
 
 ## include dir
 SET(gdev_inc /usr/local/gdev/include)
 
-## select source 
+## select source
 IF(user)
     MESSAGE(Selected\ User-space!)
     SET(gdev_src ${gdev_src} ${user_src} ${common_src} ${util_src})
-    SET(gdev_inc ${gdev_inc} 
-	/usr/include/libdrm 
-	${PROJECT_SOURCE_DIR}/common/ 
+    SET(gdev_inc ${gdev_inc}
+	/usr/include/libdrm
+	${PROJECT_SOURCE_DIR}/common/
 	${PROJECT_SOURCE_DIR}/lib/user/gdev/
 	)
 
@@ -61,20 +64,20 @@ IF(user)
 	    ENDIF(driver STREQUAL pscnv)
 	ENDIF(driver STREQUAL nvrm)
     ENDIF(driver STREQUAL nouveau)
-    SET(gdev_install_headers 
-	${PROJECT_SOURCE_DIR}/common/gdev_api.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_list.h 
+    SET(gdev_install_headers
+	${PROJECT_SOURCE_DIR}/common/gdev_api.h
+	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
+	${PROJECT_SOURCE_DIR}/common/gdev_list.h
 	${PROJECT_SOURCE_DIR}/common/gdev_time.h
 	${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ELSE(user)
     MESSAGE(Selected\ Kernel-space!)
     SET(gdev_src ${gdev_src} ${kernel_src})
     SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/kernel ${PROJECT_SOURCE_DIR}/common)
-    SET(gdev_install_headers 
-	${PROJECT_SOURCE_DIR}/common/gdev_api.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h 
-	${PROJECT_SOURCE_DIR}/common/gdev_list.h 
+    SET(gdev_install_headers
+	${PROJECT_SOURCE_DIR}/common/gdev_api.h
+	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
+	${PROJECT_SOURCE_DIR}/common/gdev_list.h
 	${PROJECT_SOURCE_DIR}/common/gdev_time.h
 	${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ENDIF(user)
@@ -85,4 +88,11 @@ SET_TARGET_PROPERTIES(gdev PROPERTIES VERSION ${serial} SOVERSION ${soserial})
 TARGET_LINK_LIBRARIES(gdev ${link_lib})
 INSTALL(TARGETS gdev LIBRARY DESTINATION gdev/lib64)
 INSTALL(FILES ${gdev_install_headers} DESTINATION gdev/include)
+
+IF(user AND usched)
+    FIND_PACKAGE(Threads)
+    ADD_EXECUTABLE(gdev_usched_monitor ${usched_src})
+    TARGET_LINK_LIBRARIES(gdev_usched_monitor ${link_lib} ${CMAKE_THREAD_LIBS_INIT})
+    INSTALL(TARGETS gdev_usched_monitor RUNTIME DESTINATION gdev/bin)
+ENDIF(user AND usched)
 

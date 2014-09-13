@@ -12,6 +12,7 @@ SET(soserial "1")
 OPTION(driver "select GPU driver. must set driver name in the user-space mode" nouveau)
 OPTION(user "user mode(default off)" OFF)
 OPTION(runtime "enable CUDA runtime API(default on)" ON)
+OPTION(usched "enable user mode scheduler(default off)" OFF)
 
 MACRO(INCLUDE_DIRECTORY_IF_EXISTS DIR)
     IF(EXISTS "${DIR}/")
