@@ -29,6 +29,7 @@ file(GLOB util_src "${PROJECT_SOURCE_DIR}/util/*.c")
 file(GLOB nvrm_src "user/nvrm/*.c")
 file(GLOB user_src "user/gdev/*.c")
 file(GLOB nouveau_src "user/nouveau/*.c")
+file(GLOB barra_src "user/barra/*.c")
 file(GLOB kernel_src "kernel/*.c")
 file(GLOB usched_src "user/usched/*.c")
 
@@ -41,45 +42,46 @@ IF(user)
     MESSAGE(Selected\ User-space!)
     SET(gdev_src ${gdev_src} ${user_src} ${common_src} ${util_src})
     SET(gdev_inc ${gdev_inc}
-	/usr/include/libdrm
-	${PROJECT_SOURCE_DIR}/common/
-	${PROJECT_SOURCE_DIR}/lib/user/gdev/
-	)
+        /usr/include/libdrm
+        ${PROJECT_SOURCE_DIR}/common/
+        ${PROJECT_SOURCE_DIR}/lib/user/gdev/
+    )
 
     IF(driver STREQUAL nouveau)
-	SET(gdev_src ${gdev_src} ${nouveau_src})
-	SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nouveau)
-	SET(link_lib drm drm_nouveau pciaccess)
-    ELSE(driver STREQUAL nouveau)
-	IF(driver STREQUAL nvrm)
-	    SET(gdev_src ${gdev_src} ${nvrm_src} )
-	    SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nvrm)
-	ELSE(driver STREQUAL nvrm)
-	    IF(driver STREQUAL pscnv)
-		SET(gdev_src ${gdev_src} ${pscnv_src})
-		SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/pscnv)
-	    ELSE(driver STREQUAL  pscnv)
-		MESSAGE( FATAL_ERROR "Not selected GPU Driver.")
-		MESSAGE( FATAL_ERROR "ex: driver=nouveau.")
-	    ENDIF(driver STREQUAL pscnv)
-	ENDIF(driver STREQUAL nvrm)
+        SET(gdev_src ${gdev_src} ${nouveau_src})
+        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nouveau)
+        SET(link_lib drm drm_nouveau)
+        SET(link_lib drm drm_nouveau pciaccess)
+    ELSEIF(driver STREQUAL nvrm)
+        SET(gdev_src ${gdev_src} ${nvrm_src} )
+        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nvrm)
+    ELSEIF(driver STREQUAL pscnv)
+        SET(gdev_src ${gdev_src} ${pscnv_src})
+        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/pscnv)
+    ELSEIF(driver STREQUAL barra)
+        SET(gdev_src ${gdev_src} ${barra_src})
+        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/barra)
+        SET(link_lib barra)
+    ELSE(driver STREQUAL  pscnv)
+        MESSAGE( FATAL_ERROR "Not selected GPU Driver.")
+        MESSAGE( FATAL_ERROR "ex: driver=nouveau.")
     ENDIF(driver STREQUAL nouveau)
     SET(gdev_install_headers
-	${PROJECT_SOURCE_DIR}/common/gdev_api.h
-	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
-	${PROJECT_SOURCE_DIR}/common/gdev_list.h
-	${PROJECT_SOURCE_DIR}/common/gdev_time.h
-	${PROJECT_BINARY_DIR}/gdev_autogen.h)
+        ${PROJECT_SOURCE_DIR}/common/gdev_api.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_list.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_time.h
+        ${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ELSE(user)
     MESSAGE(Selected\ Kernel-space!)
     SET(gdev_src ${gdev_src} ${kernel_src})
     SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/kernel ${PROJECT_SOURCE_DIR}/common)
     SET(gdev_install_headers
-	${PROJECT_SOURCE_DIR}/common/gdev_api.h
-	${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
-	${PROJECT_SOURCE_DIR}/common/gdev_list.h
-	${PROJECT_SOURCE_DIR}/common/gdev_time.h
-	${PROJECT_BINARY_DIR}/gdev_autogen.h)
+        ${PROJECT_SOURCE_DIR}/common/gdev_api.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_list.h
+        ${PROJECT_SOURCE_DIR}/common/gdev_time.h
+        ${PROJECT_BINARY_DIR}/gdev_autogen.h)
 ENDIF(user)
 
 INCLUDE_DIRECTORIES(gdev ${gdev_inc})
