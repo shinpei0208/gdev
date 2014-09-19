@@ -13,6 +13,7 @@ OPTION(driver "select GPU driver. must set driver name in the user-space mode" n
 OPTION(user "user mode(default off)" OFF)
 OPTION(runtime "enable CUDA runtime API(default on)" ON)
 OPTION(usched "enable user mode scheduler(default off)" OFF)
+OPTION(use_as "use assembler(default off)" OFF)
 
 MACRO(INCLUDE_DIRECTORY_IF_EXISTS DIR)
     IF(EXISTS "${DIR}/")
@@ -42,3 +43,6 @@ IF(NOT user)
     ADD_SUBDIRECTORY(mod)
 ENDIF(NOT user)
 
+IF(use_as)
+    ADD_SUBDIRECTORY(compiler/as)
+ENDIF(use_as)

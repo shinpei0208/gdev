@@ -175,11 +175,37 @@ struct DirectiveRuleParam: DirectiveRule //!Param Size Count
 	{
 		if(!csCurrentKernelOpened)
 			throw 1006; //only definable inside kernels
-		if(csCurrentDirective.Parts.size()<2 || csCurrentDirective.Parts.size()>3)
+		if(csCurrentDirective.Parts.size()<2)
 			throw 1002; //incorrect no. of arguments
 
 		list<SubString>::iterator currentArg = csCurrentDirective.Parts.begin(); 
 		currentArg++;//currentArg is on size
+
+		// check Ext : !Param E size1 size2 ...
+		if (currentArg->Compare("E")) {
+			if(csCurrentDirective.Parts.size()>258)
+				throw 1002; //incorrect no. of arguments
+			currentArg++; // skip E
+			for (int i=2; i<csCurrentDirective.Parts.size();
+				i++, currentArg++) {
+				unsigned int size =
+					currentArg->ToImmediate32FromInt32();
+				KernelParameter param;
+				param.Size = size;
+				csCurrentKernel.ParamTotalSize =
+					(csCurrentKernel.ParamTotalSize+size-1)
+					& ~(size-1);
+				param.Offset = csCurrentKernel.ParamTotalSize;
+				csCurrentKernel.ParamTotalSize += size;
+				csCurrentKernel.Parameters.push_back(param);
+				if(csCurrentKernel.ParamTotalSize > 256)
+					throw 1008;		
+			}
+			return;
+		}
+
+		if(csCurrentDirective.Parts.size()>3)
+			throw 1002; //incorrect no. of arguments
 		unsigned int size = currentArg->ToImmediate32FromInt32();
 		if(size%4 !=0 )
 			throw 1007; //size of parameter must be multiple of 4; issue: may not be necessary

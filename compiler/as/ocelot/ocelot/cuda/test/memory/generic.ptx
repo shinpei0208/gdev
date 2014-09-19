@@ -1,0 +1,80 @@
+	.version 2.1
+	.target sm_20
+.entry genericmemory (
+.param .u64 __cudaparm_genericmemory_A)
+{
+.reg .u32 %r<9>;
+.reg .u64 %rd<5>;
+.reg .pred %p<9>;
+.shared .u32 $rs;
+.local .u32 $rl;
+$BB_01:
+
+	ld.param.u64 %rd1, [__cudaparm_genericmemory_A];
+	
+	mov.u64 %rd2, %rd1;
+	mov.u64 %rd3, $rs;
+	mov.u64 %rd4, $rl;
+	
+	//
+	//
+	//
+	
+	cvta.global.u64 %rd2, %rd2;
+	cvta.shared.u64 %rd3, %rd3;
+	cvta.local.u64 %rd4, %rd4;
+	
+	//
+	//
+	//
+	
+	isspacep.global %p0, %rd2;			// expect TRUE
+	isspacep.shared %p1, %rd3;			// expect TRUE
+	isspacep.local %p2, %rd4;				// expect TRUE
+
+	isspacep.global %p3, %rd3;			// expect all others to be FALSE
+	isspacep.shared %p4, %rd4;
+	isspacep.local %p5, %rd2;
+
+	isspacep.global %p6, %rd4;
+	isspacep.shared %p7, %rd2;
+	isspacep.local %p8, %rd3;
+	
+	//
+	//
+	//
+	
+	selp.u32 %r0, 1000, 0, %p0;
+	selp.u32 %r1, 1001, 0, %p1;
+	selp.u32 %r2, 1002, 0, %p2;
+	selp.u32 %r3, 1003, 0, %p3;
+	selp.u32 %r4, 1004, 0, %p4;
+	selp.u32 %r5, 1005, 0, %p5;
+	selp.u32 %r6, 1006, 0, %p6;
+	selp.u32 %r7, 1007, 0, %p7;
+	selp.u32 %r8, 1008, 0, %p8;
+	
+	
+	//
+	//
+	//
+
+	st.global.u32 [%rd1+0], %r0;
+	st.global.u32 [%rd1+4], %r1;
+	st.global.u32 [%rd1+8], %r2;
+	st.global.u32 [%rd1+12], %r3;
+	st.global.u32 [%rd1+16], %r4;
+	st.global.u32 [%rd1+20], %r5;
+	st.global.u32 [%rd1+24], %r6;
+	st.global.u32 [%rd1+28], %r7;
+	st.global.u32 [%rd1+32], %r8;
+
+	//
+	//
+	//
+	
+$BB_02:
+	exit;
+}
+
+

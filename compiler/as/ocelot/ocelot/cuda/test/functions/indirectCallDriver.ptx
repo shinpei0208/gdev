@@ -1,0 +1,179 @@
+	.version 2.1
+	.target sm_20
+	// compiled with /usr/local/cuda3.1/cuda/open64/lib//be
+	// nvopencc 3.1 built on 2010-06-07
+
+	.visible .func (.param .s32 __cudaretf_funcDouble) funcDouble (.param .s32 __cudaparmf1_funcDouble)
+
+	.visible .func (.param .s32 __cudaretf_funcTriple) funcTriple (.param .s32 __cudaparmf1_funcTriple)
+
+	.visible .func (.param .s32 __cudaretf_funcQuadruple) funcQuadruple (.param .s32 __cudaparmf1_funcQuadruple)
+
+	.visible .func (.param .s32 __cudaretf_funcPentuple) funcPentuple (.param .s32 __cudaparmf1_funcPentuple)
+
+	//-----------------------------------------------------------
+	// Compiling /tmp/tmpxft_000024b1_00000000-7_indirectCallDriver.cpp3.i (/tmp/ccBI#.f5hiPG)
+	//-----------------------------------------------------------
+
+	//-----------------------------------------------------------
+	// Options:
+	//-----------------------------------------------------------
+	//  Target:ptx, ISA:sm_20, Endian:little, Pointer Size:64
+	//  -O3	(Optimization level)
+	//  -g0	(Debug level)
+	//  -m2	(Report advisories)
+	//-----------------------------------------------------------
+
+	.file	1	"<command-line>"
+	.file	2	"/tmp/tmpxft_000024b1_00000000-6_indirectCallDriver.cudafe2.gpu"
+	.file	3	"/usr/lib/gcc/x86_64-linux-gnu/4.4.3/include/stddef.h"
+	.file	4	"/usr/local/cuda3.1/cuda/bin/../include/crt/device_runtime.h"
+	.file	5	"/usr/local/cuda3.1/cuda/bin/../include/host_defines.h"
+	.file	6	"/usr/local/cuda3.1/cuda/bin/../include/builtin_types.h"
+	.file	7	"/usr/local/cuda3.1/cuda/bin/../include/device_types.h"
+	.file	8	"/usr/local/cuda3.1/cuda/bin/../include/driver_types.h"
+	.file	9	"/usr/local/cuda3.1/cuda/bin/../include/surface_types.h"
+	.file	10	"/usr/local/cuda3.1/cuda/bin/../include/texture_types.h"
+	.file	11	"/usr/local/cuda3.1/cuda/bin/../include/vector_types.h"
+	.file	12	"/usr/local/cuda3.1/cuda/bin/../include/device_launch_parameters.h"
+	.file	13	"/usr/local/cuda3.1/cuda/bin/../include/crt/storage_class.h"
+	.file	14	"/usr/include/bits/types.h"
+	.file	15	"/usr/include/time.h"
+	.file	16	"indirectCallDriver.cu"
+	.file	17	"/usr/local/cuda3.1/cuda/bin/../include/common_functions.h"
+	.file	18	"/usr/local/cuda3.1/cuda/bin/../include/math_functions.h"
+	.file	19	"/usr/local/cuda3.1/cuda/bin/../include/math_constants.h"
+	.file	20	"/usr/local/cuda3.1/cuda/bin/../include/device_functions.h"
+	.file	21	"/usr/local/cuda3.1/cuda/bin/../include/sm_11_atomic_functions.h"
+	.file	22	"/usr/local/cuda3.1/cuda/bin/../include/sm_12_atomic_functions.h"
+	.file	23	"/usr/local/cuda3.1/cuda/bin/../include/sm_13_double_functions.h"
+	.file	24	"/usr/local/cuda3.1/cuda/bin/../include/sm_20_atomic_functions.h"
+	.file	25	"/usr/local/cuda3.1/cuda/bin/../include/sm_20_intrinsics.h"
+	.file	26	"/usr/local/cuda3.1/cuda/bin/../include/surface_functions.h"
+	.file	27	"/usr/local/cuda3.1/cuda/bin/../include/texture_fetch_functions.h"
+	.file	28	"/usr/local/cuda3.1/cuda/bin/../include/math_functions_dbl_ptx3.h"
+
+
+	.visible .func (.param .s32 __cudaretf_funcDouble) funcDouble (.param .s32 __cudaparmf1_funcDouble)
+	{
+	.reg .u32 %r<5>;
+	.loc	16	9	0
+$LDWbegin_funcDouble:
+	ld.param.u32 	%r1, [__cudaparmf1_funcDouble];
+	mov.s32 	%r2, %r1;
+	.loc	16	10	0
+	mul.lo.s32 	%r3, %r2, 2;
+	st.param.s32 	[__cudaretf_funcDouble], %r3;
+	ret;
+$LDWend_funcDouble:
+	} // funcDouble
+
+	.visible .func (.param .s32 __cudaretf_funcTriple) funcTriple (.param .s32 __cudaparmf1_funcTriple)
+	{
+	.reg .u32 %r<5>;
+	.loc	16	13	0
+$LDWbegin_funcTriple:
+	ld.param.u32 	%r1, [__cudaparmf1_funcTriple];
+	mov.s32 	%r2, %r1;
+	.loc	16	14	0
+	mul.lo.s32 	%r3, %r2, 3;
+	st.param.s32 	[__cudaretf_funcTriple], %r3;
+	ret;
+$LDWend_funcTriple:
+	} // funcTriple
+
+	.visible .func (.param .s32 __cudaretf_funcQuadruple) funcQuadruple (.param .s32 __cudaparmf1_funcQuadruple)
+	{
+	.reg .u32 %r<5>;
+	.loc	16	17	0
+$LDWbegin_funcQuadruple:
+	ld.param.u32 	%r1, [__cudaparmf1_funcQuadruple];
+	mov.s32 	%r2, %r1;
+	.loc	16	18	0
+	mul.lo.s32 	%r3, %r2, 4;
+	st.param.s32 	[__cudaretf_funcQuadruple], %r3;
+	ret;
+$LDWend_funcQuadruple:
+	} // funcQuadruple
+
+	.visible .func (.param .s32 __cudaretf_funcPentuple) funcPentuple (.param .s32 __cudaparmf1_funcPentuple)
+	{
+	.reg .u32 %r<5>;
+	.loc	16	20	0
+$LDWbegin_funcPentuple:
+	ld.param.u32 	%r1, [__cudaparmf1_funcPentuple];
+	mov.s32 	%r2, %r1;
+	.loc	16	21	0
+	mul.lo.s32 	%r3, %r2, 5;
+	st.param.s32 	[__cudaretf_funcPentuple], %r3;
+	ret;
+$LDWend_funcPentuple:
+	} // funcPentuple
+
+	.entry kernelEntry (
+		.param .u64 __cudaparm_kernelEntry_A,
+		.param .s32 __cudaparm_kernelEntry_b)
+	{
+	.reg .u32 %r<17>;
+	.reg .u64 %rd<10>;
+	.reg .pred %p<6>;
+	.param .s32 __cudaparma1_fproto_i_i;
+	.param .s32 __cudareta_fproto_i_i;
+	// __cuda_local_var_24004_8_filter = 16
+	.loc	16	24	0
+$LDWbegin_kernelEntry:
+	mov.u32 	%r1, %ctaid.x;
+	mov.u32 	%r2, %ntid.x;
+	mul.lo.u32 	%r3, %r1, %r2;
+	mov.u32 	%r4, %tid.x;
+	add.u32 	%r5, %r4, %r3;
+	ld.param.s32 	%r6, [__cudaparm_kernelEntry_b];
+	add.s32 	%r7, %r6, %r5;
+	and.b32 	%r8, %r7, 3;
+	mov.u32 	%r9, 0;
+	setp.ne.s32 	%p1, %r8, %r9;
+	@%p1 bra 	$Lt_4_3586;
+	.loc	16	40	0
+	mov.u64 	%rd1, funcDouble;
+	bra.uni 	$Lt_4_3330;
+$Lt_4_3586:
+	mov.u32 	%r10, 1;
+	setp.ne.s32 	%p2, %r8, %r10;
+	@%p2 bra 	$Lt_4_4098;
+	.loc	16	43	0
+	mov.u64 	%rd1, funcTriple;
+	bra.uni 	$Lt_4_3842;
+$Lt_4_4098:
+	mov.u32 	%r11, 2;
+	setp.ne.s32 	%p3, %r8, %r11;
+	@%p3 bra 	$Lt_4_4610;
+	.loc	16	46	0
+	mov.u64 	%rd1, funcQuadruple;
+	bra.uni 	$Lt_4_4354;
+$Lt_4_4610:
+	.loc	16	48	0
+	mov.u64 	%rd2, funcPentuple;
+	mov.s64 	%rd3, %rd4;
+	mov.s32 	%r12, 3;
+	setp.eq.s32 	%p4, %r8, %r12;
+	selp.u64 	%rd1, %rd2, %rd3, %p4;
+$Lt_4_4354:
+$Lt_4_3842:
+$Lt_4_3330:
+	.loc	16	52	0
+	mov.s32 	%r13, %r5;
+	st.param.u32 	[__cudaparma1_fproto_i_i], %r13;
+fproto_i_i: .callprototype (.param .s32 _) _ (.param .s32 _);
+	call (__cudareta_fproto_i_i), %rd1, (__cudaparma1_fproto_i_i), fproto_i_i;
+	ld.param.s32 	%r14, [__cudareta_fproto_i_i];
+	mov.s32 	%r15, %r14;
+	ld.param.u64 	%rd5, [__cudaparm_kernelEntry_A];
+	cvt.s64.s32 	%rd6, %r5;
+	mul.wide.s32 	%rd7, %r5, 4;
+	add.u64 	%rd8, %rd5, %rd7;
+	st.s32 	[%rd8+0], %r15;
+	.loc	16	53	0
+	exit;
+$LDWend_kernelEntry:
+	} // kernelEntry
+

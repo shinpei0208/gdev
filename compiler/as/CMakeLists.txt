@@ -1,0 +1,2 @@
+ADD_SUBDIRECTORY(ocelot)
+ADD_SUBDIRECTORY(sass2cubin)

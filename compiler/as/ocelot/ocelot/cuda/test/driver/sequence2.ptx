@@ -1,0 +1,42 @@
+	.version 2.1
+	.target sm_20
+	
+	.local .u32 %L1;
+	
+	.entry sequence (
+		.param .u64 __cudaparm_sequence_A,
+		.param .s32 __cudaparm_sequence_N)
+	{
+	.reg .u32 %r<11>;
+	.reg .u64 %rd<6>;
+	.reg .pred %p<3>;
+	
+	.loc	28	6	0
+$LDWbegin_sequence:
+	mov.u32 	%r1, %ctaid.x;
+	mov.u32 	%r2, %ntid.x;
+	mul.lo.u32 	%r3, %r1, %r2;
+	mov.u32 	%r4, %tid.x;
+	add.u32 	%r5, %r4, %r3;
+	
+	mov.u32 %r10, %L1;
+	st.local.u32 [%r10], %r5;
+	mov.u32 %r5, 0;
+	ld.local.u32 %r5, [%r10];
+	
+	ld.param.s32 	%r6, [__cudaparm_sequence_N];
+	setp.le.s32 	%p1, %r6, %r5;
+	@%p1 bra 	$Lt_0_1026;
+	.loc	28	9	0
+	add.s32 	%r7, %r5, 1;
+	ld.param.u64 	%rd1, [__cudaparm_sequence_A];
+	cvt.s64.s32 	%rd2, %r5;
+	mul.wide.s32 	%rd3, %r5, 4;
+	add.u64 	%rd4, %rd1, %rd3;
+	st.global.s32 	[%rd4+0], %r7;
+$Lt_0_1026:
+	.loc	28	11	0
+	exit;
+$LDWend_sequence:
+	} // sequence
+

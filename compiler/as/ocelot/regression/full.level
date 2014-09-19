@@ -1,0 +1,23 @@
+TestLexer -i ../tests/ptx
+TestParser -i ../tests/ptx
+TestEmulator
+TestInstructions
+TestKernels
+TestDataflowGraph -i ../tests/ptx
+TestLLVMInstructions
+TestPTXToLLVMTranslator -i ../tests/ptx
+TestLLVMKernels
+
+TestCudaMalloc 
+TestCudaTexture2D
+TestCudaTextureArray
+TestCudaGlobals
+TestDeviceSwitching
+TestCudaSequence
+TestPTXAssembly
+TestFunctionCall
+TestIndirectFunctionCall
+TestExternalFunctions
+
+TestOptimizations -i ../tests/ptx
+
