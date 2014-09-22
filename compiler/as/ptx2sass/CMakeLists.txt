@@ -14,14 +14,14 @@ FIND_PACKAGE(FLEX)
 FIND_PACKAGE(BISON)
 FLEX_TARGET(ptx
     ocelot/parser/implementation/ptx.ll
-    ${PROJECT_BINARY_DIR}/compiler/as/ocelot/ptx.cpp)
+    ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp)
 BISON_TARGET(ptxgrammar
     ocelot/parser/implementation/ptxgrammar.yy
-    ${PROJECT_BINARY_DIR}/compiler/as/ocelot/ptxgrammar.cpp)
+    ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp)
 ADD_FLEX_BISON_DEPENDENCY(ptx ptxgrammar)
 
 ADD_CUSTOM_TARGET(config
-    COMMAND sh ${PROJECT_SOURCE_DIR}/compiler/as/ocelot/config_h_build.sh ${PROJECT_SOURCE_DIR}/compiler/as/ocelot/configure.h.in ${PROJECT_BINARY_DIR}/compiler/as/ocelot/configure.h
+    COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config_h_build.sh ${CMAKE_CURRENT_SOURCE_DIR}/configure.h.in ${CMAKE_CURRENT_BINARY_DIR}/configure.h
 )
 
 FILE(GLOB hydrazine_src "hydrazine/implementation/*.cpp")
@@ -51,7 +51,7 @@ SET(ocelot_src
     ${translator_src}
     ${util_src}
 )
-INCLUDE_DIRECTORIES(ocelot . /usr/include ${PROJECT_BINARY_DIR})
+INCLUDE_DIRECTORIES(ocelot . /usr/include ${CMAKE_CURRENT_BINARY_DIR})
 ADD_LIBRARY(ocelot SHARED
     ${ocelot_src}
     ${FLEX_ptx_OUTPUTS}
@@ -64,9 +64,9 @@ SET_TARGET_PROPERTIES(ocelot
     PROPERTIES VERSION ${serial} SOVERSION ${soserial})
 INSTALL(TARGETS ocelot DESTINATION gdev/lib64)
 
-ADD_EXECUTABLE(PTXToSASSTranslator
+ADD_EXECUTABLE(ptx2sass
     ocelot/tools/PTXToSASSTranslator.cpp)
-TARGET_LINK_LIBRARIES(PTXToSASSTranslator
+TARGET_LINK_LIBRARIES(ptx2sass
     ocelot boost_system boost_filesystem boost_thread dl rt pthread)
 
-INSTALL(TARGETS PTXToSASSTranslator DESTINATION gdev/bin)
+INSTALL(TARGETS ptx2sass DESTINATION gdev/bin)
