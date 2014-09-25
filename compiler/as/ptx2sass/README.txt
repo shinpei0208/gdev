@@ -1,6 +1,7 @@
 To build ptx2sass:
 
-1. Type `cmake .' to build the Makefile.
+1. Type `cmake -Duse_as=ON .' at the top level directory of Gdev
+   or type `cmake .' at the current directory to build the Makefile.
 
 2. Type `make' to compile the libocelot and ptx2sass.
 
