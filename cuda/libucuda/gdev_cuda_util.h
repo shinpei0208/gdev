@@ -38,7 +38,8 @@
 
 #include <elf.h>
 #include <limits.h>
-#if (ULONG_MAX == UINT_MAX)
+/* gpu only use 64bit */
+#if 0
 #define Elf_Ehdr Elf32_Ehdr
 #define Elf_Shdr Elf32_Shdr
 #define Elf_Phdr Elf32_Phdr
