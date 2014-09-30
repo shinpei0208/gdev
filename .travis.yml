@@ -21,8 +21,8 @@ script:
     - make -C out
 
 notifications:
-    recipients:
-        - gdev-developers@googlegroups.com
     email:
+        recipients:
+            - gdev-developers@googlegroups.com
         on_success: never
         on_failure: always
