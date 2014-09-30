@@ -22,6 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "gdev_autogen.h"
 #include "gdev_device.h"
 #include "gdev_lib.h"
 #include "gdev_sched.h"
@@ -407,6 +408,42 @@ void *gdev_priv_get(struct gdev_device *gdev)
         return lgdev->priv;
 }
 
-
-
 #endif
+
+int gdev_getinfo_device_count(void)
+{
+	char fname[256] = { 0 };
+	int minor = 0;
+	int shmid;
+	int *shm;
+
+#if defined(GDEV_DRIVER_BARRA)
+	return 1;
+#endif
+
+	/* this is the case for non-gdev device drivers. */
+	struct stat st;
+	/* check for Linux open-source drivers first. */
+	for (;;) {
+		sprintf(fname, "/dev/dri/card%d", minor);
+		if (stat(fname, &st))
+			break;
+		minor++;
+	}
+	if (minor)
+		return minor;
+	/* check for NVIDIA BLOB drivers next. */
+	for (;;) {
+		sprintf(fname, "/dev/nvidia%d", minor);
+		if (stat(fname, &st))
+			break;
+		minor++;
+	}
+	/* check for Gdev user-scheduling */
+	shmid = shmget( 0x600dde11, sizeof(int), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP );
+	if(!shmid){
+	    shm = (int *)shmat(shmid, NULL, 0);
+	    minor = *shm;
+	}
+	return minor;
+}

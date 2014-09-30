@@ -1341,3 +1341,13 @@ uint64_t gvirtget(Ghandle h, const void *p)
 fail:
 	return 0;
 }
+
+/**
+ * gdevice_count():
+ * get the count of virtual devices
+ */
+int gdevice_count(int* result)
+{
+	*result = gdev_getinfo_device_count();
+	return 0;
+}

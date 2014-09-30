@@ -48,7 +48,7 @@ CUresult cuInit(unsigned int Flags)
 	if (Flags != 0)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	if (!(gdev_device_count = __gdev_get_device_count()))
+	if (gdevice_count(&gdev_device_count))
 		return CUDA_ERROR_INVALID_DEVICE;
 
 	gdev_list_init(&gdev_ctx_list, NULL);

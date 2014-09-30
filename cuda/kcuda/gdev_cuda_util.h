@@ -43,15 +43,4 @@
 #define Elf_Sym	 Elf32_Sym
 #endif
 
-/**
- * Gdev getinfo functions (exported to kernel modules).
- * the same information can be found in /proc/gdev/ for user-space.
- */
-extern int gdev_getinfo_device_count(void);
-
-static inline int __gdev_get_device_count(void)
-{
-	return gdev_getinfo_device_count();
-}
-
 #endif

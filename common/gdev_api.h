@@ -73,6 +73,7 @@ uint64_t gref(Ghandle hmaster, uint64_t addr, uint64_t size, Ghandle hslave);
 int gunref(Ghandle h, uint64_t addr);
 uint64_t gphysget(Ghandle h, const void *p);
 uint64_t gvirtget(Ghandle h, const void *p);
+int gdevice_count(int* result);
 
 
 /**

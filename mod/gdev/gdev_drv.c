@@ -602,7 +602,6 @@ int gdev_getinfo_device_count(void)
 {
 	return gdev_vcount; /* return virtual device count. */
 }
-EXPORT_SYMBOL(gdev_getinfo_device_count);
 
 /**
  * export Gdev API functions.
@@ -638,6 +637,7 @@ EXPORT_SYMBOL(gref);
 EXPORT_SYMBOL(gunref);
 EXPORT_SYMBOL(gphysget);
 EXPORT_SYMBOL(gvirtget);
+EXPORT_SYMBOL(gdevice_count);
 
 static int __init gdev_module_init(void)
 {

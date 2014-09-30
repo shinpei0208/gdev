@@ -524,3 +524,24 @@ virtget:
 
 	return virt.virt;
 }
+
+int gdevice_count(int* result)
+{
+	char fname[256] = "/proc/gdev/virtual_device_count";
+	char buf[16];
+	int minor = 0;
+	FILE *fp;
+
+	if (!(fp = fopen(fname, "r"))) {
+		*result = minor;
+		return -ENODEV;
+	}
+	if (!fgets(buf, 16, fp))
+		sprintf(buf, "0");
+	fclose(fp);
+
+	sscanf(buf, "%d", &minor);
+
+	*result = minor;
+	return 0;
+}

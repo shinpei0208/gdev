@@ -96,6 +96,7 @@ void gdev_exit_device(struct gdev_device *gdev);
 
 int gdev_init_virtual_device(struct gdev_device *gdev, int id, uint32_t weight, struct gdev_device *parent);
 void gdev_exit_virtual_device(struct gdev_device*);
+int gdev_getinfo_device_count(void);
 
 extern int gdev_count;
 extern int gdev_vcount;
