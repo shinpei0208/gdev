@@ -160,7 +160,7 @@ struct gdev_vas *gdev_raw_vas_new(struct gdev_device *gdev, uint64_t size)
 
 	return vas;
 
-fail_nvas:
+  /* fail_nvas: */
 	FREE(vas);
 fail_vas:
 	return NULL;
@@ -177,7 +177,7 @@ void gdev_raw_vas_free(struct gdev_vas *vas)
 struct gdev_ctx *gdev_raw_ctx_new(struct gdev_device *gdev, struct gdev_vas *vas)
 {
 	struct gdev_ctx *ctx;
-	struct barra_ib_bo *fence_bo;
+	/* struct barra_ib_bo *fence_bo; */
 
 	printf("Trying to get ctx in barra\n");
 	if (!(ctx = malloc(sizeof(*ctx))))
