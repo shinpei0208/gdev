@@ -342,16 +342,23 @@ uint64_t gdev_raw_mem_phys_getaddr(struct gdev_mem *mem, uint64_t offset)
 
 uint32_t gdev_raw_read32(struct gdev_mem *mem, uint64_t addr)
 {
+	GDEV_PRINT("%s is not implemented\n", __func__);
+	return 0;
 }
 
 void gdev_raw_write32(struct gdev_mem *mem, uint64_t addr, uint32_t val)
 {
+	GDEV_PRINT("%s is not implemented\n", __func__);
 }
 
 int gdev_raw_read(struct gdev_mem *mem, void *buf, uint64_t addr, uint32_t size)
 {
+	GDEV_PRINT("%s is not implemented\n", __func__);
+	return -ENOSYS;
 }
 
 int gdev_raw_write(struct gdev_mem *mem, uint64_t addr, const void *buf, uint32_t size)
 {
+	GDEV_PRINT("%s is not implemented\n", __func__);
+  return -ENOSYS;
 }
