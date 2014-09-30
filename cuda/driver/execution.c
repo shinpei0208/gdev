@@ -185,6 +185,8 @@ CUresult cuLaunchGrid(CUfunction f, int grid_width, int grid_height)
 	k->grid_y = grid_height;
 	k->grid_z = 1;
 	k->grid_id = ++ctx->launch_id;
+	k->name = func->raw_func.name;
+
 
 #ifdef GDEV_DRIVER_NOUVEAU /* this is a quick hack until Nouveau supports flexible vspace */
 	k->smem_base = 0xe << 24; 

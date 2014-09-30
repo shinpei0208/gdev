@@ -32,26 +32,34 @@
 /* set up the architecture-dependent compute engine. */
 int gdev_compute_setup(struct gdev_device *gdev)
 {
-    switch (gdev->chipset & 0xf0) {
-    case 0xE0:
-    case 0xF0:
-		nve4_compute_setup(gdev);
-        break;
-    case 0xC0:
-		nvc0_compute_setup(gdev);
-        break;
-    case 0x50:
-    case 0x80:
-    case 0x90:
-    case 0xA0:
-		/* TODO: create the compute and m2mf subchannels! */
-		GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
-		return -EINVAL;
-    default:
-		GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
-		return -EINVAL;
-    }
-
+    	if (!(gdev->chipset & 0xf000)) { 
+	    switch (gdev->chipset & 0xf0) {
+		case 0xE0:
+		case 0xF0:
+		    nve4_compute_setup(gdev);
+		    break;
+		case 0xC0:
+		    nvc0_compute_setup(gdev);
+		    break;
+		case 0x50:
+		case 0x80:
+		case 0x90:
+		case 0xA0:
+		    /* TODO: create the compute and m2mf subchannels! */
+		    GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
+		    return -EINVAL;
+		default:
+		    GDEV_PRINT("NV%x not supported.\n", gdev->chipset);
+		    return -EINVAL;
+	    }
+	}else{
+#ifdef GDEV_DRIVER_BARRA
+	    /* Override arch-dependent compute setup */
+	    barra_compute_setup(gdev);
+#else
+	    return -EINVAL;
+#endif
+	}
 	return 0;
 }
 
@@ -110,7 +118,7 @@ uint32_t gdev_memcpy(struct gdev_ctx *ctx, uint64_t dst_addr, uint64_t src_addr,
 	   the QUERY method, i.e., if QUERY is set, the sequence will be 
 	   written to the specified address when the data are transfered. */
 	compute->fence_reset(ctx, seq);
-	if( (gdev->chipset & 0xf0) >= 0xe0) {
+	if( (gdev->chipset & 0xf0) >= 0xe0 || (gdev->chipset & 0xf000) ) {
 	    compute->memcpy(ctx, dst_addr, src_addr, size);
 	    compute->fence_write(ctx, GDEV_OP_COMPUTE /* == COMPUTE */, seq);
 	}

@@ -11,16 +11,19 @@ sched=0
 nvrm_CFLAGS=''
 pscnv_CFLAGS=''
 nouveau_CFLAGS="-I /usr/include/libdrm"
+barra_CFLAGS=''
 
 ## object for each driver
 nvrm_OBJS="nvrm_gdev.o nvrm.o ioctl.o mthd.o handle.o channel.o memory.o"
 pscnv_OBJS="pscnv_gdev.o libpscnv.o libpscnv_ib.o"
 nouveau_OBJS="nouveau_gdev.o libnouveau.o libnouveau_ib.o"
+barra_OBJS="barra_gdev.o"
 
 ## library for each driver
 nvrm_LIBS=''
 pscnv_LIBS=''
 nouveau_LIBS="-ldrm_nouveau -lpciaccess"
+barra_LIBS="-lbarra"
 
 # parse the given options.
 for option
@@ -37,6 +40,8 @@ do
     debug=1 ;;
   --enable-sched)
     sched=1 ;;
+  --with-barra=*)
+    barra_LIBS="-L$optarg/lib $barra_LIBS" ;;
   esac
 done
 
@@ -66,6 +71,22 @@ elif [ $target = 'user' ] ; then
 	if [ $sched != 1 ] ; then
 	    eval EXTRA_CFLAGS2="EXTRA_CFLAGS+=""-DGDEV_SCHED_DISABLED"
 	fi
+elif [ $target = 'barra' ] ; then
+	# Barra in user-mode
+	# copy driver-independent files
+	cp -f $topdir/$common/* .
+	cp -f $topdir/util/* .
+	cp -f ../user/gdev/* .
+	# set barra as the driver
+	sh ./autogen.sh barra
+	# get $DRIVER_NAME
+	. ./Driver.mk
+	# copy driver-dependent files
+	cp -f ../user/$DRIVER_NAME/* .
+	eval EXTRA_CFLAGS="EXTRA_CFLAGS?="'$'$DRIVER_NAME"_CFLAGS"
+	eval EXTRA_OBJS="EXTRA_OBJS="'$'$DRIVER_NAME"_OBJS"
+	eval EXTRA_LIBS="EXTRA_LIBS="'$'$DRIVER_NAME"_LIBS"
+	eval EXTRA_CFLAGS2="EXTRA_CFLAGS+=""-DGDEV_SCHED_DISABLED"
 else
 	echo "Error: invalid target '$target'"
 fi
@@ -84,4 +105,3 @@ $EXTRA_CFLAGS2
 $EXTRA_OBJS
 $EXTRA_LIBS
 EOF
-

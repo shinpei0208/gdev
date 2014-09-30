@@ -1,21 +1,26 @@
 #!/bin/sh
 
-
-# detect the driver
-if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
-	driver="nvrm"
-elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
-	driver="nouveau"
-elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
-	driver="nouveau"
-elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
-	driver="pscnv"
+if [ $# -ge 1 ] ; then
+	# use explicitely set driver
+	driver=$1
+	echo "Device driver forced: $driver"
 else
-	echo "Device driver not found"
-	exit
-fi
+	# detect the driver
+	if [ ! $(lsmod | grep nvidia | wc -l) -eq 0 ] ; then
+		driver="nvrm"
+	elif [ ! $(lsmod | grep nouveau | wc -l) -eq 0 ] ; then
+		driver="nouveau"
+	elif [ ! $(zgrep NOUVEAU /proc/config.gz | grep y | wc -l) -eq 0 ] ; then
+		driver="nouveau"
+	elif [ ! $(lsmod | grep pscnv | wc -l) -eq 0 ] ; then
+		driver="pscnv"
+	else
+		echo "Device driver not found"
+		exit
+	fi
 
-echo "Device driver detected: $driver"
+	echo "Device driver detected: $driver"
+fi
 
 # create Driver.mk
 cat > Driver.mk << EOF

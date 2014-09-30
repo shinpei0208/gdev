@@ -224,6 +224,7 @@ void gdev_nvidia_mem_list_del(struct gdev_mem *mem);
  */
 void nvc0_compute_setup(struct gdev_device *gdev);
 void nve4_compute_setup(struct gdev_device *gdev);
+void barra_compute_setup(struct gdev_device *gdev);
 
 /**
  * OS driver and user-space runtime depen functions.
