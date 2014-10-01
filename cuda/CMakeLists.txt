@@ -69,6 +69,8 @@ SET(ucuda_src
     ${ucuda_src} ${util_src} ${common_src} ${common_ext_src}
     )
 
+SET(ucuda_lib rt gdev)
+
 IF(runtime)
     ADD_DEFINITIONS("-Wno-unused-local-typedefs")
     FLEX_TARGET(ptx runtime/ocelot/parser/implementation/ptx.ll ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp)
@@ -82,6 +84,15 @@ IF(runtime)
     ${BISON_ptxgrammar_OUTPUTS}
     ${FLEX_ptx_OUTPUTS}
     )
+
+    FIND_PACKAGE(Threads)
+    SET(ucuda_lib
+    ${ucuda_lib}
+    dl
+    boost_system
+    boost_filesystem
+    boost_thread
+    ${CMAKE_THREAD_LIBS_INIT})
 
     MESSAGE("Use CUDA Runtime API")
 ELSE(runtime)
@@ -102,5 +113,5 @@ ADD_EXECUTABLE(cudump ${cudump_src})
 SET_TARGET_PROPERTIES(ucuda PROPERTIES VERSION ${serial} SOVERSION ${soserial})
 INSTALL(TARGETS ucuda LIBRARY DESTINATION gdev/lib64)
 INSTALL(TARGETS cudump DESTINATION gdev/bin)
-TARGET_LINK_LIBRARIES(ucuda rt gdev)
+TARGET_LINK_LIBRARIES(ucuda ${ucuda_lib})
 INSTALL(FILES ${ucuda_install_headers} DESTINATION gdev/include)
