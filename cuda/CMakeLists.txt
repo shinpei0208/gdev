@@ -70,11 +70,19 @@ SET(ucuda_src
     )
 
 IF(runtime)
+    ADD_DEFINITIONS("-Wno-unused-local-typedefs")
+    FLEX_TARGET(ptx runtime/ocelot/parser/implementation/ptx.ll ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp)
+    BISON_TARGET(ptxgrammar runtime/ocelot/parser/implementation/ptxgrammar.yy  ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp)
+    ADD_FLEX_BISON_DEPENDENCY(ptx ptxgrammar)
+
     SET(ucuda_src
-	${ucuda_src}
-	${ocelot_src}
-	${hydrazine_src}
-	)
+    ${ucuda_src}
+    ${ocelot_src}
+    ${hydrazine_src}
+    ${BISON_ptxgrammar_OUTPUTS}
+    ${FLEX_ptx_OUTPUTS}
+    )
+
     MESSAGE("Use CUDA Runtime API")
 ELSE(runtime)
     MESSAGE("Not use CUDA Runtime API")
@@ -83,25 +91,12 @@ ENDIF(runtime)
 # include dir
 SET(gdev_inc /usr/local/gdev/include ./ libucuda kcuda ./runtime ${CMAKE_CURRENT_BINARY_DIR} cudump driver)
 
-SET(ucuda_install_headers ${CMAKE_CURRENT_SOURCE_DIR}/driver/cuda.h )
-
-# parser adjust
-ADD_CUSTOM_TARGET(cov
-    COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/autogen_cmake.sh ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.hpp
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp
-    COMMENT "Generate ptxgrammar.hpp"
-)
-
-FLEX_TARGET(ptx runtime/ocelot/parser/implementation/ptx.ll ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp)
-BISON_TARGET(ptxgrammar runtime/ocelot/parser/implementation/ptxgrammar.yy  ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp)
-ADD_FLEX_BISON_DEPENDENCY(ptx ptxgrammar)
-
+SET(ucuda_install_headers driver/cuda.h )
 
 # execute
 INCLUDE_DIRECTORIES(gdev ${gdev_inc})
 INCLUDE_DIRECTORIES(cudump ${gdev_inc})
-ADD_LIBRARY(ucuda SHARED ${ucuda_src})#  ${FLEX_ptx_OUTPUTS} ${BISON_ptxgrammar_OUTPUTS})
-ADD_DEPENDENCIES(ucuda cov)
+ADD_LIBRARY(ucuda SHARED ${ucuda_src})
 ADD_EXECUTABLE(cudump ${cudump_src})
 
 SET_TARGET_PROPERTIES(ucuda PROPERTIES VERSION ${serial} SOVERSION ${soserial})

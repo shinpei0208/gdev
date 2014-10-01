@@ -24,6 +24,8 @@ ADD_CUSTOM_TARGET(config
     COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config_h_build.sh ${CMAKE_CURRENT_SOURCE_DIR}/configure.h.in ${CMAKE_CURRENT_BINARY_DIR}/configure.h
 )
 
+ADD_DEFINITIONS("-Wno-unused-local-typedefs")
+
 FILE(GLOB hydrazine_src "hydrazine/implementation/*.cpp")
 FILE(GLOB analysis_src "ocelot/analysis/implementation/*.cpp")
 FILE(GLOB api_src "ocelot/api/implementation/*.cpp")
