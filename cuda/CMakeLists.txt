@@ -81,19 +81,19 @@ ELSE(runtime)
 ENDIF(runtime)
 
 # include dir
-SET(gdev_inc /usr/local/gdev/include ./ libucuda kcuda ./runtime ${PROJECT_BINARY_DIR} cudump driver)
+SET(gdev_inc /usr/local/gdev/include ./ libucuda kcuda ./runtime ${CMAKE_CURRENT_BINARY_DIR} cudump driver)
 
-SET(ucuda_install_headers ${PROJECT_SOURCE_DIR}/cuda/driver/cuda.h )
+SET(ucuda_install_headers ${CMAKE_CURRENT_SOURCE_DIR}/driver/cuda.h )
 
 # parser adjust
 ADD_CUSTOM_TARGET(cov
-    COMMAND sh ${PROJECT_SOURCE_DIR}/cuda/autogen_cmake.sh ${PROJECT_BINARY_DIR}/ptxgrammar.hpp
-    DEPENDS ${PROJECT_BINARY_DIR}/ptxgrammar.cpp ${PROJECT_BINARY_DIR}/ptx.cpp
+    COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/autogen_cmake.sh ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.hpp
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp
     COMMENT "Generate ptxgrammar.hpp"
 )
 
-FLEX_TARGET(ptx runtime/ocelot/parser/implementation/ptx.ll ${PROJECT_BINARY_DIR}/ptx.cpp)
-BISON_TARGET(ptxgrammar runtime/ocelot/parser/implementation/ptxgrammar.yy  ${PROJECT_BINARY_DIR}/ptxgrammar.cpp)
+FLEX_TARGET(ptx runtime/ocelot/parser/implementation/ptx.ll ${CMAKE_CURRENT_BINARY_DIR}/ptx.cpp)
+BISON_TARGET(ptxgrammar runtime/ocelot/parser/implementation/ptxgrammar.yy  ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp)
 ADD_FLEX_BISON_DEPENDENCY(ptx ptxgrammar)
 
 

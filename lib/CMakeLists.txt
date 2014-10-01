@@ -44,23 +44,23 @@ IF(user)
     SET(gdev_inc ${gdev_inc}
         /usr/include/libdrm
         ${PROJECT_SOURCE_DIR}/common/
-        ${PROJECT_SOURCE_DIR}/lib/user/gdev/
+        ${CMAKE_CURRENT_SOURCE_DIR}/user/gdev/
     )
 
     IF(driver STREQUAL nouveau)
         SET(gdev_src ${gdev_src} ${nouveau_src})
-        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nouveau)
+        SET(gdev_inc ${gdev_inc} ${CMAKE_CURRENT_SOURCE_DIR}/user/gdev/nouveau)
         SET(link_lib drm drm_nouveau)
         SET(link_lib drm drm_nouveau pciaccess)
     ELSEIF(driver STREQUAL nvrm)
         SET(gdev_src ${gdev_src} ${nvrm_src} )
-        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/nvrm)
+        SET(gdev_inc ${gdev_inc} ${CMAKE_CURRENT_SOURCE_DIR}/user/gdev/nvrm)
     ELSEIF(driver STREQUAL pscnv)
         SET(gdev_src ${gdev_src} ${pscnv_src})
-        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/pscnv)
+        SET(gdev_inc ${gdev_inc} ${CMAKE_CURRENT_SOURCE_DIR}/user/gdev/pscnv)
     ELSEIF(driver STREQUAL barra)
         SET(gdev_src ${gdev_src} ${barra_src})
-        SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/user/gdev/barra)
+        SET(gdev_inc ${gdev_inc} ${CMAKE_CURRENT_SOURCE_DIR}/user/gdev/barra)
         SET(link_lib barra)
     ELSE(driver STREQUAL  pscnv)
         MESSAGE( FATAL_ERROR "Not selected GPU Driver.")
@@ -75,7 +75,7 @@ IF(user)
 ELSE(user)
     MESSAGE(Selected\ Kernel-space!)
     SET(gdev_src ${gdev_src} ${kernel_src})
-    SET(gdev_inc ${gdev_inc} ${PROJECT_SOURCE_DIR}/lib/kernel ${PROJECT_SOURCE_DIR}/common)
+    SET(gdev_inc ${gdev_inc} ${CMAKE_CURRENT_SOURCE_DIR}/kernel ${PROJECT_SOURCE_DIR}/common)
     SET(gdev_install_headers
         ${PROJECT_SOURCE_DIR}/common/gdev_api.h
         ${PROJECT_SOURCE_DIR}/common/gdev_nvidia_def.h
