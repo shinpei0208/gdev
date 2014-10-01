@@ -262,8 +262,8 @@ struct gdev_mem *gdev_raw_mem_alloc_dma(struct gdev_vas *vas, uint64_t size)
 		goto fail_alloc;
 
 	/* Hack: we map "host DMA" memory in device space by setting msb of the host address */
-	assert(!((int64_t)addr & 0x8000000000000000ull));
-	mem->addr = (int64_t)addr | 0x8000000000000000ull;
+	assert(!((uintptr_t)addr & 0x8000000000000000ull));
+	mem->addr = (uintptr_t)addr | 0x8000000000000000ull;
 	mem->size = size;
 	mem->map = addr;
 
