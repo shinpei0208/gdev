@@ -20,7 +20,8 @@ BISON_TARGET(ptxgrammar
     ${CMAKE_CURRENT_BINARY_DIR}/ptxgrammar.cpp)
 ADD_FLEX_BISON_DEPENDENCY(ptx ptxgrammar)
 
-ADD_CUSTOM_TARGET(config
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/configure.h
     COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config_h_build.sh ${CMAKE_CURRENT_SOURCE_DIR}/configure.h.in ${CMAKE_CURRENT_BINARY_DIR}/configure.h
 )
 
@@ -58,8 +59,8 @@ ADD_LIBRARY(ocelot SHARED
     ${ocelot_src}
     ${FLEX_ptx_OUTPUTS}
     ${BISON_ptxgrammar_OUTPUTS}
+    ${CMAKE_CURRENT_BINARY_DIR}/configure.h
 )
-ADD_DEPENDENCIES(ocelot config)
 TARGET_LINK_LIBRARIES(ocelot
     boost_system boost_filesystem boost_thread dl rt pthread)
 SET_TARGET_PROPERTIES(ocelot
