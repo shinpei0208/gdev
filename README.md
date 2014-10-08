@@ -38,7 +38,10 @@ To summarize, Gdev offers the following advantages:
 
 ## How to download, install, and use Gdev
 
-You can choose one of the following for what driver to be used:
+The recommended way to build/install Gdev is building/installing it with CMake.
+- See [docs/README.cmake.md](/docs/README.cmake.md)
+
+Otherwise, you can choose one of the following for what driver to be used (__obsolete__):
 
 1. Do you want to use runtime support in the OS?
     - See [docs/README.gdev.md](/docs/README.gdev.md)
