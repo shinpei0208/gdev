@@ -40,12 +40,12 @@ Leveraging CMake, you can build/install Gdev and CUDA runtime.
 The following options are supported.
 
 | option | description | values |
-|:-|:-|:-:|
-|driver|select GPU driver. must set driver name in the user-space mode|`nouveau`,`pscnv`,`nvrm`,`barra`|
-|user|user mode(default off)|ON/OFF|
-|runtime|enable CUDA runtime API(default on)|ON/OFF|
-|usched |enable user mode scheduler(default off)|ON/OFF|
-|use\_as|use assembler(default off)|ON/OFF|
+| :- | :- | :- |
+| driver |select GPU driver. must set driver name in the user-space mode| `nouveau`,`pscnv`,`nvrm`,`barra` |
+| user | user mode (default off) | ON/OFF |
+| runtime | enable CUDA runtime API (default on)| ON/OFF |
+| usched | enable user mode scheduler (default off)| ON/OFF |
+| use\_as | use assembler (default off)| ON/OFF |
 
 For example, you can pass the above options to CMake like below.
 
