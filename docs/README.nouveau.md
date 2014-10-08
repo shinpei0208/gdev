@@ -1,18 +1,18 @@
-# Gdev: Open-Source GPGPU Runtime and Driver Software
+# Using Gdev's user-space runtime library with Nouveau driver
 
 Follow the instruction below to use Gdev's user-space runtime library
 with Nouveau. You may be required to install additional software
 packages depending on your environment. `$(TOPDIR)` represents your top
 working directory.
 
-## Download
+## 1. Download
 
 ```sh
 cd $(TOPDIR)
 git clone git://github.com/CS005/gdev.git
 ```
 
-## Linux Kernel and Nouveau Device Driver
+## 2. Linux Kernel and Nouveau Device Driver
 
 To use Gdev's user-space runtime library, you need to install a
 native GPU device driver.
@@ -31,7 +31,7 @@ sudo shutdown -r now # will reboot your machine
 modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 ```
 
-## Gdev Library
+## 3. Gdev Library
 
 Gdev's user-space library provides Gdev API. This API can be used
 by either user programs directly or another high-level API library.
@@ -61,19 +61,4 @@ cd build
 sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
-```
-
-## Lincese
-```
-Copyright (C) Shinpei Kato
-
-Nagoya University
-Parallel and Distributed Systems Lab (PDSL)
-http://pdsl.jp
-
-University of California, Santa Cruz
-Systems Research Lab (SRL)
-http://systems.soe.ucsc.edu
-
-All Rights Reserved.
 ```

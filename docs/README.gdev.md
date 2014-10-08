@@ -1,10 +1,10 @@
-# Gdev: Open-Source GPGPU Runtime and Driver Software
+# Using Gdev
 
 Follow the instruction below to use Gdev with OS runtime support. You
 may be required to install additional software packages depending on
 your environment. `$(TOPDIR)` represents your top working directory.
 
-## Download
+## 1. Download
 
 ```sh
 cd $(TOPDIR)
@@ -12,7 +12,7 @@ git clone git://github.com/CS005/gdev.git # OR git://github.com/shinpei0208/gdev
 git clone git://github.com/envytools/envytools.git
 ```
 
-## envytools
+## 2. envytools
 
 envytools is a rich set of open-source tools to compile or decompile
 NVIDIA GPU program code, firmware code, macro code, and so on. It is
@@ -31,7 +31,7 @@ make
 sudo make install # will install tools to /usr/local/{bin,lib}
 ```
 
-## Linux Kernel and Nouveau Device Driver
+## 3. Linux Kernel and Nouveau Device Driver
 
 Gdev disgregates from the device driver. You need to install a native
 GPU device driver to use Gdev.
@@ -53,7 +53,7 @@ sudo shutdown -r now # will reboot your machine
 modprobe -r nouveau; modprobe nouveau modeset=1 noaccel=0
 ```
 
-## Gdev Kernel Module
+## 4. Gdev Kernel Module
 
 This is a main module of Gdev providing OS runtime support.
 
@@ -68,7 +68,7 @@ make
 make install
 ```
 
-## Gdev Library
+## 5. Gdev Library
 
 Since this version of Gdev provides runtime support in the OS, this
 library is just a set of wrapper functions that call the Gdev module
@@ -83,19 +83,4 @@ make
 sudo make install
 export LD_LIBRARY_PATH="/usr/local/gdev/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/gdev/bin:$PATH"
-```
-
-## Lincese
-```
-Copyright (C) Shinpei Kato
-
-Nagoya University
-Parallel and Distributed Systems Lab (PDSL)
-http://pdsl.jp
-
-University of California, Santa Cruz
-Systems Research Lab (SRL)
-http://systems.soe.ucsc.edu
-
-All Rights Reserved.
 ```

@@ -1,4 +1,4 @@
-# Gdev: Open-Source GPGPU Runtime and Driver Software
+# Using Gdev's CUDA
 
 Follow the instruction below to use Gdev's CUDA. You may be required
 to install additional software packages depending on your environment.
@@ -7,7 +7,7 @@ e.g., `bison`, `flex`, `boost`, `boost-devel`
 `$(TOPDIR)` represents your top working directory where you installed
 the Gdev repository.
 
-## Gdev's CUDA installation
+## 1. Gdev's CUDA installation
 
 Gdev currently supports a limited set of CUDA Driver/Runtime API.
 It is defined as Micro CUDA (uCUDA) in Gdev.
@@ -42,7 +42,7 @@ make
 sudo make install
 ```
 
-## CUDA Driver API test (user-space programs)
+## 2. CUDA Driver API test (user-space programs)
 
 ```sh
 cd $(TOPDIR)/test/cuda/user/madd
@@ -50,7 +50,7 @@ make
 ./user_test 256 # a[256] + b[256] = c[256]
 ```
 
-## CUDA Driver API test (kernel-space programs)
+## 3. CUDA Driver API test (kernel-space programs)
 
 Note that you need `kcuda` to be installed a priori if you want to
 run CUDA in the OS.
@@ -65,18 +65,3 @@ NOTE: Please be careful when doing this test as it runs a program
 in `module_init()`. If you run a very long program as it is, you may
 crash your system. If you want to run a very long program, you must
 provide a proper module implementation, e.g., using kernel threads.
-
-## Lincese
-```
-Copyright (C) Shinpei Kato
-
-Nagoya University
-Parallel and Distributed Systems Lab (PDSL)
-http://pdsl.jp
-
-University of California, Santa Cruz
-Systems Research Lab (SRL)
-http://systems.soe.ucsc.edu
-
-All Rights Reserved.
-```
