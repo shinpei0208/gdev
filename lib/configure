@@ -22,7 +22,7 @@ barra_OBJS="barra_gdev.o"
 ## library for each driver
 nvrm_LIBS=''
 pscnv_LIBS=''
-nouveau_LIBS="-ldrm_nouveau -lpciaccess"
+nouveau_LIBS="-ldrm_nouveau"
 barra_LIBS="-lbarra"
 
 # parse the given options.

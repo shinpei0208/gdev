@@ -39,7 +39,7 @@ For instance, third party's CUDA libraries may use Gdev API.
 
 The Gdev user-space runtime library requires Nouveau's LIBDRM.
 You would need to install some distro packages to build.
-e.g, `autoconf`, `automake`, `libtool`, `libxcb-devel`, `libpciaccess-devel`
+e.g, `autoconf`, `automake`, `libtool`, `libxcb-devel`
 
 ```sh
 cd $(TOPDIR)

@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/unistd.h>
-#include <pciaccess.h>
 
 #define GDEV_DEVICE_MAX_COUNT 32
 
@@ -146,27 +145,45 @@ fail:
 	return -EINVAL;
 }
 
-
-char *__gdev_get_busid(int major)
+static int __gdev_open_by_minor(const char* name, int minor)
 {
-    	int i=0;
-	char *busid = (char*)malloc(sizeof(char)*64);
-	struct pci_device *pci_dev;
-	struct pci_device_iterator *it;
-	struct pci_id_match nv_match = { 0x10de, PCI_MATCH_ANY, PCI_MATCH_ANY,
-					    PCI_MATCH_ANY, 0x30000, 0xffff0000};
+	int fd;
+	int matched;
+	char buf[64];
+	drmVersionPtr version;
 
-	pci_system_init();
-	it = pci_id_match_iterator_create(&nv_match);
-
-	while ( (pci_dev = pci_device_next(it)) ){
-	  	  if ( i++ == major )
-		  {
-			sprintf(busid,"pci:%04d:%02d:%02d.%01d\n",pci_dev->domain,pci_dev->bus,pci_dev->dev,pci_dev->func);
-		  	return busid;
-		  }
+	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
+	if ((fd = open(buf, O_RDWR, 0)) < 0) {
+		return -errno;
 	}
-	return NULL;
+
+	if (!(version = drmGetVersion(fd))) {
+		return -ENOSYS;
+	}
+
+	matched = strcmp(version->name, name) == 0;
+	drmFreeVersion(version);
+	if (matched) {
+		return fd;
+	}
+
+	return -ENODEV;
+}
+
+static int __gdev_open_by_ordinal(const char* name, int ordinal)
+{
+	int count = 0;
+	int i;
+	for (i = 0; i < DRM_MAX_MINOR; ++i) {
+		int fd = 0;
+		if ((fd = __gdev_open_by_minor(name, i)) >= 0) {
+			if (count++ == ordinal) {
+				return fd;
+			}
+			close(fd);
+		}
+	}
+	return -ENODEV;
 }
 
 
@@ -177,7 +194,10 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	struct nouveau_client *priv;
 	struct gdev_device *gdev;
 	int major, max;
-	char *busid = __gdev_get_busid(minor);
+	int fd = __gdev_open_by_ordinal("nouveau", minor);
+	if (fd < 0) {
+		goto fail_open_fd;
+	}
 
 	if (!gdevs) {
 #ifndef GDEV_SCHED_DISABLED
@@ -200,7 +220,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 	    max += VCOUNT_LIST[major++];
 
 	if (gdev->users == 0) {
-		if (nouveau_device_open(busid, &dev))
+		if (nouveau_device_wrap(fd, 1, &dev))
 			goto fail_device;
 
 		if (nouveau_client_new(dev, &priv))
@@ -214,7 +234,7 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 		gdev_init_device(gdevs, major, (void *)priv);
 		gdev_init_virtual_device(gdev, minor, 100, (void *)ADDR_SUB(gdev,gdevs));
 	}else{
-		if (nouveau_device_open(busid, &dev))
+		if (nouveau_device_wrap(fd, 1, &dev))
 			goto fail_device;
 
 		if (nouveau_client_new(dev, &priv))
@@ -231,6 +251,8 @@ struct gdev_device *gdev_raw_dev_open(int minor)
 fail_client:
 	nouveau_device_del(&dev);
 fail_device:
+	drmClose(fd);
+fail_open_fd:
 	return NULL;
 }
 
