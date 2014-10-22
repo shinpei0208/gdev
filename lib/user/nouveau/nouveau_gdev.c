@@ -145,14 +145,17 @@ fail:
 	return -EINVAL;
 }
 
-static int __gdev_open_by_minor(const char* name, int minor)
+#define GDEV_DRM_LEGACY_DEV_NAME DRM_DEV_NAME
+#define GDEV_DRM_RENDER_DEV_NAME "%s/renderD%d"
+
+static int __gdev_open_by_minor(const char* template, const char* name, int minor)
 {
 	int fd;
 	int matched;
 	char buf[64];
 	drmVersionPtr version;
 
-	sprintf(buf, DRM_DEV_NAME, DRM_DIR_NAME, minor);
+	sprintf(buf, template, DRM_DIR_NAME, minor);
 	if ((fd = open(buf, O_RDWR, 0)) < 0) {
 		return -errno;
 	}
@@ -170,13 +173,35 @@ static int __gdev_open_by_minor(const char* name, int minor)
 	return -ENODEV;
 }
 
+static int __gdev_open_legacy_by_minor(const char* name, int minor)
+{
+	return __gdev_open_by_minor(GDEV_DRM_LEGACY_DEV_NAME, name, minor);
+}
+
+static int __gdev_open_render_by_minor(const char* name, int minor)
+{
+	return __gdev_open_by_minor(GDEV_DRM_RENDER_DEV_NAME, name, minor);
+}
+
 static int __gdev_open_by_ordinal(const char* name, int ordinal)
 {
 	int count = 0;
 	int i;
+	/* Opening render nodes renderD%d dev */
+	for (i = 64 * 2; i < (64 * 3); ++i) {
+		int fd = 0;
+		if ((fd = __gdev_open_render_by_minor(name, i)) >= 0) {
+			if (count++ == ordinal) {
+				return fd;
+			}
+			close(fd);
+		}
+	}
+
+	/* Opening legacy card%d dev */
 	for (i = 0; i < DRM_MAX_MINOR; ++i) {
 		int fd = 0;
-		if ((fd = __gdev_open_by_minor(name, i)) >= 0) {
+		if ((fd = __gdev_open_legacy_by_minor(name, i)) >= 0) {
 			if (count++ == ordinal) {
 				return fd;
 			}
