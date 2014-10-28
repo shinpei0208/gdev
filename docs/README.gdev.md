@@ -8,7 +8,7 @@ your environment. `$(TOPDIR)` represents your top working directory.
 
 ```sh
 cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git # OR git://github.com/shinpei0208/gdev.git
+git clone git://github.com/shinpei0208/gdev.git # OR git://github.com/CPFL/gdev.git
 git clone git://github.com/envytools/envytools.git
 ```
 
