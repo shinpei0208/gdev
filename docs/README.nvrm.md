@@ -8,7 +8,7 @@ your environment. `$(TOPDIR)` represents your top working directory.
 
 ```sh
 cd $(TOPDIR)
-git clone git://github.com/CS005/gdev.git
+git clone git://github.com/shinpei0208/gdev.git # OR git clone git://github.com/CPFL/gdev.git
 wget http://www.ertl.jp/~shinpei/download/nvidia/NVIDIA-Linux-x86_64-313.18.run
 # the latest versions of the NVIDIA binary driver should also work.
 ```
