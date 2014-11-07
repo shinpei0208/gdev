@@ -1,0 +1,18 @@
+# Makefile
+TARGET	= user_test
+ARCH	= sm_20
+CC	= gcc
+CLANG	= clang -cc1 -nostdsysteminc -triple nvptx-unknown-unknown -fcuda-is-device -emit-llvm
+LLC     = llc -march=nvptx64 -mcpu=$(ARCH)
+PTXAS   = ptxas -arch $(ARCH)
+LIBS	= -lucuda -lgdev
+CFLAGS	= -L /usr/local/gdev/lib64 -I /usr/local/gdev/include
+
+all:
+	$(CLANG) -I . -o mmul_gpu.ll clang/mmul_gpu.cu
+	$(LLC) -o mmul_gpu.ptx mmul_gpu.ll
+	$(PTXAS) -o mmul_gpu.cubin mmul_gpu.ptx
+	$(CC) -o $(TARGET) $(CFLAGS) main.c mmul_vmmap_hybrid.c $(LIBS)
+
+clean:
+	rm -f $(TARGET) *.cubin *.ptx *.ll ./*~

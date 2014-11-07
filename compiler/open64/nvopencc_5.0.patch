@@ -1,0 +1,33 @@
+--- ./src/Makefile.gsetup.orig	2012-04-24 02:04:57.000000000 +0900
++++ ./src/Makefile.gsetup	2014-10-27 04:16:31.717636564 +0900
+@@ -531,7 +531,7 @@ ERROR_ON_WARNINGS = #-Werror
+ ifeq ($(BUILD_TARGET), NVISA)
+ # This is due to unsupported aliases in Mach-O
+ ifneq ($(BUILD_OS), DARWIN)
+-ERROR_ON_WARNINGS = -Werror
++ERROR_ON_WARNINGS = #-Werror
+ endif
+ endif
+ 
+--- ./src/gccfe/gnu/c-parse.y.orig	2012-03-16 04:52:30.000000000 +0900
++++ ./src/gccfe/gnu/c-parse.y	2014-10-27 04:50:16.125664019 +0900
+@@ -66,6 +66,7 @@ Software Foundation, 59 Temple Place - S
+ #include <locale.h>
+ #endif
+ 
++#include "y.tab.c"
+ 
+ /* Like YYERROR but do call yyerror.  */
+ #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
+--- ./src/linux/make/gcommondefs.orig	2012-03-16 04:53:45.000000000 +0900
++++ ./src/linux/make/gcommondefs	2014-10-27 04:06:48.885628660 +0900
+@@ -135,7 +135,8 @@ ifeq ($(BUILD_COMPILER), GNU)
+     F90 +=
+   endif
+   ifeq ($(BUILD_TARGET), NVISA)
+-    ROOT_DIR := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))/../../../..
++#    ROOT_DIR := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))/../../../..
++    ROOT_DIR := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))/../../..
+     ifneq ($(BUILD_OS), LINUX)
+       ifneq ($(BUILD_OS), DARWIN)
+         ifndef USE_NATIVE
