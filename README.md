@@ -2,8 +2,10 @@
 
 [![Build Status](https://travis-ci.org/shinpei0208/gdev.svg?branch=master)](https://travis-ci.org/shinpei0208/gdev)
 
-Gdev is a rich set of open-source GPGPU runtime and driver software.
-Currently it supports NVIDIA GPUs but is also portable to other GPUs.
+Gdev is a rich set of open-source software for NVIDIA GPGPU technology,
+containing device drivers, CUDA runtimes, CUDA/PTX compilers, and some
+utility tools. Currently it only supports NVIDIA GPUs and Linux but is,
+by design, portable to other GPUs and platforms as well.
 The supported API implementaions include:
 
 - __Gdev API__: A low-level API to manage details of GPUs.
