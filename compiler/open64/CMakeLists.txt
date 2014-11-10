@@ -10,7 +10,8 @@ if (GCC_VERSION VERSION_LESS 4.7)
 if(EXISTS ${PERL4_CORELIBS})
 if(EXISTS ${TCSH})
 EXECUTE_PROCESS(
-	COMMAND tar xzf ${CMAKE_CURRENT_SOURCE_DIR}/nvopencc_5.0_src_13604779.tar.gz
+	COMMAND wget -O - https://github.com/shinpei0208/gdev-nvopencc/blob/master/nvopencc_5.0_src_13604779.tar.gz?raw=true
+	COMMAND tar xzf -
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 EXECUTE_PROCESS(
